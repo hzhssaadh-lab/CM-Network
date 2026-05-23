@@ -1,0 +1,104 @@
+import { useApp } from '../hooks/useAppStore';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+export function Header() {
+  const { user, updateUser } = useApp();
+  const [clicks, setClicks] = useState(0);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [pwdInput, setPwdInput] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const navigate = useNavigate();
+  
+  const handleAdminClick = async () => {
+    const newClicks = clicks + 1;
+    setClicks(newClicks);
+    if (newClicks >= 3) {
+      setClicks(0);
+      setShowPrompt(true);
+    }
+  };
+
+  const submitPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwdInput === "Saad3268@12") {
+      if (user && user.role !== 'admin') {
+        await updateUser({ role: 'admin' });
+      }
+      setShowPrompt(false);
+      setPwdInput('');
+      navigate('/admin');
+    } else {
+      setErrorMsg('Incorrect Access Code');
+    }
+  };
+
+  return (
+    <>
+      {showPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-xl font-bold text-white mb-4">Admin Access Required</h3>
+            <form onSubmit={submitPassword} className="space-y-4">
+              <input 
+                type="password"
+                placeholder="Enter Access Code"
+                value={pwdInput}
+                onChange={(e) => { setPwdInput(e.target.value); setErrorMsg(''); }}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD700]"
+                autoFocus
+              />
+              {errorMsg && <p className="text-red-400 text-xs font-medium">{errorMsg}</p>}
+              <div className="flex space-x-3">
+                <button 
+                  type="button" 
+                  onClick={() => { setShowPrompt(false); setPwdInput(''); setErrorMsg(''); }}
+                  className="flex-1 bg-white/5 text-gray-300 py-3 rounded-xl hover:bg-white/10 transition-colors font-bold text-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 bg-[#FFD700] text-black py-3 rounded-xl hover:bg-[#e6c200] transition-colors font-bold text-sm"
+                >
+                  Verify
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      <header className="flex justify-between items-center mb-8 px-4 sm:px-8 pt-8 max-w-5xl mx-auto w-full flex-shrink-0">
+        <div className="flex items-center space-x-3 cursor-pointer select-none" onClick={handleAdminClick}>
+          <div className="w-12 h-12 relative flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#FFD700] via-[#cfaa47] to-[#806917] rounded-xl transform rotate-3 scale-105 shadow-[0_0_25px_rgba(212,175,55,0.5)] blur-[2px]"></div>
+            <div className="absolute inset-0 bg-gradient-to-bl from-black to-[#222] rounded-xl border border-[#FFD700]/50 z-10 flex items-center justify-center">
+              <span className="text-[#FFD700] font-black text-2xl tracking-tighter drop-shadow-[0_2px_10px_rgba(255,215,0,0.8)]">CM</span>
+            </div>
+          </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight bg-gradient-to-br from-white via-white to-gray-500 bg-clip-text text-transparent">CM NETWORK</h1>
+            <p className="text-[9px] text-[#FFD700] uppercase tracking-[0.3em] font-bold">Protocol Active</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-6">
+        <div className="text-right hidden sm:block">
+          <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Global Price</p>
+          <p className="text-[#FFD700] font-mono font-bold text-lg">$6.00 <span className="text-[10px] text-green-400 font-normal ml-1">+0.0%</span></p>
+        </div>
+        {user?.photoURL ? (
+          <img src={user.photoURL} alt="Profile" className="w-12 h-12 rounded-full border border-[#FFD700]/30 object-cover" />
+        ) : (
+          <div className="w-12 h-12 rounded-full border border-gray-800 flex items-center justify-center bg-white/5">
+            <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center border border-[#FFD700]/30">
+              <span className="text-xs font-bold text-[#FFD700]">CM</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  </>
+  );
+}
