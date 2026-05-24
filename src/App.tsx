@@ -9,11 +9,38 @@ import { Wallet } from './pages/Wallet';
 import { Friends } from './pages/Friends';
 import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 function AppContent() {
-  const { user, loading } = useApp();
+  const { user, loading, submitReferralCode } = useApp();
   const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('cm_invite_code', ref);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    const applyPendingRef = async () => {
+      if (user && !user.referredBy) {
+        const code = localStorage.getItem('cm_invite_code');
+        if (code) {
+          try {
+             await submitReferralCode(code);
+          } catch(e) {
+             console.error("Failed to apply pending referral code", e);
+          } finally {
+             localStorage.removeItem('cm_invite_code');
+          }
+        }
+      }
+    };
+    applyPendingRef();
+  }, [user, submitReferralCode]);
 
   const isAdminRoute = location.pathname.startsWith('/admin');
 
@@ -30,10 +57,10 @@ function AppContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto h-full p-4 sm:p-8 relative">
+    <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto h-full min-h-0 p-4 sm:p-8 relative">
       {!isAdminRoute && <Header />}
       
-      <main className={`flex-1 w-full flex flex-col relative h-full overflow-y-auto pt-4 ${isAdminRoute ? 'pb-8 custom-scrollbar' : 'pb-32 hide-scrollbar'}`}>
+      <main className={`flex-1 w-full flex flex-col min-h-0 relative h-full overflow-y-auto pt-4 ${isAdminRoute ? 'pb-8 custom-scrollbar' : 'pb-32 custom-scrollbar'}`}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tasks" element={<Tasks />} />

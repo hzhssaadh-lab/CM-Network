@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { UserProfile, AdSettings } from '../types';
 import { generateReferralCode } from '../lib/utils';
@@ -35,6 +35,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [adSettings, setAdSettings] = useState<AdSettings | null>(null);
 
+  const verifyDeviceLimit = async (authenticatedUid: string) => {
+    const deviceId = getDeviceId();
+    const q = query(collection(db, 'users'), where('deviceId', '==', deviceId));
+    const qs = await getDocs(q);
+    
+    if (!qs.empty) {
+      const isBoundToOther = qs.docs.some(d => d.id !== authenticatedUid);
+      if (isBoundToOther) {
+        await signOut(auth);
+        throw new Error("Anti-Cheat: Another account is already registered on this device.");
+      }
+    }
+  };
+
   useEffect(() => {
     // Listen to global AdSettings
     const adSettingsRef = doc(db, 'settings', 'ads');
@@ -60,6 +74,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setLoading(false);
         return;
+      }
+      
+      try {
+         await verifyDeviceLimit(fUser.uid);
+      } catch (err: any) {
+         alert(err.message);
+         setUser(null);
+         setLoading(false);
+         return;
       }
 
       const userRef = doc(db, 'users', fUser.uid);
@@ -126,24 +149,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const verifyDeviceLimit = async (authenticatedUid: string) => {
-    const deviceId = getDeviceId();
-    const q = query(collection(db, 'users'), where('deviceId', '==', deviceId));
-    const qs = await getDocs(q);
-    
-    if (!qs.empty) {
-      const isBoundToOther = qs.docs.some(d => d.id !== authenticatedUid);
-      if (isBoundToOther) {
-        await signOut(auth);
-        throw new Error("Anti-Cheat: Another account is already registered on this device.");
-      }
-    }
-  };
-
   const loginWithGoogle = async () => {
     try {
-      const res = await signInWithPopup(auth, googleProvider);
-      await verifyDeviceLimit(res.user.uid);
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
     } catch (error) {
       console.error("Login failed", error);
       throw error;
@@ -152,8 +165,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = async (email: string, pass: string) => {
     try {
-      const res = await signInWithEmailAndPassword(auth, email, pass);
-      await verifyDeviceLimit(res.user.uid);
+      await signInWithEmailAndPassword(auth, email, pass);
     } catch (error) {
       console.error("Email login failed", error);
       throw error;
@@ -163,7 +175,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const signupWithEmail = async (name: string, email: string, pass: string, inviteCode?: string) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      await verifyDeviceLimit(userCredential.user.uid);
+
       
       let referredByUid = null;
       let newUserBonus = 0;

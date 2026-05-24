@@ -1,11 +1,23 @@
 import { useApp } from '../hooks/useAppStore';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getRedirectResult } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 export function Login() {
   const { loginWithGoogle, loading } = useApp();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      if (error?.code === 'auth/unauthorized-domain') {
+        setErrorCode('auth/unauthorized-domain');
+      } else {
+        setErrorMsg(error?.message || 'Google Login failed.');
+      }
+    });
+  }, []);
 
   const handleGoogleLogin = async () => {
     try {

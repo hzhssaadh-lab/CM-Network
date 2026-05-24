@@ -111,10 +111,14 @@ export function Friends() {
           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-4">Your Referral Code</p>
           <div className="text-4xl sm:text-5xl font-black font-mono text-[#FFD700] tracking-widest selection:bg-[#FFD700]/30">{user.referralCode}</div>
           <button 
-             onClick={() => { navigator.clipboard.writeText(user.referralCode); alert('Code copied!'); }}
+             onClick={() => { 
+                const link = `${window.location.origin}/?ref=${user.referralCode}`;
+                navigator.clipboard.writeText(link); 
+                alert('Invite link copied!'); 
+             }}
              className="mt-8 w-full bg-white text-black font-black py-4 rounded-xl hover:bg-gray-200 transition-colors text-xs tracking-widest uppercase active:scale-95 shadow-[0_5px_20px_rgba(255,255,255,0.1)]"
           >
-            COPY INVITE CODE
+            COPY INVITE LINK
           </button>
         </div>
       </div>
