@@ -57,10 +57,10 @@ function AppContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto h-full min-h-0 p-4 sm:p-8 relative">
+    <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto min-h-screen p-4 sm:p-8 relative">
       {!isAdminRoute && <Header />}
       
-      <main className={`flex-1 w-full flex flex-col min-h-0 relative h-full overflow-y-auto pt-4 ${isAdminRoute ? 'pb-8 custom-scrollbar' : 'pb-32 custom-scrollbar'}`}>
+      <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tasks" element={<Tasks />} />
@@ -73,8 +73,10 @@ function AppContent() {
       </main>
 
       {!isAdminRoute && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#050505] via-[#050505] to-transparent pt-10">
-          <Navigation />
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#050505] via-[#050505] to-transparent pt-10 z-[100] pointer-events-none pb-4 sm:pb-8">
+          <div className="max-w-7xl mx-auto w-full pointer-events-auto">
+            <Navigation />
+          </div>
         </div>
       )}
     </div>
