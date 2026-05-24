@@ -2,11 +2,17 @@ import { useApp } from '../hooks/useAppStore';
 import React, { useState, useEffect } from 'react';
 
 export function Login() {
-  const { loginWithGoogle, loginWithEmail, signupWithEmail, loading } = useApp();
+  const { loginWithEmail, signupWithEmail, loading } = useApp();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [telegramUser, setTelegramUser] = useState<any>(null);
+
+  // Email form state
+  const [isSignup, setIsSignup] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
 
   useEffect(() => {
     // Check if Telegram WebApp is available
@@ -23,7 +29,7 @@ export function Login() {
     
     const email = `tg_${telegramUser.id}@cmnetwork.app`;
     const password = `tg_pass_${telegramUser.id}_secret`;
-    const name = telegramUser.first_name || telegramUser.username || 'Telegram User';
+    const tgName = telegramUser.first_name || telegramUser.username || 'Telegram User';
 
     try {
       setErrorMsg(null);
@@ -34,7 +40,7 @@ export function Login() {
     } catch (error: any) {
       try {
         // If login fails, attempt to register
-        await signupWithEmail(name, email, password);
+        await signupWithEmail(tgName, email, password);
       } catch (signupError: any) {
         setErrorMsg(signupError?.message || 'Telegram Login failed.');
       }
@@ -43,21 +49,29 @@ export function Login() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setErrorMsg('Please enter email and password.');
+      return;
+    }
+    if (isSignup && !name) {
+      setErrorMsg('Please enter your name.');
+      return;
+    }
+
     try {
       setErrorMsg(null);
       setErrorCode(null);
       setIsSubmitting(true);
-      await loginWithGoogle();
-    } catch (error: any) {
-      if (error?.code === 'auth/unauthorized-domain') {
-        setErrorCode('auth/unauthorized-domain');
-      } else if (error?.code === 'auth/popup-closed-by-user') {
-        // The user closed the popup, we don't need to show a scary error message.
-        console.log('Login popup closed by user.');
+      
+      if (isSignup) {
+        await signupWithEmail(name, email, password);
       } else {
-        setErrorMsg(error?.message || 'Google Login failed.');
+        await loginWithEmail(email, password);
       }
+    } catch (error: any) {
+      setErrorMsg(error?.message || 'Authentication failed.');
     } finally {
       setIsSubmitting(false);
     }
@@ -70,7 +84,7 @@ export function Login() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full w-full p-8 relative overflow-hidden bg-[#050505] text-white selection:bg-[#FFD700]/30">
+    <div className="flex flex-col items-center justify-center h-full min-h-screen w-full p-8 relative overflow-hidden bg-[#050505] text-white selection:bg-[#FFD700]/30">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#FFD700] opacity-10 blur-[150px] rounded-full pointer-events-none"></div>
       
       <div className="w-24 h-24 bg-gradient-to-br from-[#FFD700] to-[#B8860B] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(212,175,55,0.4)] mb-8 animate-bounce relative z-10">
@@ -78,7 +92,7 @@ export function Login() {
       </div>
       
       <h1 className="text-4xl font-bold tracking-tighter mb-2 text-center text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 relative z-10">Welcome to CM Network</h1>
-      <p className="text-[#FFD700] mb-12 text-center uppercase tracking-[0.2em] text-xs font-bold relative z-10">Premium Mining Protocol</p>
+      <p className="text-[#FFD700] mb-8 text-center uppercase tracking-[0.2em] text-xs font-bold relative z-10">Premium Mining Protocol</p>
       
       {errorMsg && (
         <div className="w-full max-w-sm mb-6 p-4 bg-red-900/40 border border-red-500/50 rounded-xl text-red-200 text-sm text-center relative z-10 break-words">
@@ -86,17 +100,6 @@ export function Login() {
         </div>
       )}
       
-      {errorCode === 'auth/unauthorized-domain' && (
-        <div className="w-full max-w-sm mb-6 p-4 bg-red-900/40 border border-red-500/50 rounded-xl text-red-200 text-sm text-center relative z-10 break-words">
-          <p className="font-bold mb-2">Domain Not Authorized</p>
-          <p className="mb-2 text-xs">Please go to your Firebase Console under Authentication &gt; Settings &gt; Authorized domains and add the following domain:</p>
-          <code className="bg-black/50 px-2 py-1 rounded text-white block mb-2 break-all font-mono text-xs select-all">
-            {window.location.hostname}
-          </code>
-          <p className="text-[10px] text-red-300">You must do this manually because you are using a custom Firebase project.</p>
-        </div>
-      )}
-
       {telegramUser ? (
         <button 
           type="button"
@@ -110,15 +113,47 @@ export function Login() {
           <span>Continue as {telegramUser.first_name}</span>
         </button>
       ) : (
-        <button 
-          type="button"
-          onClick={handleGoogleLogin}
-          className="w-full max-w-sm bg-white text-black font-bold py-4 rounded-2xl flex items-center justify-center space-x-3 hover:bg-gray-200 transition-all shadow-[0_5px_20px_rgba(255,255,255,0.1)] active:scale-95 relative z-10 disabled:opacity-50"
-          disabled={loading || isSubmitting}
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-          <span>Continue with Google</span>
-        </button>
+        <form onSubmit={handleEmailAuth} className="w-full max-w-sm flex flex-col space-y-4 relative z-10 border border-white/10 p-6 rounded-3xl bg-white/5 backdrop-blur-md">
+          {isSignup && (
+            <input 
+              type="text" 
+              placeholder="Full Name" 
+              value={name} 
+              onChange={e => setName(e.target.value)}
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFD700] transition-colors"
+            />
+          )}
+          <input 
+            type="email" 
+            placeholder="Email Address" 
+            value={email} 
+            onChange={e => setEmail(e.target.value)}
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFD700] transition-colors"
+          />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)}
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFD700] transition-colors"
+          />
+          
+          <button 
+            type="submit"
+            className="w-full bg-[#FFD700] text-black font-bold py-4 rounded-xl flex items-center justify-center space-x-3 hover:bg-[#e6c200] transition-all shadow-[0_5px_20px_rgba(255,215,0,0.2)] active:scale-95 disabled:opacity-50 mt-2"
+            disabled={loading || isSubmitting}
+          >
+            <span>{isSignup ? 'Sign Up' : 'Log In'}</span>
+          </button>
+          
+          <button 
+            type="button" 
+            onClick={() => setIsSignup(!isSignup)}
+            className="text-sm text-gray-400 hover:text-white transition-colors mt-4 text-center w-full"
+          >
+            {isSignup ? 'Already have an account? Log In' : 'Need an account? Sign Up'}
+          </button>
+        </form>
       )}
 
       <div className="mt-6 text-center text-sm text-gray-400 max-w-xs relative z-10">
