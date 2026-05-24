@@ -17,6 +17,7 @@ export interface UserProfile {
   isActive: boolean;
   totalMined: number;
   lastCheckIn: number | null;
+  deviceId?: string;
 }
 
 export interface Transaction {

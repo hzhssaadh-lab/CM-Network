@@ -276,7 +276,7 @@ export function Admin() {
       </div>
 
       {activeTab === 'users' && (
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 overflow-x-auto">
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
             <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">User Database</h3>
             <input 
@@ -287,7 +287,8 @@ export function Admin() {
               className="bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#FFD700] transition-colors w-full sm:w-64"
             />
           </div>
-          <table className="w-full text-left border-collapse min-w-[800px]">
+          <div className="overflow-x-auto overflow-y-auto max-h-[60vh] rounded-xl pr-2">
+            <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-white/10">
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">User</th>
@@ -345,6 +346,7 @@ export function Admin() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -367,7 +369,7 @@ export function Admin() {
             </button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             {tasks.map(task => (
               <div key={task.id} className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5">
                 <div>
@@ -410,7 +412,7 @@ export function Admin() {
             <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Pending Task Approvals</h3>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             {claims.filter(c => c.status === 'pending').map(claim => (
               <div key={claim.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
                 <div>

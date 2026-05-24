@@ -20,6 +20,15 @@ interface AppState {
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
+const getDeviceId = () => {
+  let deviceId = localStorage.getItem('cm_device_id');
+  if (!deviceId) {
+    deviceId = 'dev_' + Date.now() + Math.random().toString(36).substring(2);
+    localStorage.setItem('cm_device_id', deviceId);
+  }
+  return deviceId;
+};
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -68,6 +77,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                await setDoc(userRef, { role: 'admin' }, { merge: true });
                u.role = 'admin';
             }
+            // Bind device ID if missing
+            const currentDeviceId = getDeviceId();
+            if (!u.deviceId) {
+              await setDoc(userRef, { deviceId: currentDeviceId }, { merge: true });
+              u.deviceId = currentDeviceId;
+            }
+
             setUser(u);
           }
         } else {
@@ -90,7 +106,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             role: (fUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
-            lastCheckIn: null
+            lastCheckIn: null,
+            deviceId: getDeviceId()
           };
           await setDoc(userRef, newUser);
           setUser(newUser);
@@ -109,9 +126,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const verifyDeviceLimit = async (authenticatedUid: string) => {
+    const deviceId = getDeviceId();
+    const q = query(collection(db, 'users'), where('deviceId', '==', deviceId));
+    const qs = await getDocs(q);
+    
+    if (!qs.empty) {
+      const isBoundToOther = qs.docs.some(d => d.id !== authenticatedUid);
+      if (isBoundToOther) {
+        await signOut(auth);
+        throw new Error("Anti-Cheat: Another account is already registered on this device.");
+      }
+    }
+  };
+
   const loginWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const res = await signInWithPopup(auth, googleProvider);
+      await verifyDeviceLimit(res.user.uid);
     } catch (error) {
       console.error("Login failed", error);
       throw error;
@@ -120,7 +152,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = async (email: string, pass: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
+      const res = await signInWithEmailAndPassword(auth, email, pass);
+      await verifyDeviceLimit(res.user.uid);
     } catch (error) {
       console.error("Email login failed", error);
       throw error;
@@ -130,6 +163,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const signupWithEmail = async (name: string, email: string, pass: string, inviteCode?: string) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      await verifyDeviceLimit(userCredential.user.uid);
       
       let referredByUid = null;
       let newUserBonus = 0;

@@ -33,7 +33,7 @@ function AppContent() {
     <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto h-full p-4 sm:p-8 relative">
       {!isAdminRoute && <Header />}
       
-      <main className="flex-1 w-full flex flex-col relative h-full overflow-y-auto pb-32 pt-4 hide-scrollbar">
+      <main className={`flex-1 w-full flex flex-col relative h-full overflow-y-auto pt-4 ${isAdminRoute ? 'pb-8 custom-scrollbar' : 'pb-32 hide-scrollbar'}`}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tasks" element={<Tasks />} />
