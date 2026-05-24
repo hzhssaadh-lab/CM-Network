@@ -90,7 +90,7 @@ export function Admin() {
       const cSnap = await getDocs(cQ);
       const claimsData: TaskClaim[] = [];
       cSnap.docs.forEach(d => claimsData.push({ id: d.id, ...d.data() } as TaskClaim));
-      setClaims(claimsData.sort((a, b) => b.timestamp - a.timestamp));
+      setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
     } catch (e) {
       console.error(e);
     }
@@ -302,7 +302,9 @@ export function Admin() {
               {users.filter(u => {
                 if (!searchQuery.trim()) return true;
                 const lowerQ = searchQuery.toLowerCase();
-                return u.name.toLowerCase().includes(lowerQ) || u.email.toLowerCase().includes(lowerQ);
+                const userName = u.name || '';
+                const userEmail = u.email || '';
+                return userName.toLowerCase().includes(lowerQ) || userEmail.toLowerCase().includes(lowerQ);
               }).map((u) => (
                 <tr key={u.uid} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                   <td className="p-3">
@@ -331,8 +333,8 @@ export function Admin() {
                     <button 
                       onClick={() => {
                         setEditingUser(u);
-                        setEditBalance(u.balance.toString());
-                        setEditMiningRate(u.miningRate.toString());
+                        setEditBalance((u.balance || 0).toString());
+                        setEditMiningRate((u.miningRate || 0).toString());
                       }}
                       className="text-[10px] font-bold tracking-widest uppercase bg-[#FFD700]/20 text-[#FFD700] hover:bg-[#FFD700]/30 px-3 py-1.5 rounded-lg transition-colors"
                     >
@@ -377,9 +379,9 @@ export function Admin() {
                     onClick={() => {
                       setEditingTask(task);
                       setIsCreatingTask(true);
-                      setTaskTitle(task.title);
-                      setTaskReward(task.reward.toString());
-                      setTaskType(task.type);
+                      setTaskTitle(task.title || '');
+                      setTaskReward((task.reward || 0).toString());
+                      setTaskType(task.type || 'daily');
                       setTaskUrl(task.url || '');
                     }}
                     className="text-[10px] px-3 py-1.5 bg-white/10 rounded-lg hover:bg-white/20 font-bold uppercase tracking-widest"

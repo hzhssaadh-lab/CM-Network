@@ -15,5 +15,6 @@ export function generateReferralCode() {
 }
 
 export function formatCurrency(amount: number) {
+  if (amount == null) return "0.00";
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
