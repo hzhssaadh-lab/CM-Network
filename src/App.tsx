@@ -9,11 +9,19 @@ import { Wallet } from './pages/Wallet';
 import { Friends } from './pages/Friends';
 import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 function AppContent() {
   const { user, loading } = useApp();
   const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+      const tgApp = (window as any).Telegram.WebApp;
+      tgApp.ready();
+      tgApp.expand();
+    }
+  }, []);
 
   const isAdminRoute = location.pathname.startsWith('/admin');
 
