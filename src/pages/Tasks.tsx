@@ -6,11 +6,12 @@ import { Task as AppTask } from '../types';
 import { AdDisplay } from '../components/AdDisplay';
 
 export function Tasks() {
-  const { user } = useApp();
+  const { user, adSettings } = useApp();
   const [tasks, setTasks] = useState<AppTask[]>([]);
   const [completedTaskMap, setCompletedTaskMap] = useState<Map<string, string>>(new Map());
   const [claiming, setClaiming] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adModalTask, setAdModalTask] = useState<AppTask | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -43,7 +44,7 @@ export function Tasks() {
     fetchTasks();
   }, [user]);
 
-  const handleClaim = async (task: AppTask) => {
+  const processClaim = async (task: AppTask) => {
     if (!user || claiming) return;
     
     // If task has URL, simulate they have to click it?
@@ -89,6 +90,14 @@ export function Tasks() {
       alert('Failed to claim task. You may have already claimed it.');
     } finally {
       setClaiming(null);
+    }
+  };
+
+  const handleClaimClick = (task: AppTask) => {
+    if (adSettings?.showAds) {
+      setAdModalTask(task);
+    } else {
+      processClaim(task);
     }
   };
 
@@ -157,7 +166,7 @@ export function Tasks() {
                  </button>
                ) : (
                  <button 
-                   onClick={() => handleClaim(task)}
+                   onClick={() => handleClaimClick(task)}
                    disabled={claiming === task.id}
                    className={`text-xs font-black px-4 py-2.5 rounded-xl transition-all tracking-widest uppercase whitespace-nowrap shrink-0 ${
                      claiming === task.id 
@@ -176,6 +185,35 @@ export function Tasks() {
       <div className="mt-8">
         <AdDisplay type="rectangle" />
       </div>
+
+      {adModalTask && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-sm bg-[#0a0a0a] border border-white/20 rounded-3xl p-6 flex flex-col items-center shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden relative">
+            <h3 className="text-sm uppercase tracking-widest font-bold mb-4 text-[#FFD700]">Sponsor Advertisement</h3>
+            <div className="w-full h-auto min-h-[250px] flex items-center justify-center mb-6 bg-black/50 rounded-xl overflow-hidden relative z-10">
+               <AdDisplay type="rectangle" />
+            </div>
+            <div className="flex gap-4 w-full relative z-10">
+              <button 
+                onClick={() => setAdModalTask(null)}
+                className="flex-1 bg-white/5 text-white text-xs font-bold py-4 rounded-xl hover:bg-white/10 transition-colors uppercase tracking-widest border border-white/10"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  const t = adModalTask;
+                  setAdModalTask(null);
+                  processClaim(t);
+                }}
+                className="flex-1 bg-[#FFD700] text-black text-xs font-bold py-4 rounded-xl hover:bg-[#FFD700]/80 transition-colors uppercase tracking-widest"
+              >
+                Claim Reward
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

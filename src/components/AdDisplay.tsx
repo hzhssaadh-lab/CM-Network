@@ -42,7 +42,7 @@ export function AdDisplay({ className = '', type = 'banner' }: AdDisplayProps) {
               <html>
                 <head><title>Advertisement</title></head>
                 <body style="margin:0;padding:0;overflow:hidden;display:flex;justify-content:center;align-items:center;">
-                  ${adSettings.adsterraSnippet}
+                  ${adSettings.adsterraSnippet.replace(/src="\/\//g, 'src="https://').replace(/href="\/\//g, 'href="https://')}
                 </body>
               </html>
             `}
