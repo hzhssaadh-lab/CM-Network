@@ -56,3 +56,9 @@ export interface TaskClaim {
   status: 'pending' | 'approved' | 'rejected';
   timestamp: number;
 }
+
+export interface AdSettings {
+  showAds: boolean;
+  adsterraSnippet?: string;
+  admobBannerId?: string;
+}

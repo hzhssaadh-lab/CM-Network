@@ -15,6 +15,7 @@ export function Wallet() {
   const [success, setSuccess] = useState('');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'mining' | 'task' | 'referral' | 'transfer'>('all');
 
   useEffect(() => {
     if (user && activeTab === 'history') {
@@ -185,17 +186,44 @@ export function Wallet() {
 
        {activeTab === 'history' && (
          <div className="space-y-4">
+           {/* Filters */}
+           <div className="flex flex-wrap gap-2 mb-6">
+             {(['all', 'mining', 'task', 'referral', 'transfer'] as const).map(f => (
+               <button 
+                 key={f}
+                 onClick={() => setHistoryFilter(f)}
+                 className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${historyFilter === f ? 'bg-[#FFD700] text-black shadow-sm' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+               >
+                 {f}
+               </button>
+             ))}
+           </div>
+
            {loadingHistory ? (
              <div className="flex justify-center py-12">
                <div className="w-8 h-8 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin"></div>
              </div>
-           ) : history.length === 0 ? (
+           ) : history.filter(tx => {
+             if (historyFilter === 'all') return true;
+             if (historyFilter === 'mining') return tx.type === 'mining_reward';
+             if (historyFilter === 'task') return tx.type === 'task_reward';
+             if (historyFilter === 'referral') return tx.type === 'referral_bonus' || tx.type.toString() === 'referral_bonus_received';
+             if (historyFilter === 'transfer') return tx.type === 'transfer_sent' || tx.type === 'transfer_received';
+             return true;
+           }).length === 0 ? (
              <div className="text-center bg-white/5 rounded-[32px] border border-white/10 p-12">
                <span className="text-4xl mb-4 block opacity-50">📝</span>
-               <p className="text-gray-500 font-medium tracking-wide">No transactions found.</p>
+               <p className="text-gray-500 font-medium tracking-wide">No transactions found for this filter.</p>
              </div>
            ) : (
-             history.map((tx) => {
+             history.filter(tx => {
+               if (historyFilter === 'all') return true;
+               if (historyFilter === 'mining') return tx.type === 'mining_reward';
+               if (historyFilter === 'task') return tx.type === 'task_reward';
+               if (historyFilter === 'referral') return tx.type === 'referral_bonus' || tx.type.toString() === 'referral_bonus_received';
+               if (historyFilter === 'transfer') return tx.type === 'transfer_sent' || tx.type === 'transfer_received';
+               return true;
+             }).map((tx) => {
                const isMining = tx.type === 'mining_reward';
                const isTask = tx.type === 'task_reward';
                const isReferral = tx.type === 'referral_bonus';

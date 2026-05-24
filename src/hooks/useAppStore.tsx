@@ -1,14 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
-import { UserProfile } from '../types';
+import { doc, setDoc, onSnapshot, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { UserProfile, AdSettings } from '../types';
 import { generateReferralCode } from '../lib/utils';
 
 interface AppState {
   user: UserProfile | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
+  adSettings: AdSettings | null;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   signupWithEmail: (name: string, email: string, pass: string, inviteCode?: string) => Promise<void>;
@@ -23,8 +24,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adSettings, setAdSettings] = useState<AdSettings | null>(null);
 
   useEffect(() => {
+    // Listen to global AdSettings
+    const adSettingsRef = doc(db, 'settings', 'ads');
+    const unsubscribeAds = onSnapshot(adSettingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setAdSettings(docSnap.data() as AdSettings);
+      } else {
+        setAdSettings({ showAds: false });
+      }
+    });
+
     let unsubscribeUser: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
@@ -88,6 +100,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       unsubscribe();
       if (unsubscribeUser) unsubscribeUser();
+      unsubscribeAds();
     };
   }, []);
 
@@ -255,7 +268,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode }}>
+    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode }}>
       {children}
     </AppContext.Provider>
   );

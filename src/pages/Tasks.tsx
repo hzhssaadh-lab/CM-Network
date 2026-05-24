@@ -3,6 +3,7 @@ import { useApp } from '../hooks/useAppStore';
 import { collection, query, getDocs, doc, runTransaction, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Task as AppTask } from '../types';
+import { AdDisplay } from '../components/AdDisplay';
 
 export function Tasks() {
   const { user } = useApp();
@@ -171,6 +172,9 @@ export function Tasks() {
            </div>
           )
         })}
+      </div>
+      <div className="mt-8">
+        <AdDisplay type="rectangle" />
       </div>
     </div>
   );

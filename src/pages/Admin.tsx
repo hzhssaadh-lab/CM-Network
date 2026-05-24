@@ -1,7 +1,7 @@
 import { useApp } from '../hooks/useAppStore';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, doc, updateDoc, setDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, setDoc, getDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { formatCurrency } from '../lib/utils';
 import { UserProfile, Task as AppTask, TaskClaim } from '../types';
@@ -14,7 +14,7 @@ export function Admin() {
   const [tasks, setTasks] = useState<AppTask[]>([]);
   const [claims, setClaims] = useState<TaskClaim[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads'>('users');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Edit User State
@@ -30,11 +30,47 @@ export function Admin() {
   const [taskType, setTaskType] = useState<AppTask['type']>('daily');
   const [taskUrl, setTaskUrl] = useState('');
 
+  // Ads Settings State
+  const [showAds, setShowAds] = useState(false);
+  const [adsterraSnippet, setAdsterraSnippet] = useState('');
+  const [admobBannerId, setAdmobBannerId] = useState('');
+
   useEffect(() => {
     if (user?.role === 'admin') {
       fetchData();
+      fetchAdsSettings();
     }
   }, [user]);
+
+  const fetchAdsSettings = async () => {
+    try {
+      const docRef = doc(db, 'settings', 'ads');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setShowAds(data.showAds || false);
+        setAdsterraSnippet(data.adsterraSnippet || '');
+        setAdmobBannerId(data.admobBannerId || '');
+      }
+    } catch (e) {
+      console.error("Failed to load ad settings", e);
+    }
+  };
+
+  const saveAdsSettings = async () => {
+    try {
+      const docRef = doc(db, 'settings', 'ads');
+      await setDoc(docRef, {
+        showAds,
+        adsterraSnippet,
+        admobBannerId
+      }, { merge: true });
+      alert("Ad settings saved! Changes will take effect immediately.");
+    } catch (error) {
+      console.error(error);
+      alert("Error saving properties.");
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -231,6 +267,12 @@ export function Admin() {
         >
           Approvals
         </button>
+        <button 
+          onClick={() => setActiveTab('ads')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'ads' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          Ads
+        </button>
       </div>
 
       {activeTab === 'users' && (
@@ -393,6 +435,62 @@ export function Admin() {
             {claims.filter(c => c.status === 'pending').length === 0 && !loading && (
               <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No pending approvals</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'ads' && (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Global Advertisement Configuration</h3>
+          </div>
+          
+          <div className="space-y-6">
+            <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-bold uppercase tracking-widest text-white">Enable Global Ads Display</label>
+                <div 
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors relative flex items-center ${showAds ? 'bg-green-500' : 'bg-gray-600'}`}
+                  onClick={() => setShowAds(!showAds)}
+                >
+                  <div className={`absolute left-1 bg-white w-4 h-4 rounded-full transition-transform ${showAds ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 tracking-wide leading-relaxed">Turn this on to render Adsterra snippets or AdMob integrations automatically in the main Dashboard and Task Views across the application.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">Adsterra Snippet (Native HTML & Scripts)</label>
+                <textarea 
+                  rows={5}
+                  value={adsterraSnippet} 
+                  onChange={(e) => setAdsterraSnippet(e.target.value)}
+                  placeholder="Paste your <div> and <script> payload here..."
+                  className="w-full bg-black/50 border border-white/10 rounded-xl p-4 focus:border-[#FFD700] outline-none transition-colors font-mono text-sm text-gray-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">AdMob App/Banner ID (Optional)</label>
+                <input 
+                  type="text" 
+                  value={admobBannerId} 
+                  onChange={(e) => setAdmobBannerId(e.target.value)}
+                  placeholder="ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl p-4 focus:border-[#FFD700] outline-none transition-colors font-mono text-sm text-gray-300"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/5 flex gap-4">
+              <button 
+                onClick={saveAdsSettings}
+                className="bg-[#FFD700] text-black px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-[#F2C800] transition-colors"
+               >
+                 Save Global Configuration
+              </button>
+            </div>
           </div>
         </div>
       )}

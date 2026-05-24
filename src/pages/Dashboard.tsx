@@ -5,6 +5,7 @@ import { doc, runTransaction, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { BannerAd } from '../components/BannerAd';
 import { InterstitialAd } from '../components/InterstitialAd';
+import { AdDisplay } from '../components/AdDisplay';
 
 export function Dashboard() {
   const { user, updateUser } = useApp();
@@ -120,8 +121,13 @@ export function Dashboard() {
         <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-[#FFD700] opacity-5 blur-[100px] pointer-events-none"></div>
         
         <div className="relative w-56 h-56 md:w-64 md:h-64 mb-8">
+          {/* Radiating Aura Effect */}
+          <div className={`absolute inset-0 rounded-full bg-[#FFD700] transition-all duration-1000 ${isMining ? 'opacity-10 blur-2xl animate-pulse' : 'opacity-0'}`}></div>
+          <div className={`absolute inset-0 rounded-full border border-[#FFD700]/50 transition-all duration-1000 ${isMining ? 'animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]' : 'opacity-0'}`}></div>
+          
+          {/* Existing Rings */}
           <div className={`absolute inset-0 rounded-full border-2 border-dashed border-[#FFD700]/30 transition-all duration-1000 ${isMining ? 'animate-[spin_10s_linear_infinite]' : ''}`}></div>
-          <div className="absolute inset-4 rounded-full border border-[#FFD700]/50"></div>
+          <div className={`absolute inset-4 rounded-full border border-[#FFD700]/50 transition-all duration-700 ${isMining ? 'bg-[#FFD700]/5 shadow-[0_0_40px_rgba(212,175,55,0.15)] animate-pulse' : ''}`}></div>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <p className="text-xs md:text-sm text-gray-400 font-medium mb-1">{isMining ? "MINING SESSION" : "READY TO MINE"}</p>
             <h2 className="text-4xl md:text-5xl font-black text-[#FFD700] my-2 font-mono tracking-tighter">
@@ -194,6 +200,7 @@ export function Dashboard() {
       </div>
 
       <div className="lg:col-span-12 mt-4">
+        <AdDisplay type="banner" />
         <BannerAd slot="8492118164" />
       </div>
 
