@@ -7,7 +7,7 @@ import { Transaction } from '../types';
 
 export function Wallet() {
   const { user } = useApp();
-  const [activeTab, setActiveTab] = useState<'send'|'receive'|'history'>('send');
+  const [activeTab, setActiveTab] = useState<'send'|'receive'|'history'|'tasks'>('send');
   const [receiverUid, setReceiverUid] = useState('');
   const [amount, setAmount] = useState('');
   const [sending, setSending] = useState(false);
@@ -16,12 +16,39 @@ export function Wallet() {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<'all' | 'mining' | 'task' | 'referral' | 'transfer'>('all');
+  const [completedTasksHistory, setCompletedTasksHistory] = useState<any[]>([]);
+  const [tasksMetaMap, setTasksMetaMap] = useState<Map<string, any>>(new Map());
+  const [loadingTasksHistory, setLoadingTasksHistory] = useState(false);
 
   useEffect(() => {
     if (user && activeTab === 'history') {
       fetchHistory();
+    } else if (user && activeTab === 'tasks') {
+      fetchTasksHistory();
     }
   }, [user, activeTab]);
+
+  const fetchTasksHistory = async () => {
+    if (!user) return;
+    setLoadingTasksHistory(true);
+    try {
+      // Fetch all tasks first to build a map for title/reward lookups
+      const tp = await getDocs(collection(db, 'tasks'));
+      const tMap = new Map();
+      tp.docs.forEach(d => tMap.set(d.id, { id: d.id, ...d.data() }));
+      setTasksMetaMap(tMap);
+
+      // Fetch completedTasks
+      const q = query(collection(db, 'users', user.uid, 'completedTasks'), orderBy('completedAt', 'desc'));
+      const snap = await getDocs(q);
+      const ct: any[] = [];
+      snap.docs.forEach(d => ct.push(d.data()));
+      setCompletedTasksHistory(ct);
+    } catch (e) {
+      console.error('Failed to fetch task history', e);
+    }
+    setLoadingTasksHistory(false);
+  };
 
   const fetchHistory = async () => {
     if (!user) return;
@@ -114,10 +141,11 @@ export function Wallet() {
           </div>
        </section>
 
-       <div className="flex bg-white/5 p-1 rounded-2xl mb-8">
-         <button onClick={() => setActiveTab('send')} className={`flex-1 py-3 text-xs font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'send' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Send</button>
-         <button onClick={() => setActiveTab('receive')} className={`flex-1 py-3 text-xs font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'receive' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Receive</button>
-         <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 text-xs font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'history' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>History</button>
+       <div className="flex bg-white/5 p-1 rounded-2xl mb-8 overflow-x-auto custom-scrollbar">
+         <button onClick={() => setActiveTab('send')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'send' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Send</button>
+         <button onClick={() => setActiveTab('receive')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'receive' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Receive</button>
+         <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'history' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tx History</button>
+         <button onClick={() => setActiveTab('tasks')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tasks</button>
        </div>
 
        {activeTab === 'send' && (
@@ -262,6 +290,48 @@ export function Wallet() {
                    <p className={`font-mono font-bold sm:text-lg ${colorClass}`}>
                      {sign}{formatCurrency(tx.amount)}
                    </p>
+                 </div>
+               );
+             })
+           )}
+         </div>
+       )}
+
+       {activeTab === 'tasks' && (
+         <div className="space-y-4">
+           {loadingTasksHistory ? (
+             <div className="flex justify-center py-12">
+               <div className="w-8 h-8 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin"></div>
+             </div>
+           ) : completedTasksHistory.length === 0 ? (
+             <div className="text-center bg-white/5 rounded-[32px] border border-white/10 p-12">
+               <span className="text-4xl mb-4 block opacity-50">✅</span>
+               <p className="text-gray-500 font-medium tracking-wide">No completed tasks yet.</p>
+             </div>
+           ) : (
+             completedTasksHistory.map((ct, idx) => {
+               const meta = tasksMetaMap.get(ct.taskId);
+               const taskName = meta ? meta.title : 'Unknown Task';
+               const taskReward = meta ? meta.reward : 0;
+               return (
+                 <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-black/40 rounded-2xl border border-white/5 gap-4">
+                   <div className="flex items-center space-x-4">
+                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg bg-green-500/20 text-green-400`}>
+                       ✓
+                     </div>
+                     <div>
+                       <p className="font-bold text-sm sm:text-base text-white">{taskName}</p>
+                       <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-1 uppercase tracking-wider">{new Date(ct.completedAt).toLocaleString()}</p>
+                     </div>
+                   </div>
+                   <div className="flex flex-col sm:items-end">
+                     <p className={`font-mono font-bold sm:text-lg text-[#FFD700]`}>
+                       +{formatCurrency(taskReward)}
+                     </p>
+                     <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${ct.status === 'completed' ? 'text-green-400' : ct.status === 'pending' ? 'text-yellow-400' : 'text-red-400'}`}>
+                       {ct.status}
+                     </p>
+                   </div>
                  </div>
                );
              })

@@ -36,19 +36,39 @@ export function AdDisplay({ className = '', type = 'banner' }: AdDisplayProps) {
       {adSettings.adsterraSnippet && (
         <div className="w-full overflow-hidden flex justify-center items-center" style={{ minHeight: type === 'banner' ? '60px' : '250px' }}>
           <iframe
+            key={adSettings.adsterraSnippet}
             title="Adsterra"
-            srcDoc={`
-              <!DOCTYPE html>
-              <html>
-                <head><title>Advertisement</title></head>
-                <body style="margin:0;padding:0;overflow:hidden;display:flex;justify-content:center;align-items:center;">
-                  ${adSettings.adsterraSnippet.replace(/src="\/\//g, 'src="https://').replace(/href="\/\//g, 'href="https://')}
-                </body>
-              </html>
-            `}
-            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            ref={(iframe) => {
+              if (iframe && !iframe.getAttribute('data-loaded')) {
+                iframe.setAttribute('data-loaded', 'true');
+                const doc = iframe.contentWindow?.document || iframe.contentDocument;
+                if (doc) {
+                  doc.open();
+                  let snippet = adSettings.adsterraSnippet;
+                  snippet = snippet.replace(/src=['"]\/\/([a-zA-Z0-9])/gi, 'src="https://$1');
+                  snippet = snippet.replace(/href=['"]\/\/([a-zA-Z0-9])/gi, 'href="https://$1');
+                  doc.write(`
+                    <!DOCTYPE html>
+                    <html>
+                      <head>
+                        <title>Advertisement</title>
+                        <meta charset="utf-8">
+                        <style>
+                          body { margin: 0; padding: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; background: transparent; }
+                        </style>
+                      </head>
+                      <body>
+                        ${snippet}
+                      </body>
+                    </html>
+                  `);
+                  doc.close();
+                }
+              }
+            }}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-forms"
             style={{ width: '100%', height: '100%', border: 'none', background: 'transparent' }}
-            scrolling="no"
+            scrolling="yes"
           />
         </div>
       )}
