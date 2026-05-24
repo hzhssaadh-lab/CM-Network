@@ -27,8 +27,8 @@ export function Wallet() {
     if (!user) return;
     setLoadingHistory(true);
     try {
-      const q = query(collection(db, 'transactions'), where('senderUid', '==', user.uid), orderBy('timestamp', 'desc'), limit(20));
-      const q2 = query(collection(db, 'transactions'), where('receiverUid', '==', user.uid), orderBy('timestamp', 'desc'), limit(20));
+      const q = query(collection(db, 'transactions'), where('senderUid', '==', user.uid));
+      const q2 = query(collection(db, 'transactions'), where('receiverUid', '==', user.uid));
       const [snap1, snap2] = await Promise.all([getDocs(q), getDocs(q2)]);
       
       let txs: any[] = [];
