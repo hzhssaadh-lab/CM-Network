@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
 import { Info } from 'lucide-react';
@@ -211,10 +212,23 @@ export function Dashboard() {
                 <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase mb-2">Current Price</span>
                 <span className="text-xl font-bold text-[#FFD700]">$6.00</span>
              </div>
-             <div className="col-span-2 bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4 text-center">
-                <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase mb-2">Total Supply</span>
-                <span className="text-xl font-bold text-white">10,000,000 <span className="text-xs text-gray-400">CM</span></span>
-             </div>
+             <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                whileHover={{ scale: 1.02 }}
+                className="col-span-2 bg-gradient-to-br from-black/60 via-[#FFD700]/10 to-black/60 rounded-2xl border border-[#FFD700]/30 shadow-[0_0_20px_rgba(255,215,0,0.1)] flex flex-col items-center justify-center p-6 text-center relative overflow-hidden group"
+             >
+                <motion.div 
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FFD700]/10 to-transparent"
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
+                />
+                <span className="text-[#FFD700] text-[10px] font-bold tracking-widest uppercase mb-1 drop-shadow-md z-10">Maximum Supply</span>
+                <span className="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-[0_0_15px_rgba(255,215,0,0.3)] z-10 block py-1">
+                  10M <span className="text-xl md:text-2xl text-[#FFD700] ml-1">CM</span>
+                </span>
+             </motion.div>
           </div>
          </section>
       </div>

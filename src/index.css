@@ -43,6 +43,11 @@ html {
 }
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --animate-shimmer: shimmer 2.5s infinite linear;
+  
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
 }
 
 @utility animate-spin-slow {
