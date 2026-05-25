@@ -339,8 +339,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     // Cycle from 1 to 7
     const dayInCycle = ((newStreak - 1) % 7) + 1;
-    // Rewards table constraints: 0.08 to 0.20 max increment by 0.02 per day
-    const rewardAmount = Math.round((0.08 + (dayInCycle - 1) * 0.02) * 100) / 100;
+    const rewardAmounts = [0.02, 0.04, 0.04, 0.06, 0.06, 0.08, 0.10];
+    const rewardAmount = rewardAmounts[dayInCycle - 1];
     
     try {
       const userRef = doc(db, 'users', user.uid);

@@ -45,13 +45,13 @@ function DailyRewards() {
   };
 
   const days = [
-    { day: 1, reward: 0.08 },
-    { day: 2, reward: 0.10 },
-    { day: 3, reward: 0.12 },
-    { day: 4, reward: 0.14 },
-    { day: 5, reward: 0.16 },
-    { day: 6, reward: 0.18 },
-    { day: 7, reward: 0.20 },
+    { day: 1, reward: 0.02 },
+    { day: 2, reward: 0.04 },
+    { day: 3, reward: 0.04 },
+    { day: 4, reward: 0.06 },
+    { day: 5, reward: 0.06 },
+    { day: 6, reward: 0.08 },
+    { day: 7, reward: 0.10 },
   ];
 
   return (
