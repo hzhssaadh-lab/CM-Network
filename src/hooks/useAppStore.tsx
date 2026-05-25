@@ -64,6 +64,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let unsubscribeUser: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
+      setLoading(true);
       setFirebaseUser(fUser);
       
       if (unsubscribeUser) {
@@ -112,29 +113,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           // Create new user profile
-          const newUser: UserProfile = {
-            uid: fUser.uid,
-            name: fUser.displayName || 'User',
-            email: fUser.email || '',
-            photoURL: fUser.photoURL || '',
-            balance: 0,
-            miningRate: 0.05 / 24, // 0.05 CM daily = per hour rate
-            miningSessionEndTime: null,
-            miningSessionStartTime: null,
-            referralCode: generateReferralCode(),
-            referredBy: null,
-            referralCount: 0,
-            joinDate: Date.now(),
-            dailyStreak: 0,
-            kycStatus: 'pending',
-            role: (fUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
-            isActive: true,
-            totalMined: 0,
-            lastCheckIn: null,
-            deviceId: getDeviceId()
-          };
-          await setDoc(userRef, newUser);
-          setUser(newUser);
+          try {
+            const newUser: UserProfile = {
+              uid: fUser.uid,
+              name: fUser.displayName || 'User',
+              email: fUser.email || '',
+              photoURL: fUser.photoURL || '',
+              balance: 0,
+              miningRate: 0.05 / 24, // 0.05 CM daily = per hour rate
+              miningSessionEndTime: null,
+              miningSessionStartTime: null,
+              referralCode: generateReferralCode(),
+              referredBy: null,
+              referralCount: 0,
+              joinDate: Date.now(),
+              dailyStreak: 0,
+              kycStatus: 'pending',
+              role: (fUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
+              isActive: true,
+              totalMined: 0,
+              lastCheckIn: null,
+              deviceId: getDeviceId()
+            };
+            await setDoc(userRef, newUser);
+            setUser(newUser);
+          } catch (err: any) {
+            console.error("Error creating user document", err);
+            await signOut(auth);
+            setUser(null);
+            alert("Error creating account. Please try again later.");
+          }
         }
         setLoading(false);
       }, (error) => {
