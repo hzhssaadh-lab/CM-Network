@@ -203,13 +203,17 @@ export function Dashboard() {
          <section className="flex-1 bg-white/5 rounded-[32px] border border-white/10 p-8 flex flex-col min-h-[200px]">
           <h4 className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">Network Stats</h4>
           <div className="grid grid-cols-2 gap-4 h-full">
-             <div className="bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4">
+             <div className="bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4 text-center">
                 <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase mb-2">Total Mined</span>
                 <span className="text-xl font-bold text-white">{formatCurrency(user.totalMined)} <span className="text-xs text-gray-400">CM</span></span>
              </div>
-             <div className="bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4">
+             <div className="bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4 text-center">
                 <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase mb-2">Current Price</span>
                 <span className="text-xl font-bold text-[#FFD700]">$6.00</span>
+             </div>
+             <div className="col-span-2 bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4 text-center">
+                <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase mb-2">Total Supply</span>
+                <span className="text-xl font-bold text-white">10,000,000 <span className="text-xs text-gray-400">CM</span></span>
              </div>
           </div>
          </section>
