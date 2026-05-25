@@ -18,6 +18,7 @@ export interface UserProfile {
   totalMined: number;
   lastCheckIn: number | null;
   deviceId?: string;
+  transactionsBlocked?: boolean;
 }
 
 export interface Transaction {

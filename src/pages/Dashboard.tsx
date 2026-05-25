@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
+import { Info } from 'lucide-react';
 import { doc, runTransaction, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { BannerAd } from '../components/BannerAd';
@@ -154,9 +155,24 @@ export function Dashboard() {
         )}
         
         <div className="mt-8 flex space-x-6 sm:space-x-12 w-full justify-center">
-          <div className="text-center">
-            <p className="text-gray-500 text-[10px] uppercase font-bold mb-1 tracking-widest">Rate / hr</p>
+          <div className="text-center relative group cursor-help">
+            <div className="flex items-center justify-center space-x-1 text-gray-500 text-[10px] uppercase font-bold mb-1 tracking-widest">
+              <span>Rate / hr</span>
+              <Info className="w-3 h-3 text-gray-400" />
+            </div>
             <p className="text-lg md:text-xl font-bold">{formatCurrency((user?.miningRate || 0))} CM</p>
+
+            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 opacity-0 transition-opacity group-hover:opacity-100 z-20">
+              <div className="bg-gray-900 border border-white/10 rounded-xl p-4 shadow-2xl text-left">
+                <p className="text-xs text-white font-bold mb-1">Mining Rate Formula</p>
+                <p className="text-[10px] text-gray-400 mb-2">Base node extraction rate is currently 0.05 CM every 24 hours.</p>
+                <p className="text-[10px] text-[#FFD700] mb-1 font-bold">Acceleration Methods:</p>
+                <ul className="text-[10px] text-gray-400 list-disc pl-3 space-y-1">
+                  <li>Recruit associates to earn +10% of their active yield.</li>
+                  <li>Complete auxiliary contracts in the Tasks sector.</li>
+                </ul>
+              </div>
+            </div>
           </div>
           <div className="h-10 w-px bg-white/10"></div>
           <div className="text-center">

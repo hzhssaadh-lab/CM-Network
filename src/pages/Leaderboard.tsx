@@ -13,7 +13,7 @@ export function Leaderboard() {
   useEffect(() => {
     async function fetchLeaders() {
       try {
-        const q = query(collection(db, 'users'), orderBy('balance', 'desc'), limit(50));
+        const q = query(collection(db, 'users'), orderBy('balance', 'desc'), limit(5));
         const snapshot = await getDocs(q);
         const data: UserProfile[] = [];
         snapshot.forEach(doc => {

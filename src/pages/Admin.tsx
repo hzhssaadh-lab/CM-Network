@@ -122,6 +122,17 @@ export function Admin() {
     }
   };
 
+  const handleToggleTxStatus = async (uid: string, currentStatus: boolean) => {
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        transactionsBlocked: !currentStatus
+      });
+      fetchData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleSaveTask = async () => {
     try {
       const taskData = {
@@ -293,6 +304,7 @@ export function Admin() {
               <tr className="border-b border-white/10">
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">User</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Status</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Coins</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Balance</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Mining / hr</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Role</th>
@@ -317,6 +329,11 @@ export function Admin() {
                       {u.isActive ? 'Active' : 'Blocked'}
                     </span>
                   </td>
+                  <td className="p-3">
+                    <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${!u.transactionsBlocked ? 'bg-green-500/20 text-green-500' : 'bg-orange-500/20 text-orange-500'}`}>
+                      {!u.transactionsBlocked ? 'Allowed' : 'Blocked'}
+                    </span>
+                  </td>
                   <td className="p-3 font-mono font-bold text-[#FFD700]">{formatCurrency(u.balance)}</td>
                   <td className="p-3 font-mono font-bold">{formatCurrency(u.miningRate)}</td>
                   <td className="p-3">
@@ -325,6 +342,12 @@ export function Admin() {
                     </span>
                   </td>
                   <td className="p-3 text-right space-x-2">
+                    <button 
+                      onClick={() => handleToggleTxStatus(u.uid, !!u.transactionsBlocked)}
+                      className="text-[10px] font-bold tracking-widest uppercase bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors mb-2 sm:mb-0"
+                    >
+                      {!u.transactionsBlocked ? 'Block Tx' : 'Unblock Tx'}
+                    </button>
                     <button 
                       onClick={() => handleToggleUserStatus(u.uid, u.isActive)}
                       className="text-[10px] font-bold tracking-widest uppercase bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"

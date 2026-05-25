@@ -76,6 +76,10 @@ export function Wallet() {
     setError(''); setSuccess('');
     
     if (!user) return;
+    if (user.transactionsBlocked) {
+      setError("Transactions are currently blocked for this account.");
+      return;
+    }
     const sendAmount = parseFloat(amount);
     if (!receiverUid || receiverUid === user.uid) {
       setError("Invalid receiver UID"); return;
@@ -104,7 +108,12 @@ export function Wallet() {
         if (currentSenderBalance < sendAmount) {
           throw new Error("Insufficient balance during transaction");
         }
-        const currentReceiverBalance = receiverDoc.data().balance;
+        
+        const receiverData = receiverDoc.data();
+        if (receiverData.transactionsBlocked) {
+          throw new Error("Receiver's account is currently blocked from transactions.");
+        }
+        const currentReceiverBalance = receiverData.balance;
         
         t.update(senderRef, { balance: currentSenderBalance - sendAmount });
         t.update(receiverRef, { balance: currentReceiverBalance + sendAmount });
@@ -151,64 +160,82 @@ export function Wallet() {
        {activeTab === 'send' && (
          <div className="bg-white/5 rounded-[32px] border border-white/10 p-8">
            <h3 className="text-xl font-bold mb-6">Send CM Coins</h3>
-           {error && <p className="text-red-400 text-sm mb-4 bg-red-400/10 p-4 rounded-xl border border-red-400/20 font-medium">{error}</p>}
-           {success && <p className="text-green-400 text-sm mb-4 bg-green-400/10 p-4 rounded-xl border border-green-400/20 font-medium">{success}</p>}
-           <form onSubmit={handleSend} className="space-y-6">
-             <div>
-               <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Recipient UID</label>
-               <input 
-                 type="text" 
-                 value={receiverUid}
-                 onChange={(e) => setReceiverUid(e.target.value)}
-                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#FFD700]/50 transition-colors placeholder:text-gray-600 focus:ring-1 focus:ring-[#FFD700]/50 font-mono" 
-                 placeholder="Enter Recipient UID"
-                 required
-               />
+           {user.transactionsBlocked ? (
+             <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center">
+               <p className="text-red-500 font-bold text-lg mb-2">Transactions Blocked</p>
+               <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support.</p>
              </div>
-             <div>
-               <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Amount (CM)</label>
-               <div className="relative">
-                 <input 
-                   type="number" 
-                   value={amount}
-                   onChange={(e) => setAmount(e.target.value)}
-                   step="0.01"
-                   min="0.01"
-                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white pl-4 pr-20 focus:outline-none focus:border-[#FFD700]/50 transition-colors font-mono focus:ring-1 focus:ring-[#FFD700]/50" 
-                   placeholder="0.00"
-                   required
-                 />
-                 <button type="button" onClick={() => setAmount(user.balance.toString())} className="absolute right-4 text-xs top-1/2 -translate-y-1/2 font-bold text-[#FFD700] hover:text-white transition-colors bg-[#FFD700]/10 px-3 py-1 rounded-md">MAX</button>
-               </div>
-             </div>
-             <button disabled={sending} className="w-full bg-[#FFD700] text-black font-black py-4 rounded-xl shadow-[0_5px_20px_rgba(212,175,55,0.2)] active:scale-95 transition-all outline-none tracking-widest mt-4">
-               {sending ? 'PROCESSING...' : 'CONFIRM TRANSFER'}
-             </button>
-           </form>
+           ) : (
+             <>
+               {error && <p className="text-red-400 text-sm mb-4 bg-red-400/10 p-4 rounded-xl border border-red-400/20 font-medium">{error}</p>}
+               {success && <p className="text-green-400 text-sm mb-4 bg-green-400/10 p-4 rounded-xl border border-green-400/20 font-medium">{success}</p>}
+               <form onSubmit={handleSend} className="space-y-6">
+                 <div>
+                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Recipient UID</label>
+                   <input 
+                     type="text" 
+                     value={receiverUid}
+                     onChange={(e) => setReceiverUid(e.target.value)}
+                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#FFD700]/50 transition-colors placeholder:text-gray-600 focus:ring-1 focus:ring-[#FFD700]/50 font-mono" 
+                     placeholder="Enter Recipient UID"
+                     required
+                   />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Amount (CM)</label>
+                   <div className="relative">
+                     <input 
+                       type="number" 
+                       value={amount}
+                       onChange={(e) => setAmount(e.target.value)}
+                       step="0.01"
+                       min="0.01"
+                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white pl-4 pr-20 focus:outline-none focus:border-[#FFD700]/50 transition-colors font-mono focus:ring-1 focus:ring-[#FFD700]/50" 
+                       placeholder="0.00"
+                       required
+                     />
+                     <button type="button" onClick={() => setAmount(user.balance.toString())} className="absolute right-4 text-xs top-1/2 -translate-y-1/2 font-bold text-[#FFD700] hover:text-white transition-colors bg-[#FFD700]/10 px-3 py-1 rounded-md">MAX</button>
+                   </div>
+                 </div>
+                 <button disabled={sending} className="w-full bg-[#FFD700] text-black font-black py-4 rounded-xl shadow-[0_5px_20px_rgba(212,175,55,0.2)] active:scale-95 transition-all outline-none tracking-widest mt-4">
+                   {sending ? 'PROCESSING...' : 'CONFIRM TRANSFER'}
+                 </button>
+               </form>
+             </>
+           )}
          </div>
        )}
 
        {activeTab === 'receive' && (
          <div className="bg-white/5 rounded-[32px] border border-white/10 p-8 flex flex-col items-center justify-center min-h-[400px]">
-           <p className="text-gray-400 mb-8 text-center max-w-sm text-sm">Share your unique UID with other users to receive CM coins instantly. Transactions are processed securely.</p>
-           
-           <div className="bg-white p-6 rounded-3xl mb-8">
-             <div className="w-48 h-48 bg-black/5 flex flex-col items-center justify-center border-4 border-dashed border-[#FFD700] rounded-xl">
-               <span className="text-2xl mb-2">📷</span>
-               <span className="text-black font-bold text-sm text-center">QR Code<br/>Coming Soon</span>
+           {user.transactionsBlocked ? (
+             <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center">
+               <p className="text-red-500 font-bold text-lg mb-2">Transactions Blocked</p>
+               <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support.</p>
              </div>
-           </div>
+           ) : (
+             <>
+               <p className="text-gray-400 mb-8 text-center max-w-sm text-sm">Share your unique UID with other users to receive CM coins instantly. Transactions are processed securely.</p>
+               
+               <div className="bg-white p-6 rounded-3xl mb-8">
+                 <div className="w-48 h-48 bg-black/5 flex flex-col items-center justify-center border-4 border-dashed border-[#FFD700] rounded-xl">
+                   <span className="text-2xl mb-2">📷</span>
+                   <span className="text-black font-bold text-sm text-center">QR Code<br/>Coming Soon</span>
+                 </div>
+               </div>
 
-           <div className="bg-black/60 border border-white/10 rounded-2xl p-6 w-full max-w-md flex flex-col items-center">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Your Unique UID</p>
-              <p className="font-mono text-xl md:text-2xl font-black tracking-tight text-[#FFD700] break-all text-center selection:bg-[#FFD700]/30">{user.uid}</p>
-              <button 
-                onClick={() => { navigator.clipboard.writeText(user.uid); alert('Copied to clipboard'); }}
-                className="mt-6 border border-[#FFD700]/50 text-[#FFD700] px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#FFD700]/10 transition-colors"
-               >
-                Copy UID
-              </button>
-           </div>
+               <div className="bg-black/60 border border-white/10 rounded-2xl p-6 w-full max-w-md flex flex-col items-center">
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Your Unique UID</p>
+                  <p className="font-mono text-xl md:text-2xl font-black tracking-tight text-[#FFD700] break-all text-center selection:bg-[#FFD700]/30">{user.uid}</p>
+                  <button 
+                    onClick={() => { navigator.clipboard.writeText(user.uid); alert('Copied to clipboard'); }}
+                    className="mt-6 border border-[#FFD700]/50 text-[#FFD700] px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#FFD700]/10 transition-colors"
+                   >
+                    Copy UID
+                  </button>
+               </div>
+             </>
+           )}
          </div>
        )}
 
