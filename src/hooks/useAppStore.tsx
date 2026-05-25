@@ -16,6 +16,7 @@ interface AppState {
   logout: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
   submitReferralCode: (code: string) => Promise<boolean>;
+  claimDailyCheckIn: () => Promise<{ success: boolean; reward: number; message: string }>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -318,8 +319,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const claimDailyCheckIn = async () => {
+    if (!user) return { success: false, reward: 0, message: "Not logged in" };
+    
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    if (user.lastCheckIn && user.lastCheckIn >= startOfDay) {
+      return { success: false, reward: 0, message: "Already claimed today" };
+    }
+    
+    let newStreak = (user.dailyStreak || 0) + 1;
+    
+    // Check if missed a day
+    const startOfYesterday = startOfDay - 24 * 60 * 60 * 1000;
+    if (user.lastCheckIn && user.lastCheckIn < startOfYesterday) {
+      newStreak = 1; // Reset streak
+    }
+    
+    // Cycle from 1 to 7
+    const dayInCycle = ((newStreak - 1) % 7) + 1;
+    // Rewards table constraints: 0.08 to 0.20 max increment by 0.02 per day
+    const rewardAmount = Math.round((0.08 + (dayInCycle - 1) * 0.02) * 100) / 100;
+    
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
+        dailyStreak: newStreak,
+        lastCheckIn: Date.now(),
+        balance: (user.balance || 0) + rewardAmount
+      }, { merge: true });
+      
+      const txRef = doc(collection(db, 'transactions'));
+      await setDoc(txRef, {
+        id: txRef.id,
+        type: 'daily_checkin',
+        amount: rewardAmount,
+        timestamp: Date.now(),
+        status: 'completed',
+        receiverUid: user.uid,
+        senderUid: 'system',
+        description: `Daily check-in reward (Day ${dayInCycle})`
+      });
+      
+      return { success: true, reward: rewardAmount, message: `Day ${dayInCycle} check-in successful!` };
+    } catch (e) {
+      console.error(e);
+      return { success: false, reward: 0, message: "Failed to claim reward" };
+    }
+  };
+
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode }}>
+    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn }}>
       {children}
     </AppContext.Provider>
   );

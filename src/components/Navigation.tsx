@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Zap, Wallet, Users, User, Shield } from 'lucide-react';
+import { Home, Zap, Wallet, Users, User, Shield, Trophy } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../hooks/useAppStore';
 
@@ -11,6 +11,7 @@ export function Navigation() {
     { to: '/tasks', icon: Zap, label: 'TASKS' },
     { to: '/wallet', icon: Wallet, label: 'WALLET' },
     { to: '/friends', icon: Users, label: 'FRIENDS' },
+    { to: '/leaderboard', icon: Trophy, label: 'RANKS' },
     { to: '/profile', icon: User, label: 'PROFILE' },
   ];
 

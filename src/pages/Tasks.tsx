@@ -4,6 +4,116 @@ import { collection, query, getDocs, doc, runTransaction, getDoc } from 'firebas
 import { db } from '../lib/firebase';
 import { Task as AppTask } from '../types';
 import { AdDisplay } from '../components/AdDisplay';
+import confetti from 'canvas-confetti';
+
+function DailyRewards() {
+  const { user, claimDailyCheckIn } = useApp();
+  const [claiming, setClaiming] = useState(false);
+  const [claimResult, setClaimResult] = useState<{success: boolean, message: string} | null>(null);
+  
+  if (!user) return null;
+
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  
+  const hasClaimedToday = user.lastCheckIn ? user.lastCheckIn >= startOfDay : false;
+  
+  const currentStreak = user.dailyStreak || 0;
+  let displayedStreak = currentStreak;
+  const startOfYesterday = startOfDay - 24 * 60 * 60 * 1000;
+  // If missed a day and haven't claimed today, the streak reset visual
+  if (user.lastCheckIn && user.lastCheckIn < startOfYesterday && !hasClaimedToday) {
+    displayedStreak = 0;
+  }
+  
+  const currentIndex = hasClaimedToday ? (currentStreak - 1) % 7 : displayedStreak % 7;
+  
+  const handleClaim = async () => {
+    setClaiming(true);
+    const res = await claimDailyCheckIn();
+    setClaimResult({ success: res.success, message: res.message });
+    if (res.success) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FFD700', '#ffffff']
+      });
+    }
+    setTimeout(() => setClaimResult(null), 3000);
+    setClaiming(false);
+  };
+
+  const days = [
+    { day: 1, reward: 0.08 },
+    { day: 2, reward: 0.10 },
+    { day: 3, reward: 0.12 },
+    { day: 4, reward: 0.14 },
+    { day: 5, reward: 0.16 },
+    { day: 6, reward: 0.18 },
+    { day: 7, reward: 0.20 },
+  ];
+
+  return (
+    <div className="mb-8 p-6 bg-black/40 border border-white/10 rounded-[32px] relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700] opacity-[0.03] blur-[40px] pointer-events-none"></div>
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h3 className="text-xl font-black tracking-tight text-white">Daily Check-In</h3>
+          <p className="text-gray-400 text-xs mt-1">Claim your daily CM reward</p>
+        </div>
+        <button
+          onClick={handleClaim}
+          disabled={hasClaimedToday || claiming}
+          className={`text-xs font-black px-6 py-3 rounded-xl transition-all tracking-widest uppercase shrink-0 ${
+            hasClaimedToday 
+            ? "bg-white/5 text-green-500 border border-green-500/20" 
+            : claiming 
+              ? "bg-white/10 text-gray-500 cursor-wait"
+              : "bg-[#FFD700] text-black hover:bg-[#FFD700]/80 shadow-[0_0_15px_rgba(255,215,0,0.3)]"
+          }`}
+        >
+          {hasClaimedToday ? 'Claimed' : claiming ? '...' : 'Claim'}
+        </button>
+      </div>
+
+      {claimResult && (
+        <div className={`mb-4 px-4 py-2 rounded-lg text-xs font-bold text-center ${claimResult.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+          {claimResult.message}
+        </div>
+      )}
+
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+        {days.map((item, index) => {
+          const isClaimed = index < currentIndex || (index === currentIndex && hasClaimedToday);
+          const isToday = index === currentIndex && !hasClaimedToday;
+          return (
+            <div 
+              key={item.day} 
+              className={`flex flex-col items-center justify-center p-2 rounded-xl border relative overflow-hidden transition-all ${
+                isClaimed 
+                ? 'bg-white/5 border-white/10 opacity-60' 
+                : isToday
+                  ? 'bg-black border-[#FFD700]/50 shadow-[0_0_10px_rgba(255,215,0,0.1)]'
+                  : 'bg-black/20 border-white/5'
+              }`}
+            >
+              <span className="text-[10px] sm:text-xs text-gray-500 font-bold mb-1">Day {item.day}</span>
+              <span className={`text-xs sm:text-sm font-black ${isToday ? 'text-[#FFD700]' : isClaimed ? 'text-gray-400' : 'text-white'}`}>
+                {item.reward}
+              </span>
+              {isClaimed && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
+                  <span className="text-green-500 font-black text-lg">✓</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function Tasks() {
   const { user, adSettings } = useApp();
@@ -119,6 +229,8 @@ export function Tasks() {
         <h2 className="text-3xl font-black tracking-tight mb-2">Earn Extra <span className="text-[#FFD700]">CM</span></h2>
         <p className="text-gray-400 text-sm">Complete simple tasks to boost your balance and earn immediate rewards.</p>
       </div>
+
+      <DailyRewards />
 
       <div className="space-y-4">
         {loading ? (

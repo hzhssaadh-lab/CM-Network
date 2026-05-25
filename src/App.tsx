@@ -9,6 +9,7 @@ import { Wallet } from './pages/Wallet';
 import { Friends } from './pages/Friends';
 import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
+import { Leaderboard } from './pages/Leaderboard';
 import React, { useEffect } from 'react';
 
 function AppContent() {
@@ -57,7 +58,7 @@ function AppContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto min-h-screen p-4 sm:p-8 relative">
+    <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto p-4 sm:p-8 relative">
       {!isAdminRoute && <Header />}
       
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
@@ -66,6 +67,7 @@ function AppContent() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/friends" element={<Friends />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
