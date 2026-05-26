@@ -1,6 +1,6 @@
 import { useApp } from '../hooks/useAppStore';
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UserProfile } from '../types';
 
@@ -12,16 +12,16 @@ function FriendLeaderboard({ userCode }: { userCode: string }) {
     const fetchFriends = async () => {
       try {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, orderBy('balance', 'desc'), limit(50));
+        const q = query(usersRef, where('referredBy', '==', userCode));
         const querySnapshot = await getDocs(q);
         
         const topFriends: UserProfile[] = [];
         querySnapshot.forEach((doc) => {
-          const friendData = doc.data() as UserProfile;
-          if (friendData.referredBy === userCode) {
-             topFriends.push(friendData);
-          }
+          topFriends.push(doc.data() as UserProfile);
         });
+        
+        // Sort by balance locally (since we don't have a composite index guaranteed) 
+        topFriends.sort((a, b) => (b.balance || 0) - (a.balance || 0));
         
         setFriends(topFriends);
       } catch (error) {
