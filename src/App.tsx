@@ -10,6 +10,7 @@ import { Friends } from './pages/Friends';
 import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
 import { Leaderboard } from './pages/Leaderboard';
+import { Squads } from './pages/Squads';
 import React, { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 
@@ -70,6 +71,7 @@ function AppContent() {
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/squads" element={<Squads />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/login" element={<Navigate to="/" replace />} />

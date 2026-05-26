@@ -19,6 +19,17 @@ export interface UserProfile {
   lastCheckIn: number | null;
   deviceId?: string;
   transactionsBlocked?: boolean;
+  squadId?: string;
+}
+
+export interface Squad {
+  id: string;
+  name: string;
+  description: string;
+  ownerId: string;
+  members: number;
+  totalBalance: number;
+  createdAt: number;
 }
 
 export interface Transaction {
