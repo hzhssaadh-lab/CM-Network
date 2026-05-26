@@ -11,6 +11,7 @@ import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
 import { Leaderboard } from './pages/Leaderboard';
 import React, { useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
 
 function AppContent() {
   const { user, loading, submitReferralCode } = useApp();
@@ -59,6 +60,7 @@ function AppContent() {
 
   return (
     <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto p-4 sm:p-8 relative">
+      <Toaster position="top-center" toastOptions={{ style: { background: '#333', color: '#fff', borderRadius: '16px' } }} />
       {!isAdminRoute && <Header />}
       
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>

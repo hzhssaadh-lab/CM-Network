@@ -8,6 +8,7 @@ import { db } from '../lib/firebase';
 import { BannerAd } from '../components/BannerAd';
 import { InterstitialAd } from '../components/InterstitialAd';
 import { AdDisplay } from '../components/AdDisplay';
+import toast from 'react-hot-toast';
 
 export function Dashboard() {
   const { user, updateUser } = useApp();
@@ -42,6 +43,7 @@ export function Dashboard() {
   const handleClaim = async (userId: string, earned: number) => {
     if (claimInProgress.current) return;
     claimInProgress.current = true;
+    let claimed = false;
     try {
         await runTransaction(db, async (t) => {
           const userRef = doc(db, 'users', userId);
@@ -66,7 +68,15 @@ export function Dashboard() {
             status: 'completed',
             receiverUid: userId
           });
+          claimed = true;
         });
+        
+        if (claimed) {
+            toast.success(`Mining session completed! You earned ${formatCurrency(earned)} CM.`, {
+                icon: '⛏️',
+                duration: 6000,
+            });
+        }
     } catch(e) { 
         console.error('claim error', e)
     } finally {

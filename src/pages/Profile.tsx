@@ -1,7 +1,15 @@
+import { useState } from 'react';
 import { useApp } from '../hooks/useAppStore';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { Edit2, X, Check } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export function Profile() {
   const { user, logout } = useApp();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [saving, setSaving] = useState(false);
 
   if (!user) return null;
 
@@ -15,8 +23,15 @@ export function Profile() {
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in fade-in duration-500 pb-10">
-      <div className="flex flex-col items-center bg-gradient-to-br from-black to-[#0a0a0a] rounded-[32px] p-10 border border-[#FFD700]/20 mb-8 relative overflow-hidden">
-         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-5 blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="flex flex-col items-center bg-black/60 backdrop-blur-3xl rounded-[32px] p-10 border border-white/10 mb-8 relative overflow-hidden shadow-[0_0_40px_rgba(255,215,0,0.05)]"
+      >
+         <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-[#FFD700]/10 via-transparent to-transparent opacity-50 pointer-events-none"></div>
+         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-10 blur-[100px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
+         <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#FFD700] opacity-5 blur-[100px] pointer-events-none translate-y-1/2 -translate-x-1/2"></div>
          
          {user.role === 'admin' && (
            <span className="absolute top-6 right-6 bg-red-500/10 text-red-400 text-[10px] items-center flex font-bold px-4 py-1.5 rounded-full border border-red-500/20 uppercase tracking-widest">
@@ -25,30 +40,102 @@ export function Profile() {
            </span>
          )}
          
-         <div className="relative mb-6">
-           <div className="absolute inset-0 bg-[#FFD700] blur-xl opacity-20 rounded-full"></div>
+         <div className="relative mb-8 group cursor-pointer" onClick={() => {
+               setEditedName(user.name);
+               setIsEditing(true);
+             }}>
+           <div className="absolute inset-0 bg-[#FFD700] blur-2xl opacity-20 rounded-full group-hover:opacity-30 transition-opacity duration-500"></div>
            {user.photoURL ? (
-              <img src={user.photoURL} alt={user.name} className="relative w-28 h-28 rounded-full border-2 border-[#FFD700]/50 object-cover z-10" />
+              <img src={user.photoURL} alt={user.name} className="relative w-32 h-32 rounded-full border-2 border-[#FFD700]/30 object-cover z-10 group-hover:border-[#FFD700]/60 transition-colors duration-300 shadow-xl" />
            ) : (
-              <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-gray-800 to-black border-2 border-[#FFD700]/50 flex items-center justify-center z-10">
-                 <span className="text-4xl font-black text-[#FFD700]">{user.name.charAt(0)}</span>
+              <div className="relative w-32 h-32 rounded-full bg-gradient-to-br from-gray-900 to-black border-2 border-[#FFD700]/30 flex items-center justify-center z-10 group-hover:border-[#FFD700]/60 transition-colors duration-300 shadow-xl">
+                 <span className="text-5xl font-black text-[#FFD700] drop-shadow-md">{user.name.charAt(0)}</span>
               </div>
            )}
+           <button 
+             className="absolute bottom-0 right-0 z-20 bg-black/80 backdrop-blur-sm border border-[#FFD700]/50 p-2.5 rounded-full text-[#FFD700] group-hover:bg-[#FFD700] group-hover:text-black transition-all duration-300 shadow-lg"
+           >
+             <Edit2 className="w-5 h-5" />
+           </button>
          </div>
 
-         <h2 className="text-3xl font-black mb-1 capitalize tracking-tight">{user.name}</h2>
-         <p className="text-gray-500 font-mono text-sm mb-8">{user.email}</p>
+         {isEditing ? (
+           <motion.div 
+             initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+             className="w-full max-w-sm mb-8 relative z-20"
+           >
+             <div className="flex bg-black/40 border border-[#FFD700]/30 rounded-2xl p-1 backdrop-blur-md">
+               <input
+                 type="text"
+                 value={editedName}
+                 onChange={(e) => setEditedName(e.target.value)}
+                 className="flex-1 bg-transparent px-4 py-3 text-white focus:outline-none text-center font-bold text-lg"
+                 placeholder="Enter your name"
+                 autoFocus
+                 disabled={saving}
+               />
+               <button 
+                 onClick={async () => {
+                   if (!editedName.trim() || editedName.trim() === user.name) {
+                     setIsEditing(false);
+                     return;
+                   }
+                   setSaving(true);
+                   try {
+                     await updateDoc(doc(db, 'users', user.uid), {
+                       name: editedName.trim()
+                     });
+                     setIsEditing(false);
+                   } catch(e) {
+                     alert("Failed to update name.");
+                   } finally {
+                     setSaving(false);
+                   }
+                 }}
+                 disabled={saving}
+                 className="bg-[#FFD700]/10 text-[#FFD700] px-4 rounded-xl hover:bg-[#FFD700]/20 transition-colors flex items-center justify-center font-bold"
+               >
+                 <Check className="w-5 h-5" />
+               </button>
+               <button 
+                 onClick={() => setIsEditing(false)}
+                 disabled={saving}
+                 className="text-gray-400 px-3 hover:text-white transition-colors"
+               >
+                 <X className="w-5 h-5" />
+               </button>
+             </div>
+           </motion.div>
+         ) : (
+           <div className="text-center relative z-20 mb-8 cursor-pointer group" onClick={() => {
+              setEditedName(user.name);
+              setIsEditing(true);
+           }}>
+             <h2 className="text-4xl font-black mb-2 capitalize tracking-tight flex items-center justify-center gap-2 group-hover:text-[#FFD700] transition-colors">
+               {user.name}
+             </h2>
+             <p className="text-gray-400 font-mono text-sm">{user.email}</p>
+           </div>
+         )}
          
-         <div className="w-full bg-white/5 rounded-2xl p-5 flex justify-between items-center border border-white/5">
-            <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Account Status</span>
-            <span className={`text-[10px] px-3 py-1 bg-black/40 rounded-full font-bold uppercase tracking-widest ${user.isActive ? 'text-green-400 border border-green-400/20' : 'text-red-400 border border-red-400/20'}`}>
+         <div className="w-full bg-white/5 backdrop-blur-sm rounded-2xl p-5 flex justify-between items-center border border-white/5 relative z-20 hover:bg-white/10 transition-colors">
+            <div className="flex flex-col">
+              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Account Status</span>
+              <span className="text-sm text-white font-medium">Verified Profile</span>
+            </div>
+            <span className={`text-[10px] px-4 py-1.5 bg-black/40 rounded-full font-bold uppercase tracking-widest flex items-center gap-2 shadow-inner ${user.isActive ? 'text-green-400 border border-green-500/20 shadow-[0_0_10px_rgba(74,222,128,0.1)]' : 'text-red-400 border border-red-500/20 shadow-[0_0_10px_rgba(248,113,113,0.1)]'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full shadow-md ${user.isActive ? 'bg-green-400 shadow-green-400/50' : 'bg-red-400 shadow-red-400/50'}`}></span>
               {user.isActive ? 'Active' : 'Blocked'}
             </span>
          </div>
-      </div>
+      </motion.div>
 
       <div className="space-y-4">
-        <button onClick={() => alert('Account Settings: Currently unavailable')} className="w-full bg-white/5 hover:bg-white/10 transition-colors p-5 rounded-2xl border border-white/5 flex items-center justify-between group">
+        <button onClick={() => {
+           setEditedName(user.name);
+           setIsEditing(true);
+           window.scrollTo({ top: 0, behavior: 'smooth' });
+        }} className="w-full bg-white/5 hover:bg-white/10 transition-colors p-5 rounded-2xl border border-white/5 flex items-center justify-between group">
            <span className="font-bold text-sm">Account Settings</span>
            <span className="text-gray-500 group-hover:text-white transition-colors">→</span>
         </button>
