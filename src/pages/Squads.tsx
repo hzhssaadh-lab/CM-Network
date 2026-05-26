@@ -50,7 +50,11 @@ export function Squads() {
   };
 
   const handleCreateSquad = async () => {
-    if (!newSquadName.trim() || !user) return;
+    if (!user) return;
+    if (!newSquadName.trim()) {
+      toast.error("Please enter a squad name");
+      return;
+    }
     setJoining(true);
     try {
       const squadId = 'sq_' + Date.now() + Math.random().toString(36).substring(2, 7);
@@ -71,7 +75,7 @@ export function Squads() {
       setNewSquadDesc('');
       fetchSquads();
     } catch(e) {
-      toast.error("Failed to create squad");
+      toast.error(`Failed to create squad: ${e instanceof Error ? e.message : 'Unknown'}`);
       console.error(e);
     } finally {
       setJoining(false);
@@ -90,11 +94,11 @@ export function Squads() {
         members: increment(1),
         totalBalance: increment(user.balance || 0)
       });
-      await updateUser({ ...user, squadId });
+      await updateUser({ squadId });
       toast.success("Joined squad!");
       fetchSquads();
     } catch(e) {
-      toast.error("Failed to join squad");
+      toast.error(`Failed to join squad: ${e instanceof Error ? e.message : 'Unknown'}`);
       console.error(e);
     } finally {
       setJoining(false);
