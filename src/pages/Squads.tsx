@@ -51,8 +51,8 @@ export function Squads() {
       }
       
       // Fetch friends (referred users)
-      if (user.referralCode) {
-        const friendsQ = query(collection(db, 'users'), where('referredBy', '==', user.referralCode));
+      if (user.uid) {
+        const friendsQ = query(collection(db, 'users'), where('referredBy', '==', user.uid));
         const friendsRes = await getDocs(friendsQ);
         setFriends(friendsRes.docs.map(d => d.data() as UserProfile));
       }

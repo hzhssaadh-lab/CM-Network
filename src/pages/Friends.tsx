@@ -4,7 +4,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UserProfile } from '../types';
 
-function FriendLeaderboard({ userCode }: { userCode: string }) {
+function FriendLeaderboard({ userUid }: { userUid: string }) {
   const [friends, setFriends] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,7 +12,7 @@ function FriendLeaderboard({ userCode }: { userCode: string }) {
     const fetchFriends = async () => {
       try {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('referredBy', '==', userCode));
+        const q = query(usersRef, where('referredBy', '==', userUid));
         const querySnapshot = await getDocs(q);
         
         const topFriends: UserProfile[] = [];
@@ -31,10 +31,10 @@ function FriendLeaderboard({ userCode }: { userCode: string }) {
       }
     };
 
-    if (userCode) {
+    if (userUid) {
       fetchFriends();
     }
-  }, [userCode]);
+  }, [userUid]);
 
   return (
     <div className="w-full max-w-2xl mx-auto bg-white/5 border border-white/10 rounded-[32px] p-6 sm:p-8 mt-8">
@@ -168,7 +168,7 @@ export function Friends() {
         </div>
       </div>
 
-      <FriendLeaderboard userCode={user.referralCode} />
+      <FriendLeaderboard userUid={user.uid} />
 
     </div>
   );
