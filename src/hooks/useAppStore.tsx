@@ -93,6 +93,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsubscribeUser = onSnapshot(userRef, async (docSnap) => {
         if (docSnap.exists()) {
           const u = docSnap.data() as UserProfile;
+          u.uid = fUser.uid; // Ensure uid is present even for older documents
           if (u.isActive === false && u.role !== 'admin') {
             await signOut(auth);
             setUser(null);

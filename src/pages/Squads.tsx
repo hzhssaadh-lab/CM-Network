@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { Users, Coins, UserPlus, Shield, Check, Plus } from 'lucide-react';
+import { Users, Coins, UserPlus, Shield, Check, Plus, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Squad } from '../types';
 import toast from 'react-hot-toast';
@@ -15,6 +15,7 @@ export function Squads() {
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [addingFriend, setAddingFriend] = useState<string | null>(null);
   
   useEffect(() => {
@@ -51,10 +52,14 @@ export function Squads() {
       }
       
       // Fetch friends (referred users)
-      if (user.uid) {
-        const friendsQ = query(collection(db, 'users'), where('referredBy', '==', user.uid));
+      if (user.uid && user.referralCode) {
+        const friendsQ = query(collection(db, 'users'), where('referredBy', 'in', [user.uid, user.referralCode]));
         const friendsRes = await getDocs(friendsQ);
-        setFriends(friendsRes.docs.map(d => d.data() as UserProfile));
+        setFriends(friendsRes.docs.map(d => {
+          const u = d.data() as UserProfile;
+          u.uid = d.id; // Make sure uid is present
+          return u;
+        }));
       }
       
     } catch(e) {
@@ -82,8 +87,8 @@ export function Squads() {
       await setDoc(doc(db, 'squads', squadId), newSquad);
       toast.success("Squad created successfully!");
       fetchData();
-    } catch (e) {
-      toast.error("Failed to create squad");
+    } catch (e: any) {
+      toast.error(`Failed to create squad: ${e.message || 'Unknown'}`);
       console.error(e);
     } finally {
       setCreating(false);
@@ -107,6 +112,34 @@ export function Squads() {
       console.error(e);
     } finally {
       setAddingFriend(null);
+    }
+  };
+
+  const handleLeaveSquad = async () => {
+    if (!mySquad || !user) return;
+    
+    // Prevent owner from leaving (they should delete the squad instead, though not implemented yet)
+    if (mySquad.ownerId === user.uid) {
+      toast.error("Squad owners cannot leave. You must delete the squad or transfer ownership.");
+      return;
+    }
+
+    setLeaving(true);
+    try {
+      const squadRef = doc(db, 'squads', mySquad.id);
+      await updateDoc(squadRef, {
+        memberUids: arrayRemove(user.uid),
+        members: Math.max(0, (mySquad.members || 1) - 1)
+      });
+      toast.success("You have left the squad");
+      setMySquad(null);
+      setSquadMembers([]);
+      fetchData();
+    } catch(e) {
+      toast.error("Failed to leave squad");
+      console.error(e);
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -281,6 +314,27 @@ export function Squads() {
               ))}
             </AnimatePresence>
           </div>
+
+          {mySquad.ownerId !== user.uid && (
+            <div className="mt-8">
+              <button
+                onClick={handleLeaveSquad}
+                disabled={leaving}
+                className="w-full py-4 rounded-xl flex items-center justify-center gap-2 font-black uppercase text-xs tracking-widest transition-all bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20"
+              >
+                {leaving ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                    Leaving...
+                  </span>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4" /> Leave Squad
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
