@@ -345,9 +345,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       newStreak = 1; // Reset streak
     }
     
-    // Cycle from 1 to 7
-    const dayInCycle = ((newStreak - 1) % 7) + 1;
-    const rewardAmounts = [0.02, 0.04, 0.04, 0.06, 0.06, 0.08, 0.10];
+    // Cycle from 1 to 5
+    const dayInCycle = ((newStreak - 1) % 5) + 1;
+    const rewardAmounts = [0.02, 0.04, 0.06, 0.08, 0.10];
     const rewardAmount = rewardAmounts[dayInCycle - 1];
     
     try {

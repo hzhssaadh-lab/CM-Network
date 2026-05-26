@@ -26,7 +26,7 @@ function DailyRewards() {
     displayedStreak = 0;
   }
   
-  const currentIndex = hasClaimedToday ? (currentStreak - 1) % 7 : displayedStreak % 7;
+  const currentIndex = hasClaimedToday ? (currentStreak - 1) % 5 : displayedStreak % 5;
   
   const handleClaim = async () => {
     setClaiming(true);
@@ -47,11 +47,9 @@ function DailyRewards() {
   const days = [
     { day: 1, reward: 0.02 },
     { day: 2, reward: 0.04 },
-    { day: 3, reward: 0.04 },
-    { day: 4, reward: 0.06 },
-    { day: 5, reward: 0.06 },
-    { day: 6, reward: 0.08 },
-    { day: 7, reward: 0.10 },
+    { day: 3, reward: 0.06 },
+    { day: 4, reward: 0.08 },
+    { day: 5, reward: 0.10 },
   ];
 
   return (
@@ -83,7 +81,7 @@ function DailyRewards() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {days.map((item, index) => {
           const isClaimed = index < currentIndex || (index === currentIndex && hasClaimedToday);
           const isToday = index === currentIndex && !hasClaimedToday;
