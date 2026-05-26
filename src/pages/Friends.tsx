@@ -4,37 +4,42 @@ import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UserProfile } from '../types';
 
-function Leaderboard() {
-  const [leaders, setLeaders] = useState<UserProfile[]>([]);
+function FriendLeaderboard({ userCode }: { userCode: string }) {
+  const [friends, setFriends] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchLeaders = async () => {
+    const fetchFriends = async () => {
       try {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, orderBy('referralCount', 'desc'), limit(10));
+        const q = query(usersRef, orderBy('balance', 'desc'), limit(50));
         const querySnapshot = await getDocs(q);
         
-        const topUsers: UserProfile[] = [];
+        const topFriends: UserProfile[] = [];
         querySnapshot.forEach((doc) => {
-          topUsers.push(doc.data() as UserProfile);
+          const friendData = doc.data() as UserProfile;
+          if (friendData.referredBy === userCode) {
+             topFriends.push(friendData);
+          }
         });
         
-        setLeaders(topUsers);
+        setFriends(topFriends);
       } catch (error) {
-        console.error("Error fetching leaderboard", error);
+        console.error("Error fetching friends", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchLeaders();
-  }, []);
+    if (userCode) {
+      fetchFriends();
+    }
+  }, [userCode]);
 
   return (
     <div className="w-full max-w-2xl mx-auto bg-white/5 border border-white/10 rounded-[32px] p-6 sm:p-8 mt-8">
       <h3 className="text-xl sm:text-2xl font-black text-center text-white mb-6 uppercase tracking-widest">
-        Top Referrers
+        Your Friends Leaderboard
       </h3>
       
       {loading ? (
@@ -43,9 +48,9 @@ function Leaderboard() {
         </div>
       ) : (
         <div className="space-y-4">
-          {leaders.map((leader, index) => (
+          {friends.map((friend, index) => (
             <div 
-              key={leader.uid} 
+              key={friend.uid} 
               className="flex items-center justify-between bg-black/40 rounded-2xl p-4 border border-white/5 hover:border-[#FFD700]/30 transition-colors"
             >
               <div className="flex items-center space-x-4">
@@ -58,18 +63,18 @@ function Leaderboard() {
                   #{index + 1}
                 </div>
                 <div>
-                  <p className="text-white font-bold">{leader.name || 'Anonymous'}</p>
-                  <p className="text-xs text-gray-400">Join Date: {new Date(leader.joinDate).toLocaleDateString()}</p>
+                  <p className="text-white font-bold">{friend.name || 'Anonymous'}</p>
+                  <p className="text-xs text-gray-400">Join Date: {new Date(friend.joinDate).toLocaleDateString()}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-[#FFD700] font-black text-lg">{leader.referralCount}</p>
-                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Friends</p>
+                <p className="text-[#FFD700] font-black text-lg">{friend.balance.toFixed(2)}</p>
+                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Balance</p>
               </div>
             </div>
           ))}
-          {leaders.length === 0 && (
-            <p className="text-center text-gray-500 text-sm py-4">No referrals yet.</p>
+          {friends.length === 0 && (
+            <p className="text-center text-gray-500 text-sm py-4">No friends added yet.</p>
           )}
         </div>
       )}
@@ -163,7 +168,7 @@ export function Friends() {
         </div>
       </div>
 
-      <Leaderboard />
+      <FriendLeaderboard userCode={user.referralCode} />
 
     </div>
   );

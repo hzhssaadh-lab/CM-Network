@@ -29,6 +29,7 @@ export interface Squad {
   description: string;
   ownerId: string;
   members: number;
+  memberUids: string[];
   totalBalance: number;
   createdAt: number;
 }
