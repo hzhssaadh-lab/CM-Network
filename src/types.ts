@@ -17,6 +17,7 @@ export interface UserProfile {
   isActive: boolean;
   totalMined: number;
   lastCheckIn: number | null;
+  lastSquadClaim?: number | null;
   deviceId?: string;
   transactionsBlocked?: boolean;
   squadId?: string;

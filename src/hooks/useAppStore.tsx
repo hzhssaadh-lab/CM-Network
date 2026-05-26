@@ -17,6 +17,7 @@ interface AppState {
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
   submitReferralCode: (code: string) => Promise<boolean>;
   claimDailyCheckIn: () => Promise<{ success: boolean; reward: number; message: string }>;
+  claimSquadBonus: (squadSize: number) => Promise<{ success: boolean; reward: number; message: string }>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -327,6 +328,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const claimSquadBonus = async (squadSize: number) => {
+    if (!user) return { success: false, reward: 0, message: "Not logged in" };
+    if (squadSize === 0) return { success: false, reward: 0, message: "No squad members" };
+    
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    if (user.lastSquadClaim && user.lastSquadClaim >= startOfDay) {
+      return { success: false, reward: 0, message: "Already claimed today" };
+    }
+    
+    // Reward between 0.01 and 0.2 depending on squad size or random
+    const maxReward = 0.2;
+    const calcReward = squadSize * 0.01;
+    let rewardAmount = Math.min(calcReward, maxReward);
+    // ensure at least 0.01
+    rewardAmount = Math.max(rewardAmount, 0.01);
+    
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
+        lastSquadClaim: Date.now(),
+        balance: (user.balance || 0) + rewardAmount
+      }, { merge: true });
+      
+      return { success: true, reward: rewardAmount, message: "Claimed successfully" };
+    } catch (e) {
+      console.error(e);
+      return { success: false, reward: 0, message: "Error claiming" };
+    }
+  };
+
   const claimDailyCheckIn = async () => {
     if (!user) return { success: false, reward: 0, message: "Not logged in" };
     
@@ -378,7 +411,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn }}>
+    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus }}>
       {children}
     </AppContext.Provider>
   );
