@@ -7,45 +7,15 @@ import { Transaction } from '../types';
 
 export function Wallet() {
   const { user } = useApp();
-  const [activeTab, setActiveTab] = useState<'send'|'receive'|'history'|'tasks'|'withdraw'>('send');
+  const [activeTab, setActiveTab] = useState<'send'|'receive'|'history'|'tasks'>('send');
   const [receiverUid, setReceiverUid] = useState('');
   const [amount, setAmount] = useState('');
-  const [walletAddr, setWalletAddr] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const { requestWithdrawal } = useApp();
 
-  const handleWithdrawalRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); setSuccess('');
-    
-    if (!user) return;
-    const withdrawAmount = parseFloat(amount);
-    
-    if (isNaN(withdrawAmount) || withdrawAmount < 5) {
-      setError("Minimum withdrawal amount is 5 CM"); return;
-    }
-    if (withdrawAmount > user.balance) {
-      setError("Insufficient balance"); return;
-    }
-    if (!walletAddr.trim()) {
-      setError("Wallet address is required"); return;
-    }
-
-    setSending(true);
-    const res = await requestWithdrawal(withdrawAmount, walletAddr.trim());
-    if (res.success) {
-      setSuccess(res.message);
-      setAmount('');
-      setWalletAddr('');
-    } else {
-      setError(res.message);
-    }
-    setSending(false);
-  };
   const [historyFilter, setHistoryFilter] = useState<'all' | 'mining' | 'task' | 'referral' | 'transfer'>('all');
   const [completedTasksHistory, setCompletedTasksHistory] = useState<any[]>([]);
   const [tasksMetaMap, setTasksMetaMap] = useState<Map<string, any>>(new Map());
@@ -184,60 +154,9 @@ export function Wallet() {
        <div className="flex bg-white/5 p-1 rounded-2xl mb-8 overflow-x-auto custom-scrollbar">
          <button onClick={() => setActiveTab('send')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'send' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Send</button>
          <button onClick={() => setActiveTab('receive')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'receive' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Receive</button>
-         <button onClick={() => setActiveTab('withdraw')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'withdraw' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Withdraw</button>
          <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'history' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tx History</button>
          <button onClick={() => setActiveTab('tasks')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tasks</button>
        </div>
-
-       {activeTab === 'withdraw' && (
-         <div className="bg-white/5 rounded-[32px] border border-white/10 p-8">
-           <h3 className="text-xl font-bold font-black tracking-tight mb-2">Withdraw CM Coins to USDT</h3>
-           <p className="text-gray-400 text-sm mb-6">Convert your CM coins to USDT. Minimum withdrawal amount is <span className="text-[#FFD700] font-bold">5 CM</span>.</p>
-           {user.transactionsBlocked ? (
-             <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center">
-               <p className="text-red-500 font-bold text-lg mb-2">Transactions Blocked</p>
-               <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support.</p>
-             </div>
-           ) : (
-             <>
-               {error && <p className="text-red-400 text-sm mb-4 bg-red-400/10 p-4 rounded-xl border border-red-400/20 font-medium">{error}</p>}
-               {success && <p className="text-green-400 text-sm mb-4 bg-green-400/10 p-4 rounded-xl border border-green-400/20 font-medium">{success}</p>}
-               <form onSubmit={handleWithdrawalRequest} className="space-y-6">
-                 <div>
-                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Wallet Address (TRC20 / Binance UID)</label>
-                   <input 
-                     type="text" 
-                     value={walletAddr}
-                     onChange={(e) => setWalletAddr(e.target.value)}
-                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#FFD700]/50 transition-colors placeholder:text-gray-600 focus:ring-1 focus:ring-[#FFD700]/50 font-mono" 
-                     placeholder="Enter exact address or UID"
-                     required
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Amount (CM)</label>
-                   <div className="relative">
-                     <input 
-                       type="number" 
-                       value={amount}
-                       onChange={(e) => setAmount(e.target.value)}
-                       step="0.01"
-                       min="5"
-                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white pl-4 pr-20 focus:outline-none focus:border-[#FFD700]/50 transition-colors font-mono focus:ring-1 focus:ring-[#FFD700]/50" 
-                       placeholder="5.00"
-                       required
-                     />
-                     <button type="button" onClick={() => setAmount(user.balance.toString())} className="absolute right-4 text-xs top-1/2 -translate-y-1/2 font-bold text-[#FFD700] hover:text-white transition-colors bg-[#FFD700]/10 px-3 py-1 rounded-md">MAX</button>
-                   </div>
-                 </div>
-                 <button disabled={sending} className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 text-black font-black py-4 rounded-xl shadow-[0_5px_20px_rgba(34,197,94,0.2)] active:scale-95 transition-all outline-none tracking-widest mt-4">
-                   {sending ? 'PROCESSING REQUEST...' : 'REQUEST WITHDRAWAL'}
-                 </button>
-               </form>
-             </>
-           )}
-         </div>
-       )}
 
        {activeTab === 'send' && (
          <div className="bg-white/5 rounded-[32px] border border-white/10 p-8">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { AdDisplay } from '../components/AdDisplay';
 import confetti from 'canvas-confetti';
-import { PlaySquare, Gift, X, Wallet } from 'lucide-react';
+import { PlaySquare, Gift, Wallet } from 'lucide-react';
 
 function TasksAdNetwork() {
   useEffect(() => {
@@ -45,9 +45,9 @@ function MonetagAdDisplay() {
 export function Ads() {
   const { user, claimUsdtAdReward, requestUsdtWithdrawal } = useApp();
   const [watching, setWatching] = useState(false);
-  const [showBox, setShowBox] = useState(false);
-  const [opening, setOpening] = useState(false);
-  const [rewardAmount, setRewardAmount] = useState<number | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [adTimer, setAdTimer] = useState(10);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const [withdrawMode, setWithdrawMode] = useState(false);
   const [walletAddr, setWalletAddr] = useState('');
@@ -56,38 +56,43 @@ export function Ads() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Ad timer logic
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (watching && adTimer > 0) {
+      interval = setInterval(() => {
+        setAdTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [watching, adTimer]);
+
   if (!user) return null;
 
   const handleWatchAd = () => {
+    setAdTimer(10);
     setWatching(true);
+    setSuccessMsg('');
   };
 
-  const finishAdWatch = () => {
-    setWatching(false);
-    setShowBox(true); 
-  };
-
-  const handleOpenBox = async () => {
-    setOpening(true);
+  const finishAdWatch = async () => {
+    setFetching(true);
     const res = await claimUsdtAdReward();
+    setFetching(false);
+    setWatching(false);
+
     if (res.success) {
-       setRewardAmount(res.reward);
+       setSuccessMsg(`+${res.reward} USDT!`);
        confetti({
          particleCount: 150,
          spread: 80,
          origin: { y: 0.6 },
          colors: ['#22c55e', '#ffffff', '#16a34a']
        });
+       setTimeout(() => setSuccessMsg(''), 3000);
     } else {
        alert(res.message);
-       setShowBox(false);
     }
-    setOpening(false);
-  };
-
-  const handleClose = () => {
-    setShowBox(false);
-    setRewardAmount(null);
   };
 
   const handleWithdraw = async (e: React.FormEvent) => {
@@ -192,11 +197,17 @@ export function Ads() {
       <div className="mb-8 p-6 sm:p-8 bg-gradient-to-br from-[#052e16] to-black border border-green-500/30 rounded-[32px] relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)]">
         <div className="absolute top-0 right-0 w-32 h-32 bg-green-500 opacity-20 blur-[50px] pointer-events-none"></div>
         
-        {user.adsWatchedToday! >= 30 ? (
+        {successMsg && (
+          <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-xl text-center animate-in fade-in slide-in-from-top-2 relative z-20">
+            <p className="text-green-500 font-bold tracking-widest">{successMsg}</p>
+          </div>
+        )}
+
+        {user.adsWatchedToday! >= 50 ? (
           <div className="text-center relative z-10">
             <Gift className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-black tracking-tight text-white mb-2">Daily Ad Limit Reached</h3>
-            <p className="text-gray-400 text-sm">You have watched 30 ads today. Come back tomorrow for more USDT rewards!</p>
+            <p className="text-gray-400 text-sm">You have watched 50 ads today. Come back tomorrow for more USDT rewards!</p>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
@@ -207,7 +218,7 @@ export function Ads() {
               <p className="text-green-100/70 text-sm mt-2">Watch sponsor ads. Every ad gives you real USDT!</p>
               <div className="mt-3 flex items-center gap-2 text-xs font-bold text-green-500">
                 <span className="bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
-                  {30 - (user.adsWatchedToday || 0)} ADS REMAINING TODAY
+                  {50 - (user.adsWatchedToday || 0)} ADS REMAINING TODAY
                 </span>
               </div>
             </div>
@@ -227,57 +238,22 @@ export function Ads() {
                <div className="w-full h-auto min-h-[250px] flex items-center justify-center mb-6 bg-black/50 rounded-xl overflow-hidden relative z-10 border border-white/10">
                   <MonetagAdDisplay />
                </div>
-               <button 
-                  onClick={finishAdWatch}
-                  className="w-full bg-green-500 text-black text-sm font-black py-4 rounded-xl hover:bg-green-400 transition-colors uppercase tracking-widest shadow-[0_0_15px_rgba(34,197,94,0.2)]"
-                >
-                  Close Ad & Get USDT
-               </button>
-             </div>
-          </div>
-        )}
-
-        {showBox && (
-          <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-             <div className="w-full max-w-sm bg-[#0a0a0a] border border-green-500/30 rounded-3xl p-8 flex flex-col items-center shadow-[0_0_50px_rgba(34,197,94,0.2)] text-center relative">
-               
-               {rewardAmount !== null && (
-                 <button onClick={handleClose} className="absolute top-4 right-4 text-gray-500 hover:text-white">
-                   <X className="w-6 h-6" />
+               {adTimer > 0 ? (
+                 <button 
+                    disabled
+                    className="w-full bg-gray-800 text-gray-500 text-sm font-black py-4 rounded-xl uppercase tracking-widest cursor-not-allowed"
+                  >
+                    Wait {adTimer}s...
+                 </button>
+               ) : (
+                 <button 
+                    onClick={finishAdWatch}
+                    disabled={fetching}
+                    className="w-full bg-green-500 text-black text-sm font-black py-4 rounded-xl hover:bg-green-400 active:scale-95 transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(34,197,94,0.2)]"
+                  >
+                    {fetching ? 'Claiming...' : 'Close Ad & Get USDT'}
                  </button>
                )}
-
-               {rewardAmount === null ? (
-                 <>
-                   <div className="w-32 h-32 bg-green-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                     <Gift className="w-16 h-16 text-green-500" />
-                   </div>
-                   <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Mystery Box!</h3>
-                   <p className="text-gray-400 text-sm mb-8">Tap to open and reveal your reward.</p>
-                   <button 
-                      onClick={handleOpenBox}
-                      disabled={opening}
-                      className={`w-full text-black text-sm font-black py-4 rounded-xl uppercase tracking-widest transition-all ${opening ? 'bg-green-500/50 cursor-wait' : 'bg-green-500 hover:bg-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:scale-105 active:scale-95'}`}
-                    >
-                      {opening ? 'Opening...' : 'OPEN BOX'}
-                   </button>
-                 </>
-               ) : (
-                 <>
-                   <div className="w-32 h-32 bg-green-500/10 rounded-full flex items-center justify-center mb-6">
-                     <div className="text-4xl font-black text-green-400">+${rewardAmount}</div>
-                   </div>
-                   <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Congratulations!</h3>
-                   <p className="text-gray-400 text-sm mb-8">You found <span className="text-green-500 font-bold">{rewardAmount} USDT</span> in the mystery box!</p>
-                   <button 
-                      onClick={handleClose}
-                      className="w-full bg-white/10 text-white border border-white/20 text-sm font-black py-4 rounded-xl hover:bg-white/20 transition-colors uppercase tracking-widest"
-                    >
-                      Awesome
-                   </button>
-                 </>
-               )}
-
              </div>
           </div>
         )}

@@ -504,12 +504,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentWatched = 0;
     }
     
-    if (currentWatched >= 30) {
-      return { success: false, reward: 0, message: "Daily limit of 30 ads reached.", limitReached: true };
+    if (currentWatched >= 50) {
+      return { success: false, reward: 0, message: "Daily limit of 50 ads reached.", limitReached: true };
     }
     
-    // Reward between 0.001 and 0.005 USDT per ad (simulating $0.01 max)
-    const rewardAmount = Number((Math.random() * (0.005 - 0.001) + 0.001).toFixed(4));
+    // Exact reward of 0.0008 USDT per ad
+    const rewardAmount = 0.0008;
     
     try {
       const userRef = doc(db, 'users', user.uid);
