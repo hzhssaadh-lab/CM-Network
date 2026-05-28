@@ -14,6 +14,7 @@ export function Admin() {
   const [tasks, setTasks] = useState<AppTask[]>([]);
   const [claims, setClaims] = useState<TaskClaim[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [usdtWithdrawals, setUsdtWithdrawals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'withdrawals'>('users');
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,6 +22,7 @@ export function Admin() {
   // Edit User State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editBalance, setEditBalance] = useState('');
+  const [editUsdtBalance, setEditUsdtBalance] = useState('');
   const [editMiningRate, setEditMiningRate] = useState('');
 
   // Edit Task State
@@ -98,6 +100,12 @@ export function Admin() {
       const wData: any[] = [];
       wSnap.docs.forEach(d => wData.push({ id: d.id, ...d.data() }));
       setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+
+      const wuQ = query(collection(db, 'withdrawals_usdt'));
+      const wuSnap = await getDocs(wuQ);
+      const wuData: any[] = [];
+      wuSnap.docs.forEach(d => wuData.push({ id: d.id, ...d.data() }));
+      setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
     } catch (e) {
       console.error(e);
     }
@@ -109,6 +117,7 @@ export function Admin() {
     try {
       await updateDoc(doc(db, 'users', editingUser.uid), {
         balance: parseFloat(editBalance) || 0,
+        usdtBalance: parseFloat(editUsdtBalance) || 0,
         miningRate: parseFloat(editMiningRate) || 0,
       });
       setEditingUser(null);
@@ -267,6 +276,35 @@ export function Admin() {
     }
   };
 
+  const handleApproveUsdtWithdrawal = async (w: any) => {
+    try {
+      const batch = writeBatch(db);
+      const wRef = doc(db, 'withdrawals_usdt', w.id);
+      batch.update(wRef, { status: 'approved' });
+      await batch.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error approving USDT withdrawal:', e);
+    }
+  };
+
+  const handleRejectUsdtWithdrawal = async (w: any) => {
+    try {
+      const batch = writeBatch(db);
+      const wRef = doc(db, 'withdrawals_usdt', w.id);
+      batch.update(wRef, { status: 'rejected' });
+
+      // Refund the user USDT balance
+      const userRef = doc(db, 'users', w.userId);
+      batch.update(userRef, { usdtBalance: increment(w.amount) });
+
+      await batch.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error rejecting USDT withdrawal:', e);
+    }
+  };
+
   if (!user || user.role !== 'admin') {
     return <div className="text-center p-12 text-red-500 font-bold uppercase tracking-widest">Unauthorized Access</div>;
   }
@@ -357,7 +395,8 @@ export function Admin() {
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Country</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Ads Watched</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Status</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Balance</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">CM Balance</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-green-500">USDT Balance</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Role</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-right">Actions</th>
               </tr>
@@ -387,6 +426,7 @@ export function Admin() {
                     </span>
                   </td>
                   <td className="p-3 font-mono font-bold text-[#FFD700]">{formatCurrency(u.balance)}</td>
+                  <td className="p-3 font-mono font-bold text-green-500">${(u.usdtBalance || 0).toFixed(4)}</td>
                   <td className="p-3">
                     <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${u.role === 'admin' ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-gray-300'}`}>
                       {u.role}
@@ -409,6 +449,7 @@ export function Admin() {
                       onClick={() => {
                         setEditingUser(u);
                         setEditBalance((u.balance || 0).toString());
+                        setEditUsdtBalance((u.usdtBalance || 0).toString());
                         setEditMiningRate((u.miningRate || 0).toString());
                       }}
                       className="text-[10px] font-bold tracking-widest uppercase bg-[#FFD700]/20 text-[#FFD700] hover:bg-[#FFD700]/30 px-3 py-1.5 rounded-lg transition-colors"
@@ -519,11 +560,11 @@ export function Admin() {
 
       {activeTab === 'withdrawals' && (
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Withdrawal Requests</h3>
+          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-6">
+            <h3 className="text-xl font-bold uppercase tracking-widest text-[#FFD700]">CM Withdrawal Requests</h3>
           </div>
           
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
             {withdrawals.filter(w => w.status === 'pending').map(w => (
               <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
                 <div>
@@ -548,16 +589,51 @@ export function Admin() {
               </div>
             ))}
             {withdrawals.filter(w => w.status === 'pending').length === 0 && !loading && (
-              <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No pending withdrawals</p>
+              <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No pending CM withdrawals</p>
             )}
           </div>
           
-          <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 mt-12 mb-4">Past Withdrawals</h3>
+          <div className="flex justify-between items-center mb-6 mt-12 border-b border-white/10 pb-6">
+            <h3 className="text-xl font-bold uppercase tracking-widest text-green-500">USDT Withdrawal Requests</h3>
+          </div>
+          
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+            {usdtWithdrawals.filter(w => w.status === 'pending').map(w => (
+              <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-green-500/20 gap-4">
+                <div>
+                  <p className="font-bold text-green-500 text-sm uppercase tracking-widest">{w.amount} USDT</p>
+                  <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">WALLET (TRC20 / UID): <span className="text-white break-all">{w.wallet}</span></p>
+                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">USER: {w.userName} ({w.userEmail}) | COUNTRY: {w.country}</p>
+                </div>
+                <div className="flex space-x-2 shrink-0">
+                  <button 
+                    onClick={() => handleApproveUsdtWithdrawal(w)}
+                    className="text-[10px] px-4 py-2 bg-green-500 text-black rounded-lg hover:bg-green-400 font-black uppercase tracking-widest"
+                  >
+                    Mark Paid
+                  </button>
+                  <button 
+                    onClick={() => handleRejectUsdtWithdrawal(w)}
+                    className="text-[10px] px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest"
+                  >
+                    Reject & Refund
+                  </button>
+                </div>
+              </div>
+            ))}
+            {usdtWithdrawals.filter(w => w.status === 'pending').length === 0 && !loading && (
+              <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No pending USDT withdrawals</p>
+            )}
+          </div>
+
+          <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 mt-16 mb-4">Past Withdrawals (Combined)</h3>
           <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar opacity-70">
-            {withdrawals.filter(w => w.status !== 'pending').map(w => (
+            {[...withdrawals, ...usdtWithdrawals].filter(w => w.status !== 'pending').sort((a,b) => b.requestedAt - a.requestedAt).map(w => (
               <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5 gap-4">
                 <div>
-                  <p className="font-bold text-gray-300 text-sm uppercase tracking-widest">{w.amount} CM</p>
+                  <p className={`font-bold text-sm uppercase tracking-widest ${w.currency === 'USDT' ? 'text-green-500' : 'text-gray-300'}`}>
+                    {w.amount} {w.currency || 'CM'}
+                  </p>
                   <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">WALLET: <span className="break-all">{w.wallet}</span> | USER: {w.userEmail}</p>
                 </div>
                 <span className={`text-[10px] px-3 py-1 rounded-full uppercase tracking-widest font-bold ${w.status === 'approved' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
@@ -565,7 +641,7 @@ export function Admin() {
                 </span>
               </div>
             ))}
-            {withdrawals.filter(w => w.status !== 'pending').length === 0 && !loading && (
+            {[...withdrawals, ...usdtWithdrawals].filter(w => w.status !== 'pending').length === 0 && !loading && (
               <p className="text-[10px] text-gray-600 uppercase tracking-widest">No past withdrawals.</p>
             )}
           </div>
@@ -635,12 +711,22 @@ export function Admin() {
             <h3 className="text-xl font-bold mb-6">Edit {editingUser.name}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-widest text-gray-500 font-bold mb-2">Balance</label>
+                <label className="block text-xs uppercase tracking-widest text-gray-500 font-bold mb-2">CM Balance</label>
                 <input 
                   type="number" 
                   value={editBalance} 
                   onChange={(e) => setEditBalance(e.target.value)}
                   className="w-full bg-black/50 border border-white/10 rounded-xl p-3 focus:border-[#FFD700] outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-green-500 font-bold mb-2">USDT Balance</label>
+                <input 
+                  type="number" 
+                  value={editUsdtBalance} 
+                  onChange={(e) => setEditUsdtBalance(e.target.value)}
+                  className="w-full bg-black/50 border border-green-500/30 rounded-xl p-3 focus:border-green-500 outline-none transition-colors text-white"
+                  step="0.0001"
                 />
               </div>
               <div>

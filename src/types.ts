@@ -26,6 +26,7 @@ export interface UserProfile {
   totalAdsWatched?: number;
   country?: string;
   isBlocked?: boolean;
+  usdtBalance?: number;
 }
 
 export interface Withdrawal {

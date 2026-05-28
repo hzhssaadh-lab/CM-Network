@@ -11,6 +11,7 @@ import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
 import { Leaderboard } from './pages/Leaderboard';
 import { Squads } from './pages/Squads';
+import { Ads } from './pages/Ads';
 import React, { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 
@@ -68,6 +69,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tasks" element={<Tasks />} />
+          <Route path="/ads" element={<Ads />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/leaderboard" element={<Leaderboard />} />

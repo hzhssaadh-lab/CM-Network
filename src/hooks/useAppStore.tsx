@@ -19,7 +19,9 @@ interface AppState {
   claimDailyCheckIn: () => Promise<{ success: boolean; reward: number; message: string }>;
   claimSquadBonus: (squadSize: number) => Promise<{ success: boolean; reward: number; message: string }>;
   claimAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
+  claimUsdtAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   requestWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
+  requestUsdtWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -491,6 +493,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const claimUsdtAdReward = async () => {
+    if (!user) return { success: false, reward: 0, message: "Not logged in" };
+    
+    const now = new Date();
+    const today = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+    
+    let currentWatched = user.adsWatchedToday || 0;
+    if (user.lastAdWatchDate !== today) {
+      currentWatched = 0;
+    }
+    
+    if (currentWatched >= 30) {
+      return { success: false, reward: 0, message: "Daily limit of 30 ads reached.", limitReached: true };
+    }
+    
+    // Reward between 0.001 and 0.005 USDT per ad (simulating $0.01 max)
+    const rewardAmount = Number((Math.random() * (0.005 - 0.001) + 0.001).toFixed(4));
+    
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
+        lastAdWatchDate: today,
+        adsWatchedToday: currentWatched + 1,
+        totalAdsWatched: (user.totalAdsWatched || 0) + 1,
+        usdtBalance: (user.usdtBalance || 0) + rewardAmount
+      }, { merge: true });
+      
+      const txRef = doc(collection(db, 'transactions'));
+      await setDoc(txRef, {
+        id: txRef.id,
+        type: 'ad_reward',
+        amount: rewardAmount,
+        currency: 'USDT',
+        timestamp: Date.now(),
+        status: 'completed',
+        receiverUid: user.uid,
+        senderUid: 'system',
+        description: `Watched ad #${currentWatched + 1} for USDT`
+      });
+
+      const adLogRef = doc(collection(db, 'ads_log'));
+      await setDoc(adLogRef, {
+        id: adLogRef.id,
+        userId: user.uid,
+        adNetwork: 'Monetag (USDT)',
+        reward: rewardAmount,
+        timestamp: Date.now(),
+        country: user.country || 'Unknown'
+      });
+      
+      return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} USDT!` };
+    } catch (e) {
+      console.error(e);
+      return { success: false, reward: 0, message: "Failed to claim ad reward" };
+    }
+  };
+
   const requestWithdrawal = async (amount: number, wallet: string) => {
     if (!user) return { success: false, message: "Not logged in" };
     if (user.balance < amount) return { success: false, message: "Insufficient balance" };
@@ -532,8 +591,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const requestUsdtWithdrawal = async (amount: number, wallet: string) => {
+    if (!user) return { success: false, message: "Not logged in" };
+    if ((user.usdtBalance || 0) < amount) return { success: false, message: "Insufficient USDT balance" };
+    if (amount < 2) return { success: false, message: "Minimum withdrawal is 2 USDT" };
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, { usdtBalance: (user.usdtBalance || 0) - amount }, { merge: true });
+
+      const wRef = doc(collection(db, 'withdrawals_usdt'));
+      await setDoc(wRef, {
+        id: wRef.id,
+        userId: user.uid,
+        userName: user.name,
+        userEmail: user.email,
+        amount: amount,
+        currency: 'USDT',
+        wallet: wallet,
+        status: 'pending',
+        requestedAt: Date.now(),
+        country: user.country || 'Unknown'
+      });
+
+      const txRef = doc(collection(db, 'transactions'));
+      await setDoc(txRef, {
+        id: txRef.id,
+        type: 'withdrawal',
+        amount: -amount,
+        currency: 'USDT',
+        timestamp: Date.now(),
+        status: 'pending',
+        receiverUid: 'system',
+        senderUid: user.uid,
+        description: `USDT Withdrawal request to ${wallet}`
+      });
+
+      return { success: true, message: "USDT Withdrawal requested successfully!" };
+    } catch (e) {
+      console.error(e);
+      return { success: false, message: "Request failed. Please try again." };
+    }
+  };
+
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, requestWithdrawal }}>
+    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, claimUsdtAdReward, requestWithdrawal, requestUsdtWithdrawal }}>
       {children}
     </AppContext.Provider>
   );

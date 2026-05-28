@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Zap, Wallet, Users, User, Shield, Trophy, Flag } from 'lucide-react';
+import { Home, Zap, Wallet, Users, User, Shield, Trophy, Flag, PlaySquare } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../hooks/useAppStore';
 
@@ -9,9 +9,9 @@ export function Navigation() {
   const navItems = [
     { to: '/', icon: Home, label: 'DASHBOARD' },
     { to: '/tasks', icon: Zap, label: 'TASKS' },
+    { to: '/ads', icon: PlaySquare, label: 'EARN' },
     { to: '/wallet', icon: Wallet, label: 'WALLET' },
     { to: '/friends', icon: Users, label: 'FRIENDS' },
-    { to: '/squads', icon: Flag, label: 'SQUADS' },
     { to: '/leaderboard', icon: Trophy, label: 'RANKS' },
     { to: '/profile', icon: User, label: 'PROFILE' },
   ];
