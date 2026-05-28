@@ -7,6 +7,23 @@ import { AdDisplay } from '../components/AdDisplay';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, X } from 'lucide-react';
 
+function MonetagAdDisplay() {
+  useEffect(() => {
+    const s = document.createElement('script');
+    s.dataset.zone = '11069542';
+    s.src = 'https://al5sm.com/tag.min.js';
+    const parent = document.body || document.documentElement;
+    parent.appendChild(s);
+    return () => {
+      if (parent.contains(s)) {
+        parent.removeChild(s);
+      }
+    };
+  }, []);
+
+  return <div className="text-gray-500 text-xs animate-pulse">Loading Sponsor Match...</div>;
+}
+
 function WatchAdsAndEarn() {
   const { user, claimAdReward, adSettings } = useApp();
   const [watching, setWatching] = useState(false);
@@ -89,7 +106,7 @@ function WatchAdsAndEarn() {
            <div className="w-full max-w-sm bg-[#0a0a0a] border border-white/20 rounded-3xl p-6 flex flex-col items-center shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden relative">
              <h3 className="text-sm uppercase tracking-widest font-bold mb-4 text-[#FFD700]">Sponsor Video</h3>
              <div className="w-full h-auto min-h-[250px] flex items-center justify-center mb-6 bg-black/50 rounded-xl overflow-hidden relative z-10 border border-white/10">
-                <AdDisplay type="rectangle" />
+                <MonetagAdDisplay />
              </div>
              <button 
                 onClick={finishAdWatch}
