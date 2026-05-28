@@ -23,6 +23,30 @@ export interface UserProfile {
   squadId?: string;
   adsWatchedToday?: number;
   lastAdWatchDate?: string; // YYYY-MM-DD format
+  totalAdsWatched?: number;
+  country?: string;
+  isBlocked?: boolean;
+}
+
+export interface Withdrawal {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  amount: number; // In USDT or CM
+  wallet: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: number;
+  country?: string;
+}
+
+export interface AdLog {
+  id: string;
+  userId: string;
+  adNetwork: string;
+  reward: number;
+  timestamp: number;
+  country?: string;
 }
 
 export interface Squad {

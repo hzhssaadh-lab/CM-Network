@@ -19,6 +19,7 @@ interface AppState {
   claimDailyCheckIn: () => Promise<{ success: boolean; reward: number; message: string }>;
   claimSquadBonus: (squadSize: number) => Promise<{ success: boolean; reward: number; message: string }>;
   claimAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
+  requestWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -107,9 +108,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
             // Bind device ID if missing
             const currentDeviceId = getDeviceId();
+            let updates: any = {};
+            let needsUpdate = false;
+            
             if (!u.deviceId) {
-              await setDoc(userRef, { deviceId: currentDeviceId }, { merge: true });
+              updates.deviceId = currentDeviceId;
               u.deviceId = currentDeviceId;
+              needsUpdate = true;
+            }
+            
+            if (!u.country) {
+              try {
+                const res = await fetch('https://ipapi.co/json/');
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.country_name) {
+                    updates.country = data.country_name;
+                    u.country = data.country_name;
+                    needsUpdate = true;
+                  }
+                }
+              } catch(e) { console.warn("Failed to fetch IP", e); }
+            }
+
+            if (needsUpdate) {
+              await setDoc(userRef, updates, { merge: true });
             }
 
             setUser(u);
@@ -435,6 +458,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await setDoc(userRef, {
         lastAdWatchDate: today,
         adsWatchedToday: currentWatched + 1,
+        totalAdsWatched: (user.totalAdsWatched || 0) + 1,
         balance: (user.balance || 0) + rewardAmount
       }, { merge: true });
       
@@ -449,6 +473,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         senderUid: 'system',
         description: `Watched ad #${currentWatched + 1}`
       });
+
+      const adLogRef = doc(collection(db, 'ads_log'));
+      await setDoc(adLogRef, {
+        id: adLogRef.id,
+        userId: user.uid,
+        adNetwork: 'Monetag',
+        reward: rewardAmount,
+        timestamp: Date.now(),
+        country: user.country || 'Unknown'
+      });
       
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} CM!` };
     } catch (e) {
@@ -457,8 +491,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const requestWithdrawal = async (amount: number, wallet: string) => {
+    if (!user) return { success: false, message: "Not logged in" };
+    if (user.balance < amount) return { success: false, message: "Insufficient balance" };
+    if (amount < 5) return { success: false, message: "Minimum withdrawal is 5" };
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, { balance: user.balance - amount }, { merge: true });
+
+      const wRef = doc(collection(db, 'withdrawals'));
+      await setDoc(wRef, {
+        id: wRef.id,
+        userId: user.uid,
+        userName: user.name,
+        userEmail: user.email,
+        amount: amount,
+        wallet: wallet,
+        status: 'pending',
+        requestedAt: Date.now(),
+        country: user.country || 'Unknown'
+      });
+
+      const txRef = doc(collection(db, 'transactions'));
+      await setDoc(txRef, {
+        id: txRef.id,
+        type: 'withdrawal',
+        amount: -amount,
+        timestamp: Date.now(),
+        status: 'pending',
+        receiverUid: 'system',
+        senderUid: user.uid,
+        description: `Withdrawal request to ${wallet}`
+      });
+
+      return { success: true, message: "Withdrawal requested successfully!" };
+    } catch (e) {
+      console.error(e);
+      return { success: false, message: "Request failed. Please try again." };
+    }
+  };
+
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward }}>
+    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, requestWithdrawal }}>
       {children}
     </AppContext.Provider>
   );

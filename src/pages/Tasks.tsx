@@ -16,7 +16,7 @@ function TasksAdNetwork() {
     const parent1 = document.body || document.documentElement;
     parent1.appendChild(s1);
 
-    // Monetag (quge5)
+    // Monetag (quge5 - 243881)
     const s2 = document.createElement('script');
     s2.dataset.zone = '243881';
     s2.src = 'https://quge5.com/88/tag.min.js';
@@ -25,9 +25,19 @@ function TasksAdNetwork() {
     const parent2 = document.head;
     parent2.appendChild(s2);
 
+    // Monetag (quge5 - 243982)
+    const s3 = document.createElement('script');
+    s3.dataset.zone = '243982';
+    s3.src = 'https://quge5.com/88/tag.min.js';
+    s3.async = true;
+    s3.setAttribute('data-cfasync', 'false');
+    const parent3 = document.head;
+    parent3.appendChild(s3);
+
     return () => {
       if (parent1.contains(s1)) parent1.removeChild(s1);
       if (parent2.contains(s2)) parent2.removeChild(s2);
+      if (parent3.contains(s3)) parent3.removeChild(s3);
     };
   }, []);
 

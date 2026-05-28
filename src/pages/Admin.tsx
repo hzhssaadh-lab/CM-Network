@@ -13,8 +13,9 @@ export function Admin() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [tasks, setTasks] = useState<AppTask[]>([]);
   const [claims, setClaims] = useState<TaskClaim[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'withdrawals'>('users');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Edit User State
@@ -91,6 +92,12 @@ export function Admin() {
       const claimsData: TaskClaim[] = [];
       cSnap.docs.forEach(d => claimsData.push({ id: d.id, ...d.data() } as TaskClaim));
       setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+
+      const wQ = query(collection(db, 'withdrawals'));
+      const wSnap = await getDocs(wQ);
+      const wData: any[] = [];
+      wSnap.docs.forEach(d => wData.push({ id: d.id, ...d.data() }));
+      setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
     } catch (e) {
       console.error(e);
     }
@@ -222,6 +229,44 @@ export function Admin() {
     }
   };
 
+  const handleApproveWithdrawal = async (w: any) => {
+    try {
+      const batch = writeBatch(db);
+      
+      const wRef = doc(db, 'withdrawals', w.id);
+      batch.update(wRef, { status: 'approved' });
+
+      // Transaction is already recorded as pending when they requested it, let's just find and mark it completed. 
+      // Actually simpler to just update the withdrawal status.
+      // But let's also query and update the related transaction if we can, 
+      // or we just rely on withdrawals overview. 
+      // For simplicity, we just mark the withdrawal approved.
+
+      await batch.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error approving withdrawal:', e);
+    }
+  };
+
+  const handleRejectWithdrawal = async (w: any) => {
+    try {
+      const batch = writeBatch(db);
+      
+      const wRef = doc(db, 'withdrawals', w.id);
+      batch.update(wRef, { status: 'rejected' });
+
+      // Refund the user
+      const userRef = doc(db, 'users', w.userId);
+      batch.update(userRef, { balance: increment(w.amount) });
+
+      await batch.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error rejecting withdrawal:', e);
+    }
+  };
+
   if (!user || user.role !== 'admin') {
     return <div className="text-center p-12 text-red-500 font-bold uppercase tracking-widest">Unauthorized Access</div>;
   }
@@ -284,6 +329,12 @@ export function Admin() {
         >
           Ads
         </button>
+        <button 
+          onClick={() => setActiveTab('withdrawals')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'withdrawals' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          Withdrawals
+        </button>
       </div>
 
       {activeTab === 'users' && (
@@ -303,10 +354,10 @@ export function Admin() {
             <thead>
               <tr className="border-b border-white/10">
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">User</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Country</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Ads Watched</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Status</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Coins</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Balance</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Mining / hr</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Role</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-right">Actions</th>
               </tr>
@@ -324,18 +375,18 @@ export function Admin() {
                     <div className="font-bold text-sm truncate max-w-[150px]">{u.name}</div>
                     <div className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]">{u.email}</div>
                   </td>
+                  <td className="p-3 text-xs font-bold text-gray-300 uppercase tracking-widest">{u.country || 'N/A'}</td>
+                  <td className="p-3 font-mono font-bold text-[#FFD700]">{u.totalAdsWatched || 0}</td>
                   <td className="p-3">
                     <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${u.isActive ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
                       {u.isActive ? 'Active' : 'Blocked'}
                     </span>
-                  </td>
-                  <td className="p-3">
-                    <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${!u.transactionsBlocked ? 'bg-green-500/20 text-green-500' : 'bg-orange-500/20 text-orange-500'}`}>
-                      {!u.transactionsBlocked ? 'Allowed' : 'Blocked'}
+                    <br />
+                    <span className={`text-[10px] px-2 py-1 mt-1 inline-block rounded-full uppercase tracking-widest font-bold ${!u.transactionsBlocked ? 'bg-green-500/20 text-green-500' : 'bg-orange-500/20 text-orange-500'}`}>
+                      {!u.transactionsBlocked ? 'TX Allowed' : 'TX Blocked'}
                     </span>
                   </td>
                   <td className="p-3 font-mono font-bold text-[#FFD700]">{formatCurrency(u.balance)}</td>
-                  <td className="p-3 font-mono font-bold">{formatCurrency(u.miningRate)}</td>
                   <td className="p-3">
                     <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${u.role === 'admin' ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-gray-300'}`}>
                       {u.role}
@@ -461,6 +512,61 @@ export function Admin() {
             ))}
             {claims.filter(c => c.status === 'pending').length === 0 && !loading && (
               <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No pending approvals</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'withdrawals' && (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Withdrawal Requests</h3>
+          </div>
+          
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {withdrawals.filter(w => w.status === 'pending').map(w => (
+              <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
+                <div>
+                  <p className="font-bold text-[#FFD700] text-sm uppercase tracking-widest">{w.amount} CM <span className="text-gray-400">({(w.amount * 6.0).toFixed(2)} USD)</span></p>
+                  <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">WALLET (TRC20 / UID): <span className="text-white break-all">{w.wallet}</span></p>
+                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">USER: {w.userName} ({w.userEmail}) | COUNTRY: {w.country}</p>
+                </div>
+                <div className="flex space-x-2 shrink-0">
+                  <button 
+                    onClick={() => handleApproveWithdrawal(w)}
+                    className="text-[10px] px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest"
+                  >
+                    Mark Paid
+                  </button>
+                  <button 
+                    onClick={() => handleRejectWithdrawal(w)}
+                    className="text-[10px] px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest"
+                  >
+                    Reject & Refund
+                  </button>
+                </div>
+              </div>
+            ))}
+            {withdrawals.filter(w => w.status === 'pending').length === 0 && !loading && (
+              <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No pending withdrawals</p>
+            )}
+          </div>
+          
+          <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 mt-12 mb-4">Past Withdrawals</h3>
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar opacity-70">
+            {withdrawals.filter(w => w.status !== 'pending').map(w => (
+              <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5 gap-4">
+                <div>
+                  <p className="font-bold text-gray-300 text-sm uppercase tracking-widest">{w.amount} CM</p>
+                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">WALLET: <span className="break-all">{w.wallet}</span> | USER: {w.userEmail}</p>
+                </div>
+                <span className={`text-[10px] px-3 py-1 rounded-full uppercase tracking-widest font-bold ${w.status === 'approved' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                  {w.status}
+                </span>
+              </div>
+            ))}
+            {withdrawals.filter(w => w.status !== 'pending').length === 0 && !loading && (
+              <p className="text-[10px] text-gray-600 uppercase tracking-widest">No past withdrawals.</p>
             )}
           </div>
         </div>
