@@ -7,20 +7,34 @@ import { AdDisplay } from '../components/AdDisplay';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, X } from 'lucide-react';
 
-function MonetagAdDisplay() {
+function TasksAdNetwork() {
   useEffect(() => {
-    const s = document.createElement('script');
-    s.dataset.zone = '11069542';
-    s.src = 'https://al5sm.com/tag.min.js';
-    const parent = document.body || document.documentElement;
-    parent.appendChild(s);
+    // Monetag (al5sm)
+    const s1 = document.createElement('script');
+    s1.dataset.zone = '11069542';
+    s1.src = 'https://al5sm.com/tag.min.js';
+    const parent1 = document.body || document.documentElement;
+    parent1.appendChild(s1);
+
+    // Monetag (quge5)
+    const s2 = document.createElement('script');
+    s2.dataset.zone = '243881';
+    s2.src = 'https://quge5.com/88/tag.min.js';
+    s2.async = true;
+    s2.setAttribute('data-cfasync', 'false');
+    const parent2 = document.head;
+    parent2.appendChild(s2);
+
     return () => {
-      if (parent.contains(s)) {
-        parent.removeChild(s);
-      }
+      if (parent1.contains(s1)) parent1.removeChild(s1);
+      if (parent2.contains(s2)) parent2.removeChild(s2);
     };
   }, []);
 
+  return null;
+}
+
+function MonetagAdDisplay() {
   return <div className="text-gray-500 text-xs animate-pulse">Loading Sponsor Match...</div>;
 }
 
@@ -382,6 +396,7 @@ export function Tasks() {
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+      <TasksAdNetwork />
       <div className="mb-8 p-8 bg-white/5 border border-white/10 rounded-[32px] relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-5 blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
         <h2 className="text-3xl font-black tracking-tight mb-2">Earn Extra <span className="text-[#FFD700]">CM</span></h2>
