@@ -21,6 +21,8 @@ export interface UserProfile {
   deviceId?: string;
   transactionsBlocked?: boolean;
   squadId?: string;
+  adsWatchedToday?: number;
+  lastAdWatchDate?: string; // YYYY-MM-DD format
 }
 
 export interface Squad {
@@ -36,7 +38,7 @@ export interface Squad {
 
 export interface Transaction {
   id: string;
-  type: 'mining_reward' | 'task_reward' | 'referral_bonus' | 'transfer_sent' | 'transfer_received' | 'withdrawal';
+  type: 'mining_reward' | 'task_reward' | 'referral_bonus' | 'transfer_sent' | 'transfer_received' | 'withdrawal' | 'signup_bonus' | 'referral_bonus_received' | 'daily_checkin' | 'ad_reward';
   amount: number;
   timestamp: number;
   status: 'completed' | 'pending' | 'failed';
