@@ -5,29 +5,19 @@ import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet } from 'lucide-react';
 
 function MonetagAdDisplay() {
-  const adRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!adRef.current) return;
-    const container = adRef.current;
-    container.innerHTML = '';
-    
-    const script = document.createElement('script');
-    script.src = 'https://quge5.com/88/tag.min.js';
-    script.dataset.zone = '243982';
-    script.async = true;
-    script.setAttribute('data-cfasync', 'false');
-    
-    container.appendChild(script);
-
-    return () => {
-      container.innerHTML = '';
-    };
-  }, []);
-
   return (
-    <div ref={adRef} className="w-full h-full min-h-[250px] flex items-center justify-center relative bg-black/50 overflow-hidden z-10 rounded-xl">
-      <span className="text-gray-500 text-xs animate-pulse absolute -z-10">Waiting for Sponsor Match...</span>
+    <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center relative bg-black overflow-hidden z-10 rounded-xl border border-green-500/20">
+      <iframe 
+        src="https://omg10.com/4/11069214" 
+        className="w-full h-full min-h-[300px] border-0 relative z-20"
+        title="Sponsor Ad"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
+      ></iframe>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 text-center p-6 bg-black/80">
+        <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h4 className="text-green-500 font-bold uppercase tracking-widest text-sm mb-2">Loading Ad...</h4>
+        <p className="text-gray-400 text-xs font-medium">Please stay on this screen to earn USDT.</p>
+      </div>
     </div>
   );
 }
