@@ -1,45 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { AdDisplay } from '../components/AdDisplay';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet } from 'lucide-react';
 
-function TasksAdNetwork() {
+function MonetagAdDisplay() {
+  const adRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const s1 = document.createElement('script');
-    s1.dataset.zone = '11069542';
-    s1.src = 'https://al5sm.com/tag.min.js';
-    const parent1 = document.body || document.documentElement;
-    parent1.appendChild(s1);
-
-    const s2 = document.createElement('script');
-    s2.dataset.zone = '243881';
-    s2.src = 'https://quge5.com/88/tag.min.js';
-    s2.async = true;
-    s2.setAttribute('data-cfasync', 'false');
-    const parent2 = document.head;
-    parent2.appendChild(s2);
-
-    const s3 = document.createElement('script');
-    s3.dataset.zone = '243982';
-    s3.src = 'https://quge5.com/88/tag.min.js';
-    s3.async = true;
-    s3.setAttribute('data-cfasync', 'false');
-    const parent3 = document.head;
-    parent3.appendChild(s3);
+    if (!adRef.current) return;
+    const container = adRef.current;
+    container.innerHTML = '';
+    
+    const script = document.createElement('script');
+    script.src = 'https://quge5.com/88/tag.min.js';
+    script.dataset.zone = '243982';
+    script.async = true;
+    script.setAttribute('data-cfasync', 'false');
+    
+    container.appendChild(script);
 
     return () => {
-      if (parent1.contains(s1)) parent1.removeChild(s1);
-      if (parent2.contains(s2)) parent2.removeChild(s2);
-      if (parent3.contains(s3)) parent3.removeChild(s3);
+      container.innerHTML = '';
     };
   }, []);
 
-  return null;
-}
-
-function MonetagAdDisplay() {
-  return <div className="text-gray-500 text-xs animate-pulse">Loading Sponsor Match...</div>;
+  return (
+    <div ref={adRef} className="w-full h-full min-h-[250px] flex items-center justify-center relative bg-black/50 overflow-hidden z-10 rounded-xl">
+      <span className="text-gray-500 text-xs animate-pulse absolute -z-10">Waiting for Sponsor Match...</span>
+    </div>
+  );
 }
 
 export function Ads() {
@@ -63,6 +53,8 @@ export function Ads() {
       interval = setInterval(() => {
         setAdTimer((prev) => prev - 1);
       }, 1000);
+    } else if (watching && adTimer === 0) {
+      if (finishAdWatchRef.current) finishAdWatchRef.current();
     }
     return () => clearInterval(interval);
   }, [watching, adTimer]);
@@ -75,25 +67,30 @@ export function Ads() {
     setSuccessMsg('');
   };
 
-  const finishAdWatch = async () => {
-    setFetching(true);
-    const res = await claimUsdtAdReward();
-    setFetching(false);
-    setWatching(false);
+  const finishAdWatchRef = useRef<() => void>();
 
-    if (res.success) {
-       setSuccessMsg(`+${res.reward} USDT!`);
-       confetti({
-         particleCount: 150,
-         spread: 80,
-         origin: { y: 0.6 },
-         colors: ['#22c55e', '#ffffff', '#16a34a']
-       });
-       setTimeout(() => setSuccessMsg(''), 3000);
-    } else {
-       alert(res.message);
-    }
-  };
+  useEffect(() => {
+    finishAdWatchRef.current = async () => {
+      if (fetching) return;
+      setFetching(true);
+      const res = await claimUsdtAdReward();
+      setFetching(false);
+      setWatching(false);
+
+      if (res.success) {
+         setSuccessMsg(`+${res.reward} USDT!`);
+         confetti({
+           particleCount: 150,
+           spread: 80,
+           origin: { y: 0.6 },
+           colors: ['#22c55e', '#ffffff', '#16a34a']
+         });
+         setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+         alert(res.message);
+      }
+    };
+  }, [fetching, claimUsdtAdReward]);
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,8 +125,6 @@ export function Ads() {
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-      <TasksAdNetwork />
-      
       <div className="mb-8 p-8 bg-white/5 border border-white/10 rounded-[32px] relative overflow-hidden text-center">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-green-500 opacity-10 blur-[80px] pointer-events-none"></div>
         <h2 className="text-3xl font-black tracking-tight mb-2">My <span className="text-green-500">USDT</span> Balance</h2>
@@ -247,11 +242,10 @@ export function Ads() {
                  </button>
                ) : (
                  <button 
-                    onClick={finishAdWatch}
-                    disabled={fetching}
-                    className="w-full bg-green-500 text-black text-sm font-black py-4 rounded-xl hover:bg-green-400 active:scale-95 transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(34,197,94,0.2)]"
+                    disabled
+                    className="w-full bg-green-500 text-black text-sm font-black py-4 rounded-xl active:scale-95 transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(34,197,94,0.2)] cursor-wait"
                   >
-                    {fetching ? 'Claiming...' : 'Close Ad & Get USDT'}
+                    Claiming...
                  </button>
                )}
              </div>
