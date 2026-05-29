@@ -203,11 +203,8 @@ export function Tasks() {
   };
 
   const handleClaimClick = (task: AppTask) => {
-    if (adSettings?.showAds) {
-      setAdModalTask(task);
-    } else {
-      processClaim(task);
-    }
+    // Always show ad modal
+    setAdModalTask(task);
   };
 
   const getTaskIcon = (type: AppTask['type']) => {
@@ -294,7 +291,7 @@ export function Tasks() {
         })}
       </div>
       <div className="mt-8">
-        <AdDisplay type="rectangle" />
+        {/* Ad removed from here per user request */}
       </div>
 
       {adModalTask && (

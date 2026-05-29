@@ -1,90 +1,26 @@
-import React, { useEffect, useRef } from 'react';
-import { useApp } from '../hooks/useAppStore';
+import React from 'react';
 
 interface AdDisplayProps {
   className?: string;
   type?: 'banner' | 'rectangle';
 }
 
-export function AdDisplay({ className = '', type = 'banner' }: AdDisplayProps) {
-  const { adSettings } = useApp();
-  const admobLoaded = useRef(false);
-
-  useEffect(() => {
-    if (adSettings?.showAds && adSettings.admobBannerId && !admobLoaded.current) {
-      admobLoaded.current = true;
-      const timeoutId = setTimeout(() => {
-        try {
-          ;(window as any).adsbygoogle = (window as any).adsbygoogle || [];
-          (window as any).adsbygoogle.push({});
-        } catch (e: any) {
-          if (!e.message?.includes('already have ads')) {
-            console.error('AdSense error:', e.message || e);
-          }
-        }
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [adSettings]);
-
-  if (!adSettings?.showAds) {
-    return null;
-  }
-
+export function AdDisplay({ className = '' }: AdDisplayProps) {
   return (
     <div className={`w-full flex flex-col items-center justify-center gap-4 my-4 ${className}`}>
-      {adSettings.adsterraSnippet && (
-        <div className="w-full overflow-hidden flex justify-center items-center" style={{ minHeight: type === 'banner' ? '60px' : '250px' }}>
-          <iframe
-            key={adSettings.adsterraSnippet}
-            title="Adsterra"
-            ref={(iframe) => {
-              if (iframe && !iframe.getAttribute('data-loaded')) {
-                iframe.setAttribute('data-loaded', 'true');
-                const doc = iframe.contentWindow?.document || iframe.contentDocument;
-                if (doc) {
-                  doc.open();
-                  let snippet = adSettings.adsterraSnippet;
-                  snippet = snippet.replace(/src=['"]\/\/([a-zA-Z0-9])/gi, 'src="https://$1');
-                  snippet = snippet.replace(/href=['"]\/\/([a-zA-Z0-9])/gi, 'href="https://$1');
-                  doc.write(`
-                    <!DOCTYPE html>
-                    <html>
-                      <head>
-                        <title>Advertisement</title>
-                        <meta charset="utf-8">
-                        <style>
-                          body { margin: 0; padding: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; background: transparent; }
-                        </style>
-                      </head>
-                      <body>
-                        ${snippet}
-                      </body>
-                    </html>
-                  `);
-                  doc.close();
-                }
-              }
-            }}
-            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-forms"
-            style={{ width: '100%', height: '100%', border: 'none', background: 'transparent' }}
-            scrolling="yes"
-          />
+      <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center relative bg-black overflow-hidden z-10 rounded-xl border border-green-500/20">
+        <iframe 
+          src="https://omg10.com/4/11069214" 
+          className="w-full h-full min-h-[300px] border-0 relative z-20"
+          title="Sponsor Ad"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
+        ></iframe>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 text-center p-6 bg-black/80">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <h4 className="text-green-500 font-bold uppercase tracking-widest text-sm mb-2">Loading Ad...</h4>
+          <p className="text-gray-400 text-xs font-medium">Please wait for the sponsor ad to load.</p>
         </div>
-      )}
-
-      {adSettings.admobBannerId && (
-         <div className="w-full overflow-hidden flex justify-center" style={{ minWidth: 250, minHeight: 50 }}>
-          <ins
-            className="adsbygoogle"
-            style={{ display: 'block', width: '100%', minWidth: '250px', minHeight: '50px' }}
-            data-ad-client="ca-app-pub-2188880193328580"
-            data-ad-slot={adSettings.admobBannerId}
-            data-ad-format="auto"
-            data-full-width-responsive="true"
-          />
-        </div>
-      )}
+      </div>
     </div>
   );
 }

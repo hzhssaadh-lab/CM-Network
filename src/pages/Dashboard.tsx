@@ -243,10 +243,7 @@ export function Dashboard() {
          </section>
       </div>
 
-      <div className="lg:col-span-12 mt-4">
-        <AdDisplay type="banner" />
-        <BannerAd slot="8492118164" />
-      </div>
+      {/* Removed static <AdDisplay /> to improve performance */}
 
       {showInterstitial && (
         <InterstitialAd slot="8049721886" onClose={startMining} />
