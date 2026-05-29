@@ -5,6 +5,7 @@ import { formatCurrency } from '../lib/utils';
 import { Info } from 'lucide-react';
 import { doc, runTransaction, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { BannerAd } from '../components/BannerAd';
 import { AdDisplay } from '../components/AdDisplay';
 import toast from 'react-hot-toast';
 
@@ -249,7 +250,10 @@ export function Dashboard() {
          </section>
       </div>
 
-      {/* Removed static <AdDisplay /> to improve performance */}
+      <div className="lg:col-span-12 mt-4">
+        <AdDisplay />
+        <BannerAd slot="8492118164" />
+      </div>
 
       {waitingForAd && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">

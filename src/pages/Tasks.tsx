@@ -299,7 +299,7 @@ export function Tasks() {
         })}
       </div>
       <div className="mt-8">
-        {/* Ad removed from here per user request */}
+        <AdDisplay type="rectangle" />
       </div>
 
       {waitingForAd && (
