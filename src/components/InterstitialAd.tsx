@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { BannerAd } from './BannerAd';
+import { AdDisplay } from './AdDisplay';
 
 interface InterstitialAdProps {
   slot: string;
   onClose: () => void;
 }
 
-export function InterstitialAd({ slot, onClose }: InterstitialAdProps) {
+export function InterstitialAd({ onClose }: InterstitialAdProps) {
   const [canClose, setCanClose] = useState(false);
   const [timeLeft, setTimeLeft] = useState(5); // 5 sec forced view
 
@@ -43,10 +43,11 @@ export function InterstitialAd({ slot, onClose }: InterstitialAdProps) {
         )}
       </div>
       
-      <div className="w-full max-w-sm rounded-[32px] border border-white/10 p-2 overflow-hidden bg-black flex flex-col items-center min-h-[300px] justify-center">
-        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-4">Advertisement</p>
-        {/* We use the interstitial slot as a banner here to ensure it displays something in the web view */}
-        <BannerAd slot={slot} />
+      <div className="w-full max-w-sm rounded-[32px] border border-white/10 p-2 overflow-hidden bg-black flex flex-col items-center min-h-[300px] justify-center relative">
+        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2 z-20 mt-4">Advertisement</p>
+        <div className="w-full h-full relative z-10 px-2 pb-2">
+           <AdDisplay title="Sponsored Content" subtitle="Check out our premium partner's amazing offer!" />
+        </div>
       </div>
     </div>
   );

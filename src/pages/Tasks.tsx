@@ -120,7 +120,6 @@ export function Tasks() {
   const [completedTaskMap, setCompletedTaskMap] = useState<Map<string, string>>(new Map());
   const [claiming, setClaiming] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [adModalTask, setAdModalTask] = useState<AppTask | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -202,9 +201,18 @@ export function Tasks() {
     }
   };
 
+  const [waitingForAd, setWaitingForAd] = useState<AppTask | null>(null);
+
   const handleClaimClick = (task: AppTask) => {
-    // Always show ad modal
-    setAdModalTask(task);
+    window.open('https://omg10.com/4/11069214', '_blank');
+    setWaitingForAd(task);
+    
+    const onFocus = () => {
+      window.removeEventListener('focus', onFocus);
+      setWaitingForAd(null);
+      processClaim(task);
+    };
+    window.addEventListener('focus', onFocus);
   };
 
   const getTaskIcon = (type: AppTask['type']) => {
@@ -294,32 +302,13 @@ export function Tasks() {
         {/* Ad removed from here per user request */}
       </div>
 
-      {adModalTask && (
+      {waitingForAd && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-sm bg-[#0a0a0a] border border-white/20 rounded-3xl p-6 flex flex-col items-center shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden relative">
-            <h3 className="text-sm uppercase tracking-widest font-bold mb-4 text-[#FFD700]">Sponsor Advertisement</h3>
-            <div className="w-full h-auto min-h-[250px] flex items-center justify-center mb-6 bg-black/50 rounded-xl overflow-hidden relative z-10">
-               <AdDisplay type="rectangle" />
-            </div>
-            <div className="flex gap-4 w-full relative z-10">
-              <button 
-                onClick={() => setAdModalTask(null)}
-                className="flex-1 bg-white/5 text-white text-xs font-bold py-4 rounded-xl hover:bg-white/10 transition-colors uppercase tracking-widest border border-white/10"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => {
-                  const t = adModalTask;
-                  setAdModalTask(null);
-                  processClaim(t);
-                }}
-                className="flex-1 bg-[#FFD700] text-black text-xs font-bold py-4 rounded-xl hover:bg-[#FFD700]/80 transition-colors uppercase tracking-widest"
-              >
-                Claim Reward
-              </button>
-            </div>
-          </div>
+           <div className="flex flex-col items-center justify-center text-center">
+               <div className="w-16 h-16 border-4 border-[#FFD700] border-t-transparent rounded-full animate-spin mb-6 drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]"></div>
+               <h3 className="text-xl uppercase tracking-widest font-black mb-2 text-[#FFD700] animate-pulse">Wait for Ad...</h3>
+               <p className="text-gray-400 font-bold max-w-xs text-sm">Return to this page after viewing the ad to claim your reward.</p>
+           </div>
         </div>
       )}
     </div>

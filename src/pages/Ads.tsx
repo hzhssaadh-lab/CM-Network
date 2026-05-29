@@ -4,24 +4,6 @@ import { AdDisplay } from '../components/AdDisplay';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet } from 'lucide-react';
 
-function MonetagAdDisplay() {
-  return (
-    <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center relative bg-black overflow-hidden z-10 rounded-xl border border-green-500/20">
-      <iframe 
-        src="https://omg10.com/4/11069214" 
-        className="w-full h-full min-h-[300px] border-0 relative z-20"
-        title="Sponsor Ad"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
-      ></iframe>
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 text-center p-6 bg-black/80">
-        <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <h4 className="text-green-500 font-bold uppercase tracking-widest text-sm mb-2">Loading Ad...</h4>
-        <p className="text-gray-400 text-xs font-medium">Please stay on this screen to earn USDT.</p>
-      </div>
-    </div>
-  );
-}
-
 export function Ads() {
   const { user, claimUsdtAdReward, requestUsdtWithdrawal } = useApp();
   const [watching, setWatching] = useState(false);
@@ -52,9 +34,15 @@ export function Ads() {
   if (!user) return null;
 
   const handleWatchAd = () => {
-    setAdTimer(10);
+    window.open('https://omg10.com/4/11069214', '_blank');
     setWatching(true);
     setSuccessMsg('');
+    
+    const onFocus = () => {
+      window.removeEventListener('focus', onFocus);
+      if (finishAdWatchRef.current) finishAdWatchRef.current();
+    };
+    window.addEventListener('focus', onFocus);
   };
 
   const finishAdWatchRef = useRef<() => void>();
@@ -218,26 +206,10 @@ export function Ads() {
 
         {watching && (
           <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-             <div className="w-full max-w-sm bg-[#0a0a0a] border border-white/20 rounded-3xl p-6 flex flex-col items-center shadow-[0_0_50px_rgba(34,197,94,0.1)] overflow-hidden relative">
-               <h3 className="text-sm uppercase tracking-widest font-bold mb-4 text-green-500">Sponsor Video</h3>
-               <div className="w-full h-auto min-h-[250px] flex items-center justify-center mb-6 bg-black/50 rounded-xl overflow-hidden relative z-10 border border-white/10">
-                  <MonetagAdDisplay />
-               </div>
-               {adTimer > 0 ? (
-                 <button 
-                    disabled
-                    className="w-full bg-gray-800 text-gray-500 text-sm font-black py-4 rounded-xl uppercase tracking-widest cursor-not-allowed"
-                  >
-                    Wait {adTimer}s...
-                 </button>
-               ) : (
-                 <button 
-                    disabled
-                    className="w-full bg-green-500 text-black text-sm font-black py-4 rounded-xl active:scale-95 transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(34,197,94,0.2)] cursor-wait"
-                  >
-                    Claiming...
-                 </button>
-               )}
+             <div className="flex flex-col items-center justify-center text-center">
+                 <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]"></div>
+                 <h3 className="text-xl uppercase tracking-widest font-black mb-2 text-green-500 animate-pulse">Wait for Ad...</h3>
+                 <p className="text-gray-400 font-bold max-w-xs text-sm">Return to this page after viewing the ad to claim your USDT.</p>
              </div>
           </div>
         )}
