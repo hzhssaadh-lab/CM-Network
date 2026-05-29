@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { AdDisplay } from '../components/AdDisplay';
+import { InterstitialAd } from '../components/InterstitialAd';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet } from 'lucide-react';
 
@@ -18,57 +19,33 @@ export function Ads() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Ad timer logic
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (watching && adTimer > 0) {
-      interval = setInterval(() => {
-        setAdTimer((prev) => prev - 1);
-      }, 1000);
-    } else if (watching && adTimer === 0) {
-      if (finishAdWatchRef.current) finishAdWatchRef.current();
-    }
-    return () => clearInterval(interval);
-  }, [watching, adTimer]);
-
   if (!user) return null;
 
   const handleWatchAd = () => {
-    window.open('https://omg10.com/4/11069214', '_blank');
     setWatching(true);
     setSuccessMsg('');
-    
-    const onFocus = () => {
-      window.removeEventListener('focus', onFocus);
-      if (finishAdWatchRef.current) finishAdWatchRef.current();
-    };
-    window.addEventListener('focus', onFocus);
   };
 
-  const finishAdWatchRef = useRef<() => void>();
+  const processAdReward = async () => {
+    if (fetching) return;
+    setFetching(true);
+    const res = await claimUsdtAdReward();
+    setFetching(false);
+    setWatching(false);
 
-  useEffect(() => {
-    finishAdWatchRef.current = async () => {
-      if (fetching) return;
-      setFetching(true);
-      const res = await claimUsdtAdReward();
-      setFetching(false);
-      setWatching(false);
-
-      if (res.success) {
-         setSuccessMsg(`+${res.reward} USDT!`);
-         confetti({
-           particleCount: 150,
-           spread: 80,
-           origin: { y: 0.6 },
-           colors: ['#22c55e', '#ffffff', '#16a34a']
-         });
-         setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-         alert(res.message);
-      }
-    };
-  }, [fetching, claimUsdtAdReward]);
+    if (res.success) {
+       setSuccessMsg(`+${res.reward} USDT!`);
+       confetti({
+         particleCount: 150,
+         spread: 80,
+         origin: { y: 0.6 },
+         colors: ['#22c55e', '#ffffff', '#16a34a']
+       });
+       setTimeout(() => setSuccessMsg(''), 3000);
+    } else {
+       alert(res.message);
+    }
+  };
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,13 +182,7 @@ export function Ads() {
         )}
 
         {watching && (
-          <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-             <div className="flex flex-col items-center justify-center text-center">
-                 <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]"></div>
-                 <h3 className="text-xl uppercase tracking-widest font-black mb-2 text-green-500 animate-pulse">Wait for Ad...</h3>
-                 <p className="text-gray-400 font-bold max-w-xs text-sm">Return to this page after viewing the ad to claim your USDT.</p>
-             </div>
-          </div>
+          <InterstitialAd onClose={processAdReward} />
         )}
       </div>
     </div>

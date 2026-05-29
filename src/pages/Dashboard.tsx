@@ -7,6 +7,7 @@ import { doc, runTransaction, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { BannerAd } from '../components/BannerAd';
 import { AdDisplay } from '../components/AdDisplay';
+import { InterstitialAd } from '../components/InterstitialAd';
 import toast from 'react-hot-toast';
 
 export function Dashboard() {
@@ -19,16 +20,7 @@ export function Dashboard() {
 
   const requestMiningStart = () => {
     if (!user || isMining) return;
-
-    window.open('https://omg10.com/4/11069214', '_blank');
     setWaitingForAd(true);
-    
-    const onFocus = () => {
-      window.removeEventListener('focus', onFocus);
-      setWaitingForAd(false);
-      startMining();
-    };
-    window.addEventListener('focus', onFocus);
   };
 
   const startMining = async () => {
@@ -256,13 +248,10 @@ export function Dashboard() {
       </div>
 
       {waitingForAd && (
-        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="flex flex-col items-center justify-center text-center">
-               <div className="w-16 h-16 border-4 border-[#FFD700] border-t-transparent rounded-full animate-spin mb-6 drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]"></div>
-               <h3 className="text-xl uppercase tracking-widest font-black mb-2 text-[#FFD700] animate-pulse">Wait for Ad...</h3>
-               <p className="text-gray-400 font-bold max-w-xs text-sm">Return to this page after viewing the ad to start the mining sequence.</p>
-           </div>
-        </div>
+        <InterstitialAd onClose={() => {
+          setWaitingForAd(false);
+          startMining();
+        }} />
       )}
     </div>
   );

@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
-import { AdDisplay } from './AdDisplay';
 
 interface InterstitialAdProps {
-  slot: string;
   onClose: () => void;
 }
 
 export function InterstitialAd({ onClose }: InterstitialAdProps) {
   const [canClose, setCanClose] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(5); // 5 sec forced view
+  const [timeLeft, setTimeLeft] = useState(10); // 10 sec forced view
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -25,28 +23,40 @@ export function InterstitialAd({ onClose }: InterstitialAdProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4">
-      <div className="absolute top-4 right-4 flex items-center space-x-3">
+    <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="absolute top-6 right-6 flex items-center z-50">
         {!canClose && (
-          <span className="text-gray-400 text-xs font-bold bg-white/10 px-3 py-1.5 rounded-full">
-            Reward in {timeLeft}s
+          <span className="text-[#FFD700] text-sm font-black bg-[#FFD700]/10 border border-[#FFD700]/20 px-4 py-2 rounded-full uppercase tracking-widest shadow-[0_0_15px_rgba(255,215,0,0.2)]">
+            Wait {timeLeft}s
           </span>
         )}
         {canClose && (
           <button
             onClick={onClose}
-            className="w-10 h-10 bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors"
-            title="Close Ad"
+            className="w-12 h-12 bg-white/10 hover:bg-white/20 active:bg-[#FFD700] active:text-black rounded-full flex items-center justify-center text-white transition-all font-black text-xl border border-white/20 shadow-xl"
+            title="Close & Claim Reward"
           >
             ✕
           </button>
         )}
       </div>
       
-      <div className="w-full max-w-sm rounded-[32px] border border-white/10 p-2 overflow-hidden bg-black flex flex-col items-center min-h-[300px] justify-center relative">
-        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2 z-20 mt-4">Advertisement</p>
-        <div className="w-full h-full relative z-10 px-2 pb-2">
-           <AdDisplay title="Sponsored Content" subtitle="Check out our premium partner's amazing offer!" />
+      <div className="w-full h-full max-h-[80vh] max-w-4xl rounded-3xl border-2 border-white/10 overflow-hidden bg-black flex flex-col relative shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+        <div className="absolute top-0 inset-x-0 h-10 bg-gradient-to-b from-black/80 to-transparent z-10 pointer-events-none flex items-center justify-center">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-white/40 mt-2">Sponsored Advertisement</span>
+        </div>
+        
+        <div className="w-full h-full relative z-0">
+           <iframe 
+             src="https://omg10.com/4/11069214" 
+             className="w-full h-full absolute inset-0 border-0 pointer-events-auto"
+             title="Sponsor Advertisement"
+             sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
+           ></iframe>
+           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -z-10 bg-[#0a0a0a]">
+             <div className="w-8 h-8 border-4 border-[#FFD700] border-t-transparent rounded-full animate-spin mb-4"></div>
+             <p className="text-[#FFD700]/50 text-xs uppercase tracking-widest font-bold">Loading Ad...</p>
+           </div>
         </div>
       </div>
     </div>
