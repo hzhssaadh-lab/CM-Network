@@ -64,6 +64,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         setAdSettings({ showAds: false });
       }
+    }, (error) => {
+      console.error("Error listening to ad settings:", error);
     });
 
     let unsubscribeUser: (() => void) | null = null;

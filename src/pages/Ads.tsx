@@ -127,7 +127,7 @@ export function Ads() {
             {user.transactionsBlocked ? (
                <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center mb-6">
                  <p className="text-red-500 font-bold text-lg mb-2">Transactions Blocked</p>
-                 <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support.</p>
+                 <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support at cmnetwork122@gmail.com.</p>
                </div>
              ) : (
                <>
