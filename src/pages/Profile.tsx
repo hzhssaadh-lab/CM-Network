@@ -197,7 +197,7 @@ export function Profile() {
            <span className="font-bold text-sm">Terms & Conditions</span>
            <span className="text-gray-500 group-hover:text-white transition-colors">→</span>
         </button>
-        <a href="mailto:ms888mf@gmail.com" className="w-full bg-white/5 hover:bg-white/10 transition-colors p-5 rounded-2xl border border-white/5 flex items-center justify-between group">
+        <a href="mailto:cmnetwork122@gmail.com" className="w-full bg-white/5 hover:bg-white/10 transition-colors p-5 rounded-2xl border border-white/5 flex items-center justify-between group">
            <span className="font-bold text-sm">Contact Support</span>
            <span className="text-gray-500 group-hover:text-white transition-colors">→</span>
         </a>
