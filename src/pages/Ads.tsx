@@ -13,6 +13,7 @@ export function Ads() {
   const [successMsg, setSuccessMsg] = useState('');
 
   const [withdrawMode, setWithdrawMode] = useState(false);
+  const [withdrawMethod, setWithdrawMethod] = useState('Binance UID');
   const [walletAddr, setWalletAddr] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
@@ -91,7 +92,7 @@ export function Ads() {
     }
 
     setWithdrawing(true);
-    const res = await requestUsdtWithdrawal(amount, walletAddr.trim());
+    const res = await requestUsdtWithdrawal(amount, walletAddr.trim(), withdrawMethod);
     if (res.success) {
       setSuccess(res.message);
       setWithdrawAmount('');
@@ -120,7 +121,7 @@ export function Ads() {
       {withdrawMode && (
         <>
           <div className="mb-8 p-6 sm:p-8 bg-black/40 border border-white/10 rounded-[32px] relative overflow-hidden animate-in fade-in slide-in-from-top-4">
-            <h3 className="text-xl font-bold font-black tracking-tight mb-2">Withdraw to TRC20 or Binance UID</h3>
+            <h3 className="text-xl font-bold font-black tracking-tight mb-2">Withdraw USDT</h3>
             <p className="text-gray-400 text-sm mb-6">Minimum withdrawal is <span className="text-green-500 font-bold">2.00 USDT</span>.</p>
             
             {user.transactionsBlocked ? (
@@ -135,13 +136,27 @@ export function Ads() {
                   
                   <form onSubmit={handleWithdraw} className="space-y-6">
                     <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Wallet Address (TRC20) or Binance UID</label>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Withdrawal Method</label>
+                      <select 
+                        value={withdrawMethod}
+                        onChange={(e) => setWithdrawMethod(e.target.value)}
+                        className="w-full bg-black/40 border border-green-500/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-green-500 transition-colors placeholder:text-gray-600 focus:ring-1 focus:ring-green-500/50 appearance-none font-bold"
+                      >
+                        <option value="Binance UID">Binance UID</option>
+                        <option value="MEXC UID">MEXC UID</option>
+                        <option value="TRC20 Address">TRC20 Address</option>
+                        <option value="Aptos Address">Aptos Address</option>
+                        <option value="Polygon Address">Polygon Address</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Wallet Address or UID</label>
                       <input 
                         type="text" 
                         value={walletAddr}
                         onChange={(e) => setWalletAddr(e.target.value)}
                         className="w-full bg-black/40 border border-green-500/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-green-500 transition-colors placeholder:text-gray-600 focus:ring-1 focus:ring-green-500/50 font-mono" 
-                        placeholder="Enter exact TRC20 address or Binance UID"
+                        placeholder="Enter Address or UID"
                         required
                       />
                     </div>
@@ -196,8 +211,15 @@ export function Ads() {
                       </div>
                       <div>
                         <p className="font-bold text-white mb-0.5">{tx.amount.toFixed(2)} USDT</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{tx.method || 'Unknown Method'}</p>
                         <p className="text-[10px] text-gray-500 font-mono break-all">{tx.wallet}</p>
                         <p className="text-[10px] text-gray-600 mt-0.5">{new Date(tx.requestedAt).toLocaleString()}</p>
+                        {tx.status === 'approved' && tx.txHash && (
+                           <p className="text-[10px] text-green-500 font-mono mt-1 break-all">TXID: {tx.txHash}</p>
+                        )}
+                        {tx.status === 'rejected' && tx.rejectionReason && (
+                           <p className="text-[10px] text-red-500 font-medium mt-1">Reason: {tx.rejectionReason}</p>
+                        )}
                       </div>
                     </div>
                     <div className="sm:text-right shrink-0">

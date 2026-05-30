@@ -21,7 +21,7 @@ interface AppState {
   claimAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   claimUsdtAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   requestWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
-  requestUsdtWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
+  requestUsdtWithdrawal: (amount: number, wallet: string, method?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -596,7 +596,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const requestUsdtWithdrawal = async (amount: number, wallet: string) => {
+  const requestUsdtWithdrawal = async (amount: number, wallet: string, method?: string) => {
     if (!user) return { success: false, message: "Not logged in" };
     if ((user.usdtBalance || 0) < amount) return { success: false, message: "Insufficient USDT balance" };
     if (amount < 2) return { success: false, message: "Minimum withdrawal is 2 USDT" };
@@ -618,6 +618,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         amount: amount,
         currency: 'USDT',
         wallet: wallet,
+        method: method || 'TRC20 / Binance UID',
         status: 'pending',
         requestedAt: Date.now(),
         country: user.country || 'Unknown',

@@ -437,10 +437,17 @@ export function Admin() {
   };
 
   const handleApproveUsdtWithdrawal = async (w: any) => {
+    const txHash = window.prompt("Enter Transaction Hash / TXID (optional):");
+    if (txHash === null) return; // user cancelled
+
     try {
       const batch = writeBatch(db);
       const wRef = doc(db, 'withdrawals_usdt', w.id);
-      batch.update(wRef, { status: 'approved' });
+      batch.update(wRef, { 
+        status: 'approved', 
+        txHash: txHash.trim(),
+        approvedAt: Date.now()
+      });
 
       if (w.transactionId) {
         const txRef = doc(db, 'transactions', w.transactionId);
@@ -455,10 +462,16 @@ export function Admin() {
   };
 
   const handleRejectUsdtWithdrawal = async (w: any) => {
+    const reason = window.prompt("Enter reason for rejection (optional):");
+    if (reason === null) return; // user cancelled
+
     try {
       const batch = writeBatch(db);
       const wRef = doc(db, 'withdrawals_usdt', w.id);
-      batch.update(wRef, { status: 'rejected' });
+      batch.update(wRef, { 
+        status: 'rejected',
+        rejectionReason: reason.trim()
+      });
 
       if (w.transactionId) {
         const txRef = doc(db, 'transactions', w.transactionId);
@@ -908,9 +921,11 @@ export function Admin() {
             {usdtWithdrawals.filter(w => w.status === 'pending').map(w => (
               <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-green-500/20 gap-4">
                 <div>
-                  <p className="font-bold text-green-500 text-sm uppercase tracking-widest">{w.amount} USDT</p>
-                  <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">WALLET (TRC20 / UID): <span className="text-white break-all">{w.wallet}</span></p>
-                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">USER: {w.userName} ({w.userEmail}) | COUNTRY: {w.country}</p>
+                  <p className="font-bold text-green-500 text-sm uppercase tracking-widest">
+                    {w.amount} USDT <span className="text-gray-400 text-[10px] ml-2">VIA {w.method || 'TRC20 / UID'}</span>
+                  </p>
+                  <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">WALLET: <span className="text-white break-all">{w.wallet}</span></p>
+                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">USER: {w.userName} ({w.userEmail}) | COUNTRY: {w.country} | REQUESTED: {new Date(w.requestedAt).toLocaleString()}</p>
                 </div>
                 <div className="flex space-x-2 shrink-0">
                   <button 
@@ -939,9 +954,15 @@ export function Admin() {
               <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5 gap-4">
                 <div>
                   <p className={`font-bold text-sm uppercase tracking-widest ${w.currency === 'USDT' ? 'text-green-500' : 'text-gray-300'}`}>
-                    {w.amount} {w.currency || 'CM'}
+                    {w.amount} {w.currency || 'CM'} {w.currency === 'USDT' && <span className="text-[10px] text-gray-500 ml-2">VIA {w.method || 'TRC20 / UID'}</span>}
                   </p>
-                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">WALLET: <span className="break-all">{w.wallet}</span> | USER: {w.userEmail}</p>
+                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">WALLET: <span className="break-all text-gray-400">{w.wallet}</span> | USER: {w.userEmail}</p>
+                  {w.status === 'approved' && w.txHash && (
+                    <p className="text-[10px] text-green-500 font-mono mt-1 break-all">TXID: {w.txHash}</p>
+                  )}
+                  {w.status === 'rejected' && w.rejectionReason && (
+                    <p className="text-[10px] text-red-500 font-medium mt-1">Reason: {w.rejectionReason}</p>
+                  )}
                 </div>
                 <span className={`text-[10px] px-3 py-1 rounded-full uppercase tracking-widest font-bold ${w.status === 'approved' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
                   {w.status}
