@@ -567,8 +567,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       batch.set(wRef, {
         id: wRef.id,
         userId: user.uid,
-        userName: user.name,
-        userEmail: user.email,
+        userName: user.name || 'Anonymous',
+        userEmail: user.email || 'Unknown',
         amount: amount,
         wallet: wallet,
         status: 'pending',
@@ -613,8 +613,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       batch.set(wRef, {
         id: wRef.id,
         userId: user.uid,
-        userName: user.name,
-        userEmail: user.email,
+        userName: user.name || 'Anonymous',
+        userEmail: user.email || 'Unknown',
         amount: amount,
         currency: 'USDT',
         wallet: wallet,
