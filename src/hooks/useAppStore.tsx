@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, onSnapshot, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, query, where, getDocs, getDoc, writeBatch } from 'firebase/firestore';
 import { UserProfile, AdSettings } from '../types';
 import { generateReferralCode } from '../lib/utils';
 
@@ -232,14 +232,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const inviterRef = doc(db, 'users', inviter.uid);
           await setDoc(inviterRef, {
             referralCount: (inviter.referralCount || 0) + 1,
-            balance: (inviter.balance || 0) + 0.08
+            balance: (inviter.balance || 0) + 0.03
           }, { merge: true });
           
           const txRef = doc(collection(db, 'transactions'));
           await setDoc(txRef, {
             id: txRef.id,
             type: 'referral_bonus',
-            amount: 0.08,
+            amount: 0.03,
             timestamp: Date.now(),
             status: 'completed',
             receiverUid: inviter.uid,
@@ -312,14 +312,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const inviterRef = doc(db, 'users', inviter.uid);
         await setDoc(inviterRef, {
           referralCount: (inviter.referralCount || 0) + 1,
-          balance: (inviter.balance || 0) + 0.08
+          balance: (inviter.balance || 0) + 0.03
         }, { merge: true });
         
         const txRef = doc(collection(db, 'transactions'));
         await setDoc(txRef, {
           id: txRef.id,
           type: 'referral_bonus',
-          amount: 0.08,
+          amount: 0.03,
           timestamp: Date.now(),
           status: 'completed',
           receiverUid: inviter.uid,
@@ -556,11 +556,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 5) return { success: false, message: "Minimum withdrawal is 5" };
 
     try {
+      const batch = writeBatch(db);
+
       const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, { balance: user.balance - amount }, { merge: true });
+      batch.set(userRef, { balance: user.balance - amount }, { merge: true });
 
       const wRef = doc(collection(db, 'withdrawals'));
-      await setDoc(wRef, {
+      const txRef = doc(collection(db, 'transactions'));
+      
+      batch.set(wRef, {
         id: wRef.id,
         userId: user.uid,
         userName: user.name,
@@ -569,11 +573,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         wallet: wallet,
         status: 'pending',
         requestedAt: Date.now(),
-        country: user.country || 'Unknown'
+        country: user.country || 'Unknown',
+        transactionId: txRef.id
       });
 
-      const txRef = doc(collection(db, 'transactions'));
-      await setDoc(txRef, {
+      batch.set(txRef, {
         id: txRef.id,
         type: 'withdrawal',
         amount: -amount,
@@ -584,6 +588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: `Withdrawal request to ${wallet}`
       });
 
+      await batch.commit();
       return { success: true, message: "Withdrawal requested successfully!" };
     } catch (e) {
       console.error(e);
@@ -597,11 +602,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 2) return { success: false, message: "Minimum withdrawal is 2 USDT" };
 
     try {
+      const batch = writeBatch(db);
+
       const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, { usdtBalance: (user.usdtBalance || 0) - amount }, { merge: true });
+      batch.set(userRef, { usdtBalance: (user.usdtBalance || 0) - amount }, { merge: true });
 
       const wRef = doc(collection(db, 'withdrawals_usdt'));
-      await setDoc(wRef, {
+      const txRef = doc(collection(db, 'transactions'));
+
+      batch.set(wRef, {
         id: wRef.id,
         userId: user.uid,
         userName: user.name,
@@ -611,11 +620,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         wallet: wallet,
         status: 'pending',
         requestedAt: Date.now(),
-        country: user.country || 'Unknown'
+        country: user.country || 'Unknown',
+        transactionId: txRef.id
       });
 
-      const txRef = doc(collection(db, 'transactions'));
-      await setDoc(txRef, {
+      batch.set(txRef, {
         id: txRef.id,
         type: 'withdrawal',
         amount: -amount,
@@ -627,6 +636,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: `USDT Withdrawal request to ${wallet}`
       });
 
+      await batch.commit();
       return { success: true, message: "USDT Withdrawal requested successfully!" };
     } catch (e) {
       console.error(e);

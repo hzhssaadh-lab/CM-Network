@@ -299,7 +299,8 @@ export function Wallet() {
                  if (tx.receiverUid) detail = `To: ${tx.receiverUid}`;
                }
 
-               const sign = isReceived ? '+' : '-';
+               const sign = isReceived ? '+' : '';
+               const displayAmount = isReceived ? tx.amount : Math.abs(tx.amount);
                const colorClass = isReceived ? 'text-green-400' : 'text-white';
                const icon = (isMining || isTask || isReferral) ? '⛏️' : (isReceived ? '↓' : '↑');
                
@@ -310,13 +311,24 @@ export function Wallet() {
                        {icon}
                      </div>
                      <div>
-                       <p className="font-bold text-sm sm:text-base">{title}</p>
+                       <p className="font-bold text-sm sm:text-base flex items-center gap-2">
+                         {title}
+                         {tx.status && (
+                           <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-widest ${
+                             tx.status === 'approved' || tx.status === 'completed' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 
+                             tx.status === 'rejected' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                             'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                           }`}>
+                             {tx.status}
+                           </span>
+                         )}
+                       </p>
                        {detail && <p className="text-[10px] text-gray-400 font-mono mt-0.5 break-all">UID: {detail.replace('From: ', '').replace('To: ', '')}</p>}
                        <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase tracking-wider">{new Date(tx.timestamp).toLocaleString()}</p>
                      </div>
                    </div>
                    <p className={`font-mono font-bold sm:text-lg ${colorClass}`}>
-                     {sign}{formatCurrency(tx.amount)}
+                     {sign}{isReceived ? formatCurrency(displayAmount) : `-${formatCurrency(displayAmount)}`}
                    </p>
                  </div>
                );

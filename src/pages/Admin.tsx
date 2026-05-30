@@ -238,6 +238,97 @@ export function Admin() {
     }
   };
 
+  const handleApproveAllClaims = async () => {
+    if (!window.confirm('Are you sure you want to approve ALL pending tasks?')) return;
+    try {
+      const pendingClaims = claims.filter(c => c.status === 'pending');
+      if (pendingClaims.length === 0) return;
+      
+      let batches = [];
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+      
+      for (const claim of pendingClaims) {
+        if (opCount > 450) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
+
+        const userRef = doc(db, 'users', claim.userId);
+        currentBatch.update(userRef, { balance: increment(claim.reward) });
+        
+        const txRef = doc(collection(db, 'transactions'));
+        currentBatch.set(txRef, {
+          type: 'task_reward',
+          amount: claim.reward,
+          timestamp: Date.now(),
+          status: 'completed',
+          receiverUid: claim.userId,
+          description: `Admin approved task: ${claim.taskTitle}`
+        });
+        
+        const completedTaskRef = doc(db, 'users', claim.userId, 'completedTasks', claim.taskId);
+        currentBatch.set(completedTaskRef, {
+          status: 'completed',
+          taskId: claim.taskId,
+          completedAt: Date.now()
+        }, { merge: true });
+        
+        const claimRef = doc(db, 'taskClaims', claim.id);
+        currentBatch.update(claimRef, {
+          status: 'approved'
+        });
+        
+        opCount += 4;
+      }
+      
+      batches.push(currentBatch);
+      for (const b of batches) await b.commit();
+      
+      fetchData();
+    } catch (e: any) {
+      console.error('Error batch approving tasks:', e);
+    }
+  };
+
+  const handleRejectAllClaims = async () => {
+    if (!window.confirm('Are you sure you want to reject ALL pending tasks?')) return;
+    try {
+      const pendingClaims = claims.filter(c => c.status === 'pending');
+      if (pendingClaims.length === 0) return;
+      
+      let batches = [];
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+      
+      for (const claim of pendingClaims) {
+        if (opCount > 450) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
+
+        const completedTaskRef = doc(db, 'users', claim.userId, 'completedTasks', claim.taskId);
+        currentBatch.delete(completedTaskRef);
+        
+        const claimRef = doc(db, 'taskClaims', claim.id);
+        currentBatch.update(claimRef, {
+          status: 'rejected'
+        });
+        
+        opCount += 2;
+      }
+      
+      batches.push(currentBatch);
+      for (const b of batches) await b.commit();
+      
+      fetchData();
+    } catch (e: any) {
+      console.error('Error batch rejecting tasks:', e);
+    }
+  };
+
   const handleApproveWithdrawal = async (w: any) => {
     try {
       const batch = writeBatch(db);
@@ -245,11 +336,10 @@ export function Admin() {
       const wRef = doc(db, 'withdrawals', w.id);
       batch.update(wRef, { status: 'approved' });
 
-      // Transaction is already recorded as pending when they requested it, let's just find and mark it completed. 
-      // Actually simpler to just update the withdrawal status.
-      // But let's also query and update the related transaction if we can, 
-      // or we just rely on withdrawals overview. 
-      // For simplicity, we just mark the withdrawal approved.
+      if (w.transactionId) {
+        const txRef = doc(db, 'transactions', w.transactionId);
+        batch.update(txRef, { status: 'approved' });
+      }
 
       await batch.commit();
       fetchData();
@@ -265,6 +355,11 @@ export function Admin() {
       const wRef = doc(db, 'withdrawals', w.id);
       batch.update(wRef, { status: 'rejected' });
 
+      if (w.transactionId) {
+        const txRef = doc(db, 'transactions', w.transactionId);
+        batch.update(txRef, { status: 'rejected' });
+      }
+
       // Refund the user
       const userRef = doc(db, 'users', w.userId);
       batch.update(userRef, { balance: increment(w.amount) });
@@ -276,11 +371,76 @@ export function Admin() {
     }
   };
 
+  const handleApproveAllWithdrawals = async () => {
+    if (!window.confirm('Are you sure you want to approve ALL pending CM withdrawals?')) return;
+    try {
+      const pending = withdrawals.filter(w => w.status === 'pending');
+      if (pending.length === 0) return;
+      
+      let batches = [];
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+      
+      for (const w of pending) {
+        if (opCount > 450) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
+        const wRef = doc(db, 'withdrawals', w.id);
+        currentBatch.update(wRef, { status: 'approved' });
+        opCount++;
+      }
+      batches.push(currentBatch);
+      for (const b of batches) await b.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error batch approving CM withdrawals:', e);
+    }
+  };
+
+  const handleRejectAllWithdrawals = async () => {
+    if (!window.confirm('Are you sure you want to reject ALL pending CM withdrawals?')) return;
+    try {
+      const pending = withdrawals.filter(w => w.status === 'pending');
+      if (pending.length === 0) return;
+      
+      let batches = [];
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+      
+      for (const w of pending) {
+        if (opCount > 450) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
+        const wRef = doc(db, 'withdrawals', w.id);
+        currentBatch.update(wRef, { status: 'rejected' });
+        
+        const userRef = doc(db, 'users', w.userId);
+        currentBatch.update(userRef, { balance: increment(w.amount) });
+        opCount += 2;
+      }
+      batches.push(currentBatch);
+      for (const b of batches) await b.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error batch rejecting CM withdrawals:', e);
+    }
+  };
+
   const handleApproveUsdtWithdrawal = async (w: any) => {
     try {
       const batch = writeBatch(db);
       const wRef = doc(db, 'withdrawals_usdt', w.id);
       batch.update(wRef, { status: 'approved' });
+
+      if (w.transactionId) {
+        const txRef = doc(db, 'transactions', w.transactionId);
+        batch.update(txRef, { status: 'approved' });
+      }
+
       await batch.commit();
       fetchData();
     } catch (e: any) {
@@ -294,6 +454,11 @@ export function Admin() {
       const wRef = doc(db, 'withdrawals_usdt', w.id);
       batch.update(wRef, { status: 'rejected' });
 
+      if (w.transactionId) {
+        const txRef = doc(db, 'transactions', w.transactionId);
+        batch.update(txRef, { status: 'rejected' });
+      }
+
       // Refund the user USDT balance
       const userRef = doc(db, 'users', w.userId);
       batch.update(userRef, { usdtBalance: increment(w.amount) });
@@ -302,6 +467,78 @@ export function Admin() {
       fetchData();
     } catch (e: any) {
       console.error('Error rejecting USDT withdrawal:', e);
+    }
+  };
+
+  const handleApproveAllUsdtWithdrawals = async () => {
+    if (!window.confirm('Are you sure you want to approve ALL pending USDT withdrawals?')) return;
+    try {
+      const pending = usdtWithdrawals.filter(w => w.status === 'pending');
+      if (pending.length === 0) return;
+      
+      let batches = [];
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+      
+      for (const w of pending) {
+        if (opCount > 450) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
+        const wRef = doc(db, 'withdrawals_usdt', w.id);
+        currentBatch.update(wRef, { status: 'approved' });
+        
+        if (w.transactionId) {
+          const txRef = doc(db, 'transactions', w.transactionId);
+          currentBatch.update(txRef, { status: 'approved' });
+          opCount++;
+        }
+        
+        opCount++;
+      }
+      batches.push(currentBatch);
+      for (const b of batches) await b.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error batch approving USDT withdrawals:', e);
+    }
+  };
+
+  const handleRejectAllUsdtWithdrawals = async () => {
+    if (!window.confirm('Are you sure you want to reject ALL pending USDT withdrawals?')) return;
+    try {
+      const pending = usdtWithdrawals.filter(w => w.status === 'pending');
+      if (pending.length === 0) return;
+      
+      let batches = [];
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+      
+      for (const w of pending) {
+        if (opCount > 450) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
+        const wRef = doc(db, 'withdrawals_usdt', w.id);
+        currentBatch.update(wRef, { status: 'rejected' });
+        
+        if (w.transactionId) {
+          const txRef = doc(db, 'transactions', w.transactionId);
+          currentBatch.update(txRef, { status: 'rejected' });
+          opCount++;
+        }
+        
+        const userRef = doc(db, 'users', w.userId);
+        currentBatch.update(userRef, { usdtBalance: increment(w.amount) });
+        opCount += 2;
+      }
+      batches.push(currentBatch);
+      for (const b of batches) await b.commit();
+      fetchData();
+    } catch (e: any) {
+      console.error('Error batch rejecting USDT withdrawals:', e);
     }
   };
 
@@ -523,34 +760,60 @@ export function Admin() {
 
       {activeTab === 'approvals' && (
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Pending Task Approvals</h3>
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 border-b border-white/10 pb-6">
+            <h3 className="text-xl font-bold uppercase tracking-widest text-[#FFD700]">Pending Task Approvals</h3>
+            {claims.filter(c => c.status === 'pending').length > 0 && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleApproveAllClaims}
+                  className="px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest text-[10px] border border-green-500/30"
+                >
+                  Approve All
+                </button>
+                <button 
+                  onClick={handleRejectAllClaims}
+                  className="px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest text-[10px] border border-red-500/30"
+                >
+                  Reject All
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-            {claims.filter(c => c.status === 'pending').map(claim => (
-              <div key={claim.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
-                <div>
-                  <p className="font-bold text-sm">{claim.taskTitle}</p>
-                  <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">USER: {claim.userName} ({claim.userEmail})</p>
-                  <p className="text-[10px] text-[#FFD700] font-bold tracking-widest mt-1">REWARD: {claim.reward} CM</p>
+            {claims.filter(c => c.status === 'pending').map(claim => {
+              const cUser = users.find(u => u.uid === claim.userId);
+              return (
+                <div key={claim.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
+                  <div>
+                    <p className="font-bold text-sm">{claim.taskTitle}</p>
+                    <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">
+                      USER: {claim.userName} ({claim.userEmail})
+                    </p>
+                    {cUser && (
+                      <p className="text-[10px] text-blue-400 font-bold tracking-widest mt-1">
+                        ADS WATCHED TODAY: {cUser.adsWatchedToday || 0} | TOTAL ADS: {cUser.totalAdsWatched || 0}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-[#FFD700] font-bold tracking-widest mt-1">REWARD: {claim.reward} CM</p>
+                  </div>
+                  <div className="flex space-x-2 shrink-0">
+                    <button 
+                      onClick={() => handleApproveClaim(claim)}
+                      className="text-[10px] px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest"
+                    >
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => handleRejectClaim(claim)}
+                      className="text-[10px] px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest"
+                    >
+                      Reject
+                    </button>
+                  </div>
                 </div>
-                <div className="flex space-x-2 shrink-0">
-                  <button 
-                    onClick={() => handleApproveClaim(claim)}
-                    className="text-[10px] px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest"
-                  >
-                    Approve
-                  </button>
-                  <button 
-                    onClick={() => handleRejectClaim(claim)}
-                    className="text-[10px] px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {claims.filter(c => c.status === 'pending').length === 0 && !loading && (
               <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No pending approvals</p>
             )}
@@ -560,8 +823,24 @@ export function Admin() {
 
       {activeTab === 'withdrawals' && (
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
-          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 border-b border-white/10 pb-6">
             <h3 className="text-xl font-bold uppercase tracking-widest text-[#FFD700]">CM Withdrawal Requests</h3>
+            {withdrawals.filter(w => w.status === 'pending').length > 0 && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleApproveAllWithdrawals}
+                  className="px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest text-[10px] border border-green-500/30"
+                >
+                  Approve All
+                </button>
+                <button 
+                  onClick={handleRejectAllWithdrawals}
+                  className="px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest text-[10px] border border-red-500/30"
+                >
+                  Reject All
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -593,8 +872,24 @@ export function Admin() {
             )}
           </div>
           
-          <div className="flex justify-between items-center mb-6 mt-12 border-b border-white/10 pb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 mt-12 gap-4 border-b border-white/10 pb-6">
             <h3 className="text-xl font-bold uppercase tracking-widest text-green-500">USDT Withdrawal Requests</h3>
+            {usdtWithdrawals.filter(w => w.status === 'pending').length > 0 && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleApproveAllUsdtWithdrawals}
+                  className="px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest text-[10px] border border-green-500/30"
+                >
+                  Approve All
+                </button>
+                <button 
+                  onClick={handleRejectAllUsdtWithdrawals}
+                  className="px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest text-[10px] border border-red-500/30"
+                >
+                  Reject All
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { InterstitialAd } from '../components/InterstitialAd';
 import confetti from 'canvas-confetti';
