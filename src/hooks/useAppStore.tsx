@@ -638,9 +638,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       await batch.commit();
       return { success: true, message: "USDT Withdrawal requested successfully!" };
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      return { success: false, message: "Request failed. Please try again." };
+      return { success: false, message: e.message || "Request failed. Please try again." };
     }
   };
 
