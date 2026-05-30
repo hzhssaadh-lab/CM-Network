@@ -227,7 +227,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const inviterDoc = querySnapshot.docs[0];
           const inviter = inviterDoc.data() as UserProfile;
           referredByUid = inviter.uid;
-          newUserBonus = 0.05; // Instant reward for using a code
+          newUserBonus = 0.03; // Instant reward for using a code (matching inviter reward)
           
           const inviterRef = doc(db, 'users', inviter.uid);
           await setDoc(inviterRef, {
@@ -243,7 +243,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             timestamp: Date.now(),
             status: 'completed',
             receiverUid: inviter.uid,
-            senderUid: userCredential.user.uid,
+            senderUid: 'system',
             description: `Referral bonus for inviting ${name || 'User'}`
           });
           
@@ -252,11 +252,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await setDoc(newUserTxRef, {
             id: newUserTxRef.id,
             type: 'signup_bonus',
-            amount: 0.05,
+            amount: 0.03,
             timestamp: Date.now() + 1,
             status: 'completed',
             receiverUid: userCredential.user.uid,
-            senderUid: inviter.uid,
+            senderUid: 'system',
             description: `Sign-up reward for using an invite code`
           });
         }
@@ -323,7 +323,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           timestamp: Date.now(),
           status: 'completed',
           receiverUid: inviter.uid,
-          senderUid: user.uid,
+          senderUid: 'system',
           description: `Referral bonus for inviting ${user.name || 'User'}`
         });
 
@@ -332,18 +332,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await setDoc(userTxRef, {
           id: userTxRef.id,
           type: 'referral_bonus_received',
-          amount: 0.05,
+          amount: 0.03,
           timestamp: Date.now() + 1,
           status: 'completed',
           receiverUid: user.uid,
-          senderUid: inviter.uid,
+          senderUid: 'system',
           description: `Reward for using an invite code`
         });
 
         const userRef = doc(db, 'users', user.uid);
         await setDoc(userRef, {
           referredBy: inviter.uid,
-          balance: (user.balance || 0) + 0.05
+          balance: (user.balance || 0) + 0.03
         }, { merge: true });
         
         return true;
@@ -641,7 +641,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: true, message: "USDT Withdrawal requested successfully!" };
     } catch (e: any) {
       console.error(e);
-      return { success: false, message: e.message || "Request failed. Please try again." };
+      let msg = e.message || "Request failed. Please try again.";
+      if (msg.includes("Missing or insufficient permissions")) {
+         msg = "Missing permissions! Please update your Firestore Rules in Firebase Console to allow writes.";
+      }
+      return { success: false, message: msg };
     }
   };
 
