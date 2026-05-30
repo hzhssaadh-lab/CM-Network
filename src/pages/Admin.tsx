@@ -16,7 +16,7 @@ export function Admin() {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [usdtWithdrawals, setUsdtWithdrawals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'withdrawals'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'withdrawals' | 'competition'>('users');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Edit User State
@@ -188,7 +188,10 @@ export function Admin() {
       const batch = writeBatch(db);
       
       const userRef = doc(db, 'users', claim.userId);
-      batch.update(userRef, { balance: increment(claim.reward) });
+      batch.update(userRef, { 
+        balance: increment(claim.reward),
+        totalTasksCompleted: increment(1) 
+      });
       
       const txRef = doc(collection(db, 'transactions'));
       batch.set(txRef, {
@@ -256,7 +259,10 @@ export function Admin() {
         }
 
         const userRef = doc(db, 'users', claim.userId);
-        currentBatch.update(userRef, { balance: increment(claim.reward) });
+        currentBatch.update(userRef, { 
+          balance: increment(claim.reward),
+          totalTasksCompleted: increment(1)
+        });
         
         const txRef = doc(collection(db, 'transactions'));
         currentBatch.set(txRef, {
@@ -610,6 +616,12 @@ export function Admin() {
         >
           Withdrawals
         </button>
+        <button 
+          onClick={() => setActiveTab('competition')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'competition' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          Competition
+        </button>
       </div>
 
       {activeTab === 'users' && (
@@ -938,6 +950,65 @@ export function Admin() {
             ))}
             {[...withdrawals, ...usdtWithdrawals].filter(w => w.status !== 'pending').length === 0 && !loading && (
               <p className="text-[10px] text-gray-600 uppercase tracking-widest">No past withdrawals.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'competition' && (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
+          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-6">
+            <h3 className="text-xl font-bold uppercase tracking-widest text-[#FFD700]">Ads & Tasks Competition</h3>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-full">Score = Ads Watched + Tasks Completed</p>
+          </div>
+          
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {users.slice().sort((a,b) => {
+              const scoreA = (a.totalAdsWatched || 0) + (a.totalTasksCompleted || 0);
+              const scoreB = (b.totalAdsWatched || 0) + (b.totalTasksCompleted || 0);
+              return scoreB - scoreA;
+            }).map((u, idx) => {
+              const score = (u.totalAdsWatched || 0) + (u.totalTasksCompleted || 0);
+              if (score === 0) return null; // You can show them or not, but hiding those with 0 score makes sense
+              
+              const isTop3 = idx < 3;
+              let rankColor = 'text-white/50';
+              if (idx === 0) rankColor = 'text-yellow-400 bg-yellow-400/10 shadow-[0_0_15px_rgba(250,204,21,0.2)]';
+              else if (idx === 1) rankColor = 'text-gray-300 bg-gray-300/10';
+              else if (idx === 2) rankColor = 'text-amber-600 bg-amber-600/10';
+
+              return (
+                <div key={u.uid} className={`flex items-center justify-between p-4 bg-black/40 rounded-2xl border ${isTop3 ? 'border-[#FFD700]/30' : 'border-white/5'} gap-4 transition-all hover:bg-black/60`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-full font-black text-lg ${rankColor} border border-white/5`}>
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm sm:text-base text-white">{u.name || 'Anonymous'}</p>
+                      <p className="text-[10px] text-gray-400 font-mono tracking-widest mt-0.5 max-w-[150px] sm:max-w-xs truncate">{u.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-4 sm:gap-8 items-center text-right shrink-0">
+                    <div className="hidden sm:block">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Ads</p>
+                      <p className="font-mono font-bold text-green-400">{u.totalAdsWatched || 0}</p>
+                    </div>
+                    <div className="hidden sm:block">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Tasks</p>
+                      <p className="font-mono font-bold text-blue-400">{u.totalTasksCompleted || 0}</p>
+                    </div>
+                    <div className="bg-white/5 p-3 rounded-xl border border-white/10 min-w-[80px]">
+                      <p className="text-[10px] text-[#FFD700] font-black uppercase tracking-widest mb-1 leading-none">Score</p>
+                      <p className="font-mono font-black text-white text-lg leading-none">{score}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            
+            {users.filter(u => ((u.totalAdsWatched || 0) + (u.totalTasksCompleted || 0)) > 0).length === 0 && !loading && (
+              <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold py-8">No competition data yet</p>
             )}
           </div>
         </div>
