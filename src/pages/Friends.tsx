@@ -107,6 +107,26 @@ export function Friends() {
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in fade-in duration-500 pb-10">
+      <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-yellow-500 rounded-[32px] p-8 mb-8 text-center relative overflow-hidden shadow-[0_10px_40px_rgba(236,72,153,0.3)] animate-in slide-in-from-bottom-4 duration-700">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-20 blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-yellow-400 opacity-20 blur-[60px] pointer-events-none translate-y-1/2 -translate-x-1/4"></div>
+        
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 backdrop-blur-md border border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+            <span className="text-3xl">🎁</span>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-black text-white mb-2 uppercase tracking-tight drop-shadow-md">
+            Ultimate Invite Challenge!
+          </h3>
+          <p className="text-white/90 text-sm sm:text-base max-w-md mx-auto font-medium leading-relaxed drop-shadow-md">
+            Invite <span className="font-bold text-yellow-300 text-lg sm:text-xl drop-shadow-[0_0_10px_rgba(253,224,71,0.5)]">200 to 500</span> friends and unlock a <span className="font-bold text-white uppercase tracking-widest border-b-2 border-white/50 pb-0.5">massive mystery reward</span>!
+          </p>
+          <div className="mt-6 px-6 py-2 bg-white/20 border border-white/30 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] text-white backdrop-blur-sm shadow-xl">
+            Hit The Milestone & Claim Big
+          </div>
+        </div>
+      </div>
+
       <div className="bg-gradient-to-br from-[#1a1a1a] to-black rounded-[32px] border border-[#FFD700]/20 p-8 mb-8 text-center relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-10 blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
         <h2 className="text-3xl font-black mb-2 relative z-10 text-white">Invite & Earn <span className="text-[#FFD700]">0.08 CM</span></h2>
