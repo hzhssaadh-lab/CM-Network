@@ -15,8 +15,9 @@ export function Admin() {
   const [claims, setClaims] = useState<TaskClaim[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [usdtWithdrawals, setUsdtWithdrawals] = useState<any[]>([]);
+  const [adLogs, setAdLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'withdrawals' | 'competition'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition'>('users');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Edit User State
@@ -106,6 +107,13 @@ export function Admin() {
       const wuData: any[] = [];
       wuSnap.docs.forEach(d => wuData.push({ id: d.id, ...d.data() }));
       setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+
+      // Fetch Ad Logs
+      const adLogQ = query(collection(db, 'ads_log'));
+      const adLogSnap = await getDocs(adLogQ);
+      const adLogData: any[] = [];
+      adLogSnap.docs.forEach(d => adLogData.push({ id: d.id, ...d.data() }));
+      setAdLogs(adLogData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
     } catch (e) {
       console.error(e);
     }
@@ -621,7 +629,13 @@ export function Admin() {
           onClick={() => setActiveTab('ads')}
           className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'ads' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
-          Ads
+          Ads Config
+        </button>
+        <button 
+          onClick={() => setActiveTab('ad_logs')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'ad_logs' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          Ad Logs
         </button>
         <button 
           onClick={() => setActiveTab('withdrawals')}
@@ -1087,6 +1101,38 @@ export function Admin() {
                  Save Global Configuration
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'ad_logs' && (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Ad Logs & Tracking</h3>
+          </div>
+          
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {adLogs.map(log => (
+              <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
+                <div>
+                  <p className="font-bold text-sm text-[#FFD700] uppercase tracking-widest">{log.reward > 0.01 ? 'CM Ad' : 'USDT Ad'} - {log.adNetwork}</p>
+                  <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">USER: {log.userName || log.userId} ({log.userEmail || 'N/A'})</p>
+                  <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">TIME: {new Date(log.timestamp).toLocaleString()}</p>
+                  {log.timeGapSeconds !== null && log.timeGapSeconds !== undefined && (
+                    <p className={`text-[10px] font-bold tracking-widest mt-1 ${log.timeGapSeconds < 15 ? 'text-red-500' : 'text-green-500'}`}>
+                      TIME SINCE LAST WATCH: {log.timeGapSeconds} SECONDS
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-black text-white">REWARD: {log.reward}</p>
+                  <p className="text-[10px] text-gray-500 tracking-widest mt-1 font-bold uppercase">COUNTRY: {log.country}</p>
+                </div>
+              </div>
+            ))}
+            {adLogs.length === 0 && !loading && (
+              <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold">No ads watched yet.</p>
+            )}
           </div>
         </div>
       )}

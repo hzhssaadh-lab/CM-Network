@@ -458,9 +458,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const rewardAmount = Number((Math.random() * (0.05 - 0.01) + 0.01).toFixed(3));
     
     try {
+      const currentTime = Date.now();
+      const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
+
       const userRef = doc(db, 'users', user.uid);
       await setDoc(userRef, {
         lastAdWatchDate: today,
+        lastAdWatchTimestamp: currentTime,
         adsWatchedToday: currentWatched + 1,
         totalAdsWatched: (user.totalAdsWatched || 0) + 1,
         balance: (user.balance || 0) + rewardAmount
@@ -471,7 +475,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: txRef.id,
         type: 'ad_reward',
         amount: rewardAmount,
-        timestamp: Date.now(),
+        timestamp: currentTime,
         status: 'completed',
         receiverUid: user.uid,
         senderUid: 'system',
@@ -482,9 +486,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await setDoc(adLogRef, {
         id: adLogRef.id,
         userId: user.uid,
+        userName: user.name || 'Anonymous',
+        userEmail: user.email || 'Unknown',
         adNetwork: 'Monetag',
         reward: rewardAmount,
-        timestamp: Date.now(),
+        timestamp: currentTime,
+        timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
       });
       
@@ -514,9 +521,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const rewardAmount = 0.0008;
     
     try {
+      const currentTime = Date.now();
+      const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
+
       const userRef = doc(db, 'users', user.uid);
       await setDoc(userRef, {
         lastAdWatchDate: today,
+        lastAdWatchTimestamp: currentTime,
         adsWatchedToday: currentWatched + 1,
         totalAdsWatched: (user.totalAdsWatched || 0) + 1,
         usdtBalance: (user.usdtBalance || 0) + rewardAmount
@@ -528,7 +539,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         type: 'ad_reward',
         amount: rewardAmount,
         currency: 'USDT',
-        timestamp: Date.now(),
+        timestamp: currentTime,
         status: 'completed',
         receiverUid: user.uid,
         senderUid: 'system',
@@ -539,9 +550,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await setDoc(adLogRef, {
         id: adLogRef.id,
         userId: user.uid,
+        userName: user.name || 'Anonymous',
+        userEmail: user.email || 'Unknown',
         adNetwork: 'Monetag (USDT)',
         reward: rewardAmount,
-        timestamp: Date.now(),
+        timestamp: currentTime,
+        timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
       });
       
