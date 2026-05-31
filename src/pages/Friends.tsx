@@ -129,8 +129,8 @@ export function Friends() {
 
       <div className="bg-gradient-to-br from-[#1a1a1a] to-black rounded-[32px] border border-[#FFD700]/20 p-8 mb-8 text-center relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-10 blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
-        <h2 className="text-3xl font-black mb-2 relative z-10 text-white">Invite & Earn <span className="text-[#FFD700]">0.03 CM</span></h2>
-        <p className="text-gray-400 text-sm mx-auto max-w-sm relative z-10">Share your code with friends. When they join, you get 0.03 CM!</p>
+        <h2 className="text-3xl font-black mb-2 relative z-10 text-white">Invite & Earn <span className="text-[#FFD700]">0.05 CM</span></h2>
+        <p className="text-gray-400 text-sm mx-auto max-w-sm relative z-10">Share your code with friends. When they join, you get 0.05 CM!</p>
         
         <div className="mt-8 bg-black/60 border border-white/10 rounded-3xl p-8 flex flex-col items-center max-w-sm mx-auto relative z-10">
           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-4">Your Referral Code</p>
@@ -183,7 +183,7 @@ export function Friends() {
            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-2 block">Active Friends</span>
         </div>
         <div className="bg-white/5 rounded-3xl p-6 md:p-8 border border-white/10 flex flex-col items-center justify-center text-center hover:bg-white/10 transition-colors">
-           <span className="text-4xl md:text-5xl font-black text-[#FFD700]">{Number((user.referralCount * 0.03).toFixed(2))}</span>
+           <span className="text-4xl md:text-5xl font-black text-[#FFD700]">{Number((user.referralCount * 0.05).toFixed(2))}</span>
            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-2 block">CM Earned</span>
         </div>
       </div>
