@@ -5,40 +5,18 @@ interface InterstitialAdProps {
 }
 
 export function InterstitialAd({ onClose }: InterstitialAdProps) {
-  const [canClose, setCanClose] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(10); // 10 sec forced view
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setCanClose(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const [canClose, setCanClose] = useState(true);
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="absolute top-6 right-6 flex items-center z-50">
-        {!canClose && (
-          <span className="text-[#FFD700] text-sm font-black bg-[#FFD700]/10 border border-[#FFD700]/20 px-4 py-2 rounded-full uppercase tracking-widest shadow-[0_0_15px_rgba(255,215,0,0.2)]">
-            Wait {timeLeft}s
-          </span>
-        )}
-        {canClose && (
-          <button
-            onClick={onClose}
-            className="w-12 h-12 bg-white/10 hover:bg-white/20 active:bg-[#FFD700] active:text-black rounded-full flex items-center justify-center text-white transition-all font-black text-xl border border-white/20 shadow-xl"
-            title="Close & Claim Reward"
-          >
-            ✕
-          </button>
-        )}
+        <button
+          onClick={onClose}
+          className="w-12 h-12 bg-white/10 hover:bg-white/20 active:bg-[#FFD700] active:text-black rounded-full flex items-center justify-center text-white transition-all font-black text-xl border border-white/20 shadow-xl"
+          title="Close & Claim Reward"
+        >
+          ✕
+        </button>
       </div>
       
       <div className="w-full h-full max-h-[80vh] max-w-4xl rounded-3xl border-2 border-white/10 overflow-hidden bg-black flex flex-col relative shadow-[0_0_50px_rgba(0,0,0,0.5)]">

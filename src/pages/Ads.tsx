@@ -51,8 +51,8 @@ export function Ads() {
   if (!user) return null;
 
   const handleWatchAd = () => {
-    setWatching(true);
-    setSuccessMsg('');
+    window.open("https://omg10.com/4/11069214", "_blank");
+    processAdReward();
   };
 
   const processAdReward = async () => {
@@ -278,9 +278,6 @@ export function Ads() {
             </div>
           )}
 
-          {watching && (
-            <InterstitialAd onClose={processAdReward} />
-          )}
         </div>
       )}
     </div>
