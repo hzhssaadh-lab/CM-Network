@@ -229,19 +229,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const inviterDoc = querySnapshot.docs[0];
           const inviter = inviterDoc.data() as UserProfile;
           referredByUid = inviter.uid;
-          newUserBonus = 0.03; // Instant reward for using a code (matching inviter reward)
+          newUserBonus = 0.05; // Instant reward for using a code (matching inviter reward)
           
           const inviterRef = doc(db, 'users', inviter.uid);
           await setDoc(inviterRef, {
             referralCount: (inviter.referralCount || 0) + 1,
-            balance: (inviter.balance || 0) + 0.03
+            balance: (inviter.balance || 0) + 0.05
           }, { merge: true });
           
           const txRef = doc(collection(db, 'transactions'));
           await setDoc(txRef, {
             id: txRef.id,
             type: 'referral_bonus',
-            amount: 0.03,
+            amount: 0.05,
             timestamp: Date.now(),
             status: 'completed',
             receiverUid: inviter.uid,
@@ -254,7 +254,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await setDoc(newUserTxRef, {
             id: newUserTxRef.id,
             type: 'signup_bonus',
-            amount: 0.03,
+            amount: 0.05,
             timestamp: Date.now() + 1,
             status: 'completed',
             receiverUid: userCredential.user.uid,
@@ -314,14 +314,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const inviterRef = doc(db, 'users', inviter.uid);
         await setDoc(inviterRef, {
           referralCount: (inviter.referralCount || 0) + 1,
-          balance: (inviter.balance || 0) + 0.03
+          balance: (inviter.balance || 0) + 0.05
         }, { merge: true });
         
         const txRef = doc(collection(db, 'transactions'));
         await setDoc(txRef, {
           id: txRef.id,
           type: 'referral_bonus',
-          amount: 0.03,
+          amount: 0.05,
           timestamp: Date.now(),
           status: 'completed',
           receiverUid: inviter.uid,
@@ -334,7 +334,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await setDoc(userTxRef, {
           id: userTxRef.id,
           type: 'referral_bonus_received',
-          amount: 0.03,
+          amount: 0.05,
           timestamp: Date.now() + 1,
           status: 'completed',
           receiverUid: user.uid,
@@ -345,7 +345,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const userRef = doc(db, 'users', user.uid);
         await setDoc(userRef, {
           referredBy: inviter.uid,
-          balance: (user.balance || 0) + 0.03
+          balance: (user.balance || 0) + 0.05
         }, { merge: true });
         
         return true;
