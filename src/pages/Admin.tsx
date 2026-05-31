@@ -1,11 +1,12 @@
 import { useApp } from '../hooks/useAppStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, getDocs, doc, updateDoc, setDoc, getDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { formatCurrency } from '../lib/utils';
 import { UserProfile, Task as AppTask, TaskClaim } from '../types';
 import { runTransaction } from 'firebase/firestore';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function Admin() {
   const { user } = useApp();
@@ -1111,6 +1112,32 @@ export function Admin() {
             <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Ad Logs & Tracking</h3>
           </div>
           
+          <div className="mb-8 bg-black/40 border border-white/5 rounded-2xl p-6">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Time Interval Between Ad Views</h4>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={[
+                  { name: '< 5s', count: adLogs.filter(l => l.timeGapSeconds !== undefined && l.timeGapSeconds !== null && l.timeGapSeconds < 5).length },
+                  { name: '5-15s', count: adLogs.filter(l => l.timeGapSeconds !== undefined && l.timeGapSeconds !== null && l.timeGapSeconds >= 5 && l.timeGapSeconds < 15).length },
+                  { name: '15-30s', count: adLogs.filter(l => l.timeGapSeconds !== undefined && l.timeGapSeconds !== null && l.timeGapSeconds >= 15 && l.timeGapSeconds < 30).length },
+                  { name: '30-60s', count: adLogs.filter(l => l.timeGapSeconds !== undefined && l.timeGapSeconds !== null && l.timeGapSeconds >= 30 && l.timeGapSeconds < 60).length },
+                  { name: '1-5m', count: adLogs.filter(l => l.timeGapSeconds !== undefined && l.timeGapSeconds !== null && l.timeGapSeconds >= 60 && l.timeGapSeconds < 300).length },
+                  { name: '> 5m', count: adLogs.filter(l => l.timeGapSeconds !== undefined && l.timeGapSeconds !== null && l.timeGapSeconds >= 300).length }
+                ]}>
+                  <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}
+                    itemStyle={{ color: '#FFD700' }}
+                  />
+                  <Bar dataKey="count" fill="#FFD700" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-4 text-center">Spikes in the left-side columns ({'<'} 15s) may indicate rapid clicking or automation.</p>
+          </div>
+
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             {adLogs.map(log => (
               <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">

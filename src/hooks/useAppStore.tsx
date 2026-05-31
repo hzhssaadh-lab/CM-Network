@@ -513,8 +513,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentWatched = 0;
     }
     
-    if (currentWatched >= 50) {
-      return { success: false, reward: 0, message: "Daily limit of 50 ads reached.", limitReached: true };
+    if (currentWatched >= 100) {
+      return { success: false, reward: 0, message: "Daily limit of 100 ads reached.", limitReached: true };
     }
     
     // Exact reward of 0.0008 USDT per ad
