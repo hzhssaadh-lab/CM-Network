@@ -14,6 +14,7 @@ import { Squads } from './pages/Squads';
 import { Ads } from './pages/Ads';
 import React, { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 function AppContent() {
   const { user, loading, submitReferralCode } = useApp();
@@ -97,6 +98,7 @@ export default function App() {
     <AppProvider>
       <BrowserRouter>
         <AppContent />
+        <SpeedInsights />
       </BrowserRouter>
     </AppProvider>
   );
