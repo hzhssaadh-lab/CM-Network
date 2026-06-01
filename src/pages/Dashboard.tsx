@@ -84,12 +84,6 @@ export function Dashboard() {
         });
         
         if (claimed) {
-            updateUser({
-                balance: (user.balance || 0) + earned,
-                totalMined: (user.totalMined || 0) + earned,
-                miningSessionStartTime: null,
-                miningSessionEndTime: null
-            });
             toast.success(`Mining session completed! You earned ${formatCurrency(earned)} CM.`, {
                 icon: '⛏️',
                 duration: 6000,
