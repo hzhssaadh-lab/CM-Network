@@ -166,7 +166,7 @@ export function Tasks() {
         completedAt: Date.now(),
         taskId: task.id,
         status: 'pending'
-      }, { merge: true });
+      });
       
       // Add a claim for admin to approve
       const claimRef = doc(collection(db, 'taskClaims'));
