@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { collection, query, getDocs, doc, runTransaction, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Task as AppTask } from '../types';
 import { AdDisplay } from '../components/AdDisplay';
@@ -155,9 +155,6 @@ export function Tasks() {
   const processClaim = async (task: AppTask) => {
     if (!user || claiming) return;
     
-    // If task has URL, simulate they have to click it?
-    // Actually we will provide an "Open Link" button next to "Claim" in UI.
-    
     setClaiming(task.id);
     try {
       await runTransaction(db, async (t) => {
@@ -171,7 +168,7 @@ export function Tasks() {
         const userDoc = await t.get(userRef);
         if (!userDoc.exists()) return;
         
-        // Don't update balance yet. Add to completedTasks as pending.
+        // Add to completedTasks as pending.
         t.set(completedRef, {
           completedAt: Date.now(),
           taskId: task.id,
@@ -193,31 +190,11 @@ export function Tasks() {
       });
       
       setCompletedTaskMap(prev => new Map(prev).set(task.id, 'pending'));
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      alert('Failed to claim task: ' + (err.message || 'Unknown error. You may have already claimed it.'));
+      alert('Failed to claim task. You may have already claimed it.');
     } finally {
       setClaiming(null);
-    }
-  };
-
-  const [openedAdTasks, setOpenedAdTasks] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem('openedAdTasks');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  const handleClaimClick = (task: AppTask) => {
-    if (!openedAdTasks[task.id]) {
-      window.open("https://omg10.com/4/11069214", "_blank");
-      const newState = { ...openedAdTasks, [task.id]: true };
-      setOpenedAdTasks(newState);
-      localStorage.setItem('openedAdTasks', JSON.stringify(newState));
-    } else {
-      processClaim(task);
     }
   };
 
@@ -288,17 +265,15 @@ export function Tasks() {
                  </button>
                ) : (
                  <button 
-                   onClick={() => handleClaimClick(task)}
+                   onClick={() => processClaim(task)}
                    disabled={claiming === task.id}
                    className={`text-xs font-black px-4 py-2.5 rounded-xl transition-all tracking-widest uppercase whitespace-nowrap shrink-0 ${
                      claiming === task.id 
                      ? "bg-white/10 text-gray-500 cursor-wait" 
-                     : openedAdTasks[task.id]
-                       ? "bg-[#FFD700] text-black hover:bg-[#FFD700]/80 shadow-[0_0_15px_rgba(255,215,0,0.3)]"
-                       : "bg-white text-black hover:bg-gray-200 active:scale-95"
+                     : "bg-white text-black hover:bg-gray-200 active:scale-95"
                    }`}
                  >
-                   {claiming === task.id ? '...' : openedAdTasks[task.id] ? 'VERIFY' : 'CLAIM'}
+                   {claiming === task.id ? '...' : 'CLAIM'}
                  </button>
                )}
              </div>
