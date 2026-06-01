@@ -295,6 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const userRef = doc(db, 'users', user.uid);
     await setDoc(userRef, data, { merge: true });
+    setUser(prev => prev ? { ...prev, ...data } : null);
   };
 
   const submitReferralCode = async (code: string) => {

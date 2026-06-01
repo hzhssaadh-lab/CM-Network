@@ -3,6 +3,7 @@ import { useApp } from '../hooks/useAppStore';
 import { collection, query, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Task as AppTask } from '../types';
+import toast from 'react-hot-toast';
 import { AdDisplay } from '../components/AdDisplay';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, X } from 'lucide-react';
@@ -183,13 +184,10 @@ export function Tasks() {
       await batch.commit();
       
       setCompletedTaskMap(prev => new Map(prev).set(task.id, 'pending'));
+      toast.success(`Task ${task.title} submitted for verification!`);
     } catch (err: any) {
       console.error(err);
-      if (err.message === 'Task already claimed') {
-        setCompletedTaskMap(prev => new Map(prev).set(task.id, 'completed'));
-      } else {
-        alert('Failed to claim task: ' + (err.message || 'Unknown error.'));
-      }
+      toast.error('Failed to claim task: ' + (err.message || err.toString() || 'Unknown error.'));
     } finally {
       setClaiming(null);
     }

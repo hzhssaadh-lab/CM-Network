@@ -198,14 +198,14 @@ export function Admin() {
       
       const userRef = doc(db, 'users', claim.userId);
       batch.update(userRef, { 
-        balance: increment(claim.reward),
+        balance: increment(Number(claim.reward)),
         totalTasksCompleted: increment(1) 
       });
       
       const txRef = doc(collection(db, 'transactions'));
       batch.set(txRef, {
         type: 'task_reward',
-        amount: claim.reward,
+        amount: Number(claim.reward),
         timestamp: Date.now(),
         status: 'completed',
         receiverUid: claim.userId,
