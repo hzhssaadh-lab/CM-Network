@@ -182,28 +182,43 @@ export function Tasks() {
         const claimRef = doc(collection(db, 'taskClaims'));
         t.set(claimRef, {
           userId: user.uid,
-          userEmail: user.email,
+          userEmail: user.email || '',
           userName: user.name || 'Anonymous',
           taskId: task.id,
-          taskTitle: task.title,
-          reward: task.reward,
+          taskTitle: task.title || '',
+          reward: task.reward || 0,
           status: 'pending',
           timestamp: Date.now()
         });
       });
       
       setCompletedTaskMap(prev => new Map(prev).set(task.id, 'pending'));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to claim task. You may have already claimed it.');
+      alert('Failed to claim task: ' + (err.message || 'Unknown error. You may have already claimed it.'));
     } finally {
       setClaiming(null);
     }
   };
 
+  const [openedAdTasks, setOpenedAdTasks] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('openedAdTasks');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
   const handleClaimClick = (task: AppTask) => {
-    window.open("https://omg10.com/4/11069214", "_blank");
-    processClaim(task);
+    if (!openedAdTasks[task.id]) {
+      window.open("https://omg10.com/4/11069214", "_blank");
+      const newState = { ...openedAdTasks, [task.id]: true };
+      setOpenedAdTasks(newState);
+      localStorage.setItem('openedAdTasks', JSON.stringify(newState));
+    } else {
+      processClaim(task);
+    }
   };
 
   const getTaskIcon = (type: AppTask['type']) => {
@@ -278,10 +293,12 @@ export function Tasks() {
                    className={`text-xs font-black px-4 py-2.5 rounded-xl transition-all tracking-widest uppercase whitespace-nowrap shrink-0 ${
                      claiming === task.id 
                      ? "bg-white/10 text-gray-500 cursor-wait" 
-                     : "bg-white text-black hover:bg-gray-200 active:scale-95"
+                     : openedAdTasks[task.id]
+                       ? "bg-[#FFD700] text-black hover:bg-[#FFD700]/80 shadow-[0_0_15px_rgba(255,215,0,0.3)]"
+                       : "bg-white text-black hover:bg-gray-200 active:scale-95"
                    }`}
                  >
-                   {claiming === task.id ? '...' : 'CLAIM'}
+                   {claiming === task.id ? '...' : openedAdTasks[task.id] ? 'VERIFY' : 'CLAIM'}
                  </button>
                )}
              </div>
