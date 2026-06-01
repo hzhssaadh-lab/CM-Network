@@ -9,10 +9,10 @@ export function InterstitialAd({ onClose }: InterstitialAdProps) {
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="absolute top-6 right-6 flex items-center z-50">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center z-[110]">
         <button
           onClick={onClose}
-          className="w-12 h-12 bg-white/10 hover:bg-white/20 active:bg-[#FFD700] active:text-black rounded-full flex items-center justify-center text-white transition-all font-black text-xl border border-white/20 shadow-xl"
+          className="w-12 h-12 bg-black/50 hover:bg-black/80 active:bg-[#FFD700] active:text-black rounded-full flex items-center justify-center text-white transition-all font-black text-2xl border-2 border-white/50 shadow-2xl backdrop-blur-md"
           title="Close & Claim Reward"
         >
           ✕
