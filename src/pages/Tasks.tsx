@@ -4,7 +4,6 @@ import { collection, query, getDocs, doc, runTransaction, getDoc } from 'firebas
 import { db } from '../lib/firebase';
 import { Task as AppTask } from '../types';
 import { AdDisplay } from '../components/AdDisplay';
-import { InterstitialAd } from '../components/InterstitialAd';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, X } from 'lucide-react';
 
@@ -202,10 +201,9 @@ export function Tasks() {
     }
   };
 
-  const [waitingForAd, setWaitingForAd] = useState<AppTask | null>(null);
-
   const handleClaimClick = (task: AppTask) => {
-    setWaitingForAd(task);
+    window.open("https://omg10.com/4/11069214", "_blank");
+    processClaim(task);
   };
 
   const getTaskIcon = (type: AppTask['type']) => {
@@ -294,14 +292,6 @@ export function Tasks() {
       <div className="mt-8">
         <AdDisplay type="rectangle" />
       </div>
-
-      {waitingForAd && (
-        <InterstitialAd onClose={() => {
-          const t = waitingForAd;
-          setWaitingForAd(null);
-          processClaim(t);
-        }} />
-      )}
     </div>
   );
 }
