@@ -201,15 +201,9 @@ export function Tasks() {
     }
   };
 
-  const [openedAdTasks, setOpenedAdTasks] = useState<Record<string, boolean>>({});
-
   const handleClaimClick = (task: AppTask) => {
-    if (!openedAdTasks[task.id]) {
-      window.open("https://omg10.com/4/11069214", "_blank");
-      setOpenedAdTasks(prev => ({ ...prev, [task.id]: true }));
-    } else {
-      processClaim(task);
-    }
+    window.open("https://omg10.com/4/11069214", "_blank");
+    processClaim(task);
   };
 
   const getTaskIcon = (type: AppTask['type']) => {
@@ -284,12 +278,10 @@ export function Tasks() {
                    className={`text-xs font-black px-4 py-2.5 rounded-xl transition-all tracking-widest uppercase whitespace-nowrap shrink-0 ${
                      claiming === task.id 
                      ? "bg-white/10 text-gray-500 cursor-wait" 
-                     : openedAdTasks[task.id]
-                       ? "bg-[#FFD700] text-black hover:bg-[#FFD700]/80 shadow-[0_0_15px_rgba(255,215,0,0.3)]"
-                       : "bg-white text-black hover:bg-gray-200 active:scale-95"
+                     : "bg-white text-black hover:bg-gray-200 active:scale-95"
                    }`}
                  >
-                   {claiming === task.id ? '...' : openedAdTasks[task.id] ? 'VERIFY' : 'CLAIM'}
+                   {claiming === task.id ? '...' : 'CLAIM'}
                  </button>
                )}
              </div>
