@@ -16,15 +16,16 @@ export function Dashboard() {
   const [isMining, setIsMining] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(user?.balance || 0);
   const [waitingForAd, setWaitingForAd] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
   const claimInProgress = useRef(false);
 
   const requestMiningStart = () => {
-    if (!user || isMining) return;
+    if (!user || isMining || isClaiming || (user.miningSessionEndTime && Date.now() >= user.miningSessionEndTime)) return;
     setWaitingForAd(true);
   };
 
   const startMining = async () => {
-    if (!user || isMining) return;
+    if (!user || isMining || isClaiming) return;
     const startTime = Date.now();
     const endTime = startTime + 24 * 60 * 60 * 1000; // 24 hours
     await updateUser({
@@ -34,14 +35,15 @@ export function Dashboard() {
   };
 
   useEffect(() => {
-    if (user && !isMining) {
+    if (user && !isMining && !isClaiming) {
       setCurrentBalance(user.balance);
     }
-  }, [user?.balance, isMining]);
+  }, [user?.balance, isMining, isClaiming]);
 
   const handleClaim = async (userId: string, earned: number) => {
     if (claimInProgress.current) return;
     claimInProgress.current = true;
+    setIsClaiming(true);
     let claimed = false;
     try {
         await runTransaction(db, async (t) => {
@@ -51,6 +53,7 @@ export function Dashboard() {
           
           const dbData = userDoc.data();
           if (!dbData.miningSessionStartTime) return; // already claimed
+          if (dbData.miningSessionEndTime > Date.now()) return; // A new session already started
 
           t.update(userRef, {
               balance: (dbData.balance || 0) + earned,
@@ -80,6 +83,7 @@ export function Dashboard() {
         console.error('claim error', e)
     } finally {
         claimInProgress.current = false;
+        setIsClaiming(false);
         setIsMining(false);
     }
   };
@@ -148,7 +152,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        {!isMining ? (
+        {!isMining && !isClaiming ? (
           <button 
             onClick={requestMiningStart}
             className="w-full max-w-sm bg-gradient-to-r from-[#FFD700] to-[#B8860B] text-black font-black py-4 md:py-5 rounded-2xl shadow-[0_10px_40px_rgba(212,175,55,0.3)] text-lg md:text-xl tracking-tighter active:scale-95 transition-all outline-none"
@@ -160,7 +164,7 @@ export function Dashboard() {
             disabled
             className="w-full max-w-sm bg-white/10 text-white/50 font-black py-4 md:py-5 rounded-2xl text-lg md:text-xl tracking-tighter cursor-not-allowed border border-white/5"
           >
-            EXTRACTING...
+            {isClaiming ? "CLAIMING REWARD..." : "EXTRACTING..."}
           </button>
         )}
         
