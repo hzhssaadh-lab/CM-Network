@@ -13,19 +13,19 @@ import toast from 'react-hot-toast';
 export function Dashboard() {
   const { user, updateUser } = useApp();
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
-  const [mineState, setMineState] = useState<'IDLE' | 'MINING' | 'READY'>('IDLE');
+  const [isMining, setIsMining] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(user?.balance || 0);
   const [waitingForAd, setWaitingForAd] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const claimInProgress = useRef(false);
 
   const requestMiningStart = () => {
-    if (!user || mineState !== 'IDLE' || isClaiming) return;
+    if (!user || isMining || isClaiming) return;
     setWaitingForAd(true);
   };
 
   const startMining = async () => {
-    if (!user || mineState !== 'IDLE' || isClaiming) return;
+    if (!user || isMining || isClaiming) return;
     const startTime = Date.now();
     const endTime = startTime + 24 * 60 * 60 * 1000; // 24 hours
     await updateUser({
@@ -35,23 +35,16 @@ export function Dashboard() {
   };
 
   useEffect(() => {
-    if (user && mineState === 'IDLE' && !isClaiming) {
+    if (user && !isMining && !isClaiming) {
       setCurrentBalance(user.balance);
     }
-  }, [user?.balance, mineState, isClaiming]);
-
-  const initiateClaim = () => {
-    if (!user || mineState !== 'READY' || isClaiming) return;
-    const totalEarned = user.miningRate * 24;
-    handleClaim(user.uid, totalEarned);
-  };
+  }, [user?.balance, isMining, isClaiming]);
 
   const handleClaim = async (userId: string, earned: number) => {
     if (claimInProgress.current) return;
     claimInProgress.current = true;
     setIsClaiming(true);
     let claimed = false;
-    let localAlreadyClaimed = false;
     try {
         await runTransaction(db, async (t) => {
           const userRef = doc(db, 'users', userId);
@@ -59,10 +52,7 @@ export function Dashboard() {
           if (!userDoc.exists()) return;
           
           const dbData = userDoc.data();
-          if (!dbData.miningSessionStartTime) {
-             localAlreadyClaimed = true;
-             return; // already claimed
-          }
+          if (!dbData.miningSessionStartTime) return; // already claimed
           if (dbData.miningSessionEndTime > Date.now()) return; // A new session already started
 
           t.update(userRef, {
@@ -94,18 +84,13 @@ export function Dashboard() {
                 icon: '⛏️',
                 duration: 6000,
             });
-        } else if (localAlreadyClaimed) {
-             updateUser({
-                miningSessionStartTime: null,
-                miningSessionEndTime: null
-            });
         }
     } catch(e) { 
         console.error('claim error', e)
-        toast.error('Error claiming reward. Please try again.');
     } finally {
         claimInProgress.current = false;
         setIsClaiming(false);
+        setIsMining(false);
     }
   };
 
@@ -118,7 +103,7 @@ export function Dashboard() {
       if (user.miningSessionEndTime && user.miningSessionStartTime) {
         const now = Date.now();
         if (now < user.miningSessionEndTime) {
-          setMineState('MINING');
+          setIsMining(true);
           const remaining = user.miningSessionEndTime - now;
           const h = Math.floor((remaining / (1000 * 60 * 60)) % 24);
           const m = Math.floor((remaining / 1000 / 60) % 60);
@@ -129,12 +114,14 @@ export function Dashboard() {
           const minedNow = (user.miningRate / 3600000) * elapsed;
           setCurrentBalance(user.balance + minedNow);
         } else {
-          setMineState('READY');
+          setIsMining(false);
           setTimeLeft("00:00:00");
-          setCurrentBalance(user.balance + (user.miningRate * 24));
+          // Auto claim when time is up
+          const totalEarned = user.miningRate * 24;
+          handleClaim(user.uid, totalEarned);
         }
       } else {
-        setMineState('IDLE');
+        setIsMining(false);
         setTimeLeft("24:00:00");
         setCurrentBalance(user.balance);
       }
@@ -156,33 +143,24 @@ export function Dashboard() {
         
         <div className="relative w-56 h-56 md:w-64 md:h-64 mb-8">
           {/* Radiating Aura Effect */}
-          <div className={`absolute inset-0 rounded-full bg-[#FFD700] transition-all duration-1000 ${mineState === 'MINING' ? 'opacity-10 blur-2xl animate-pulse' : 'opacity-0'}`}></div>
-          <div className={`absolute inset-0 rounded-full border border-[#FFD700]/50 transition-all duration-1000 ${mineState === 'MINING' ? 'animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]' : 'opacity-0'}`}></div>
+          <div className={`absolute inset-0 rounded-full bg-[#FFD700] transition-all duration-1000 ${isMining ? 'opacity-10 blur-2xl animate-pulse' : 'opacity-0'}`}></div>
+          <div className={`absolute inset-0 rounded-full border border-[#FFD700]/50 transition-all duration-1000 ${isMining ? 'animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]' : 'opacity-0'}`}></div>
           
           {/* Existing Rings */}
-          <div className={`absolute inset-0 rounded-full border-2 border-dashed border-[#FFD700]/30 transition-all duration-1000 ${mineState === 'MINING' ? 'animate-[spin_10s_linear_infinite]' : ''}`}></div>
-          <div className={`absolute inset-4 rounded-full border border-[#FFD700]/50 transition-all duration-700 ${mineState === 'MINING' ? 'bg-[#FFD700]/5 shadow-[0_0_40px_rgba(212,175,55,0.15)] animate-pulse' : ''}`}></div>
+          <div className={`absolute inset-0 rounded-full border-2 border-dashed border-[#FFD700]/30 transition-all duration-1000 ${isMining ? 'animate-[spin_10s_linear_infinite]' : ''}`}></div>
+          <div className={`absolute inset-4 rounded-full border border-[#FFD700]/50 transition-all duration-700 ${isMining ? 'bg-[#FFD700]/5 shadow-[0_0_40px_rgba(212,175,55,0.15)] animate-pulse' : ''}`}></div>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-xs md:text-sm text-gray-400 font-medium mb-1">{mineState === 'MINING' ? "MINING SESSION" : "READY TO MINE"}</p>
+            <p className="text-xs md:text-sm text-gray-400 font-medium mb-1">{isMining ? "MINING SESSION" : "READY TO MINE"}</p>
             <h2 className="text-4xl md:text-5xl font-black text-[#FFD700] my-2 font-mono tracking-tighter">
-              {mineState === 'MINING' ? timeLeft : "24:00:00"}
+              {isMining ? timeLeft : "24:00:00"}
             </h2>
-            <p className="text-[10px] md:text-xs text-[#FFD700]/60 tracking-widest uppercase">{mineState === 'MINING' ? "Active Engine" : "Engine Standby"}</p>
+            <p className="text-[10px] md:text-xs text-[#FFD700]/60 tracking-widest uppercase">{isMining ? "Active Engine" : "Engine Standby"}</p>
           </div>
         </div>
 
-        {mineState === 'READY' ? (
-          <button 
-            onClick={initiateClaim}
-            disabled={isClaiming}
-            className="w-full max-w-sm bg-gradient-to-r from-green-400 to-green-600 text-black font-black py-4 md:py-5 rounded-2xl shadow-[0_10px_40px_rgba(34,197,94,0.3)] text-lg md:text-xl tracking-tighter active:scale-95 transition-all outline-none"
-          >
-            {isClaiming ? "CLAIMING..." : "CLAIM REWARD"}
-          </button>
-        ) : mineState === 'IDLE' ? (
+        {!isMining && !isClaiming ? (
           <button 
             onClick={requestMiningStart}
-            disabled={isClaiming || waitingForAd}
             className="w-full max-w-sm bg-gradient-to-r from-[#FFD700] to-[#B8860B] text-black font-black py-4 md:py-5 rounded-2xl shadow-[0_10px_40px_rgba(212,175,55,0.3)] text-lg md:text-xl tracking-tighter active:scale-95 transition-all outline-none"
           >
             START EXTRACTION
@@ -192,7 +170,7 @@ export function Dashboard() {
             disabled
             className="w-full max-w-sm bg-white/10 text-white/50 font-black py-4 md:py-5 rounded-2xl text-lg md:text-xl tracking-tighter cursor-not-allowed border border-white/5"
           >
-            EXTRACTING...
+            {isClaiming ? "CLAIMING REWARD..." : "EXTRACTING..."}
           </button>
         )}
         
@@ -202,7 +180,7 @@ export function Dashboard() {
               <span>Rate / hr</span>
               <Info className="w-3 h-3 text-gray-400" />
             </div>
-            <p className="text-lg md:text-xl font-bold">{(user?.miningRate || 0).toFixed(4)} CM</p>
+            <p className="text-lg md:text-xl font-bold">{formatCurrency((user?.miningRate || 0))} CM</p>
 
             <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 opacity-0 transition-opacity group-hover:opacity-100 z-20">
               <div className="bg-gray-900 border border-white/10 rounded-xl p-4 shadow-2xl text-left">
