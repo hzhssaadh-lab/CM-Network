@@ -157,37 +157,30 @@ export function Tasks() {
     
     setClaiming(task.id);
     try {
-      await runTransaction(db, async (t) => {
-        const completedRef = doc(db, 'users', user.uid, 'completedTasks', task.id);
-        const completedDoc = await t.get(completedRef);
-        if (completedDoc.exists()) {
-          throw new Error('Task already claimed');
-        }
-
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await t.get(userRef);
-        if (!userDoc.exists()) return;
-        
-        // Add to completedTasks as pending.
-        t.set(completedRef, {
-          completedAt: Date.now(),
-          taskId: task.id,
-          status: 'pending'
-        });
-        
-        // Add a claim for admin to approve
-        const claimRef = doc(collection(db, 'taskClaims'));
-        t.set(claimRef, {
-          userId: user.uid,
-          userEmail: user.email || '',
-          userName: user.name || 'Anonymous',
-          taskId: task.id,
-          taskTitle: task.title || '',
-          reward: task.reward || 0,
-          status: 'pending',
-          timestamp: Date.now()
-        });
+      const batch = writeBatch(db);
+      const completedRef = doc(db, 'users', user.uid, 'completedTasks', task.id);
+      
+      // Add to completedTasks as pending.
+      batch.set(completedRef, {
+        completedAt: Date.now(),
+        taskId: task.id,
+        status: 'pending'
       });
+      
+      // Add a claim for admin to approve
+      const claimRef = doc(collection(db, 'taskClaims'));
+      batch.set(claimRef, {
+        userId: user.uid,
+        userEmail: user.email || '',
+        userName: user.name || 'Anonymous',
+        taskId: task.id,
+        taskTitle: task.title || '',
+        reward: task.reward || 0,
+        status: 'pending',
+        timestamp: Date.now()
+      });
+
+      await batch.commit();
       
       setCompletedTaskMap(prev => new Map(prev).set(task.id, 'pending'));
     } catch (err: any) {
@@ -195,7 +188,7 @@ export function Tasks() {
       if (err.message === 'Task already claimed') {
         setCompletedTaskMap(prev => new Map(prev).set(task.id, 'completed'));
       } else {
-        alert('Failed to claim task. You may have already claimed it.');
+        alert('Failed to claim task: ' + (err.message || 'Unknown error.'));
       }
     } finally {
       setClaiming(null);
