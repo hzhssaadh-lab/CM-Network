@@ -7,6 +7,7 @@ import { formatCurrency } from '../lib/utils';
 import { UserProfile, Task as AppTask, TaskClaim } from '../types';
 import { runTransaction } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { toast } from 'react-hot-toast';
 
 export function Admin() {
   const { user } = useApp();
@@ -694,7 +695,35 @@ export function Admin() {
         <div className="bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-8">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">All Data Explorer</h3>
-            <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Total: {users.length} Records</div>
+            <div className="flex items-center gap-4">
+              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Total: {users.length} Records</div>
+              <button 
+                onClick={() => {
+                  const header = ['UID', 'Name', 'Email', 'Country', 'CM Coins', 'USDT', 'Referral Code', 'Referred By', 'Ref Count', 'Joined At'];
+                  const rows = users.map(u => [
+                    u.uid,
+                    `"${(u.name || '').replace(/"/g, '""')}"`,
+                    `"${(u.email || '').replace(/"/g, '""')}"`,
+                    `"${(u.country || 'N/A').replace(/"/g, '""')}"`,
+                    u.balance || 0,
+                    u.usdtBalance || 0,
+                    u.referralCode || '',
+                    u.referredBy || '',
+                    u.referralCount || 0,
+                    `"${u.joinDate ? new Date(u.joinDate).toLocaleString().replace(/"/g, '""') : 'N/A'}"`
+                  ]);
+                  const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+                  navigator.clipboard.writeText(csv).then(() => {
+                    toast.success('All user data copied to clipboard as CSV');
+                  }).catch(() => {
+                    toast.error('Failed to copy data');
+                  });
+                }}
+                className="bg-[#FFD700]/10 hover:bg-[#FFD700]/20 text-[#FFD700] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
+              >
+                Copy All Data (CSV)
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto overflow-y-auto max-h-[70vh] rounded-xl pr-2">
             <table className="w-full text-left border-collapse min-w-[1200px]">
