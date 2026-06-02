@@ -7,7 +7,7 @@ import { Transaction } from '../types';
 
 export function Wallet() {
   const { user, requestWithdrawal } = useApp();
-  const [activeTab, setActiveTab] = useState<'send'|'receive'|'withdraw'|'history'|'tasks'>('send');
+  const [activeTab, setActiveTab] = useState<'send'|'receive'|'history'|'tasks'>('send');
   const [receiverUid, setReceiverUid] = useState('');
   const [amount, setAmount] = useState('');
   const [sending, setSending] = useState(false);
@@ -186,7 +186,6 @@ export function Wallet() {
        <div className="flex bg-white/5 p-1 rounded-2xl mb-8 overflow-x-auto custom-scrollbar">
          <button onClick={() => setActiveTab('send')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'send' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Send</button>
          <button onClick={() => setActiveTab('receive')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'receive' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Receive</button>
-         <button onClick={() => setActiveTab('withdraw')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'withdraw' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Withdraw</button>
          <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'history' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tx History</button>
          <button onClick={() => setActiveTab('tasks')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tasks</button>
        </div>
@@ -233,55 +232,6 @@ export function Wallet() {
                  </div>
                  <button disabled={sending} className="w-full bg-[#FFD700] text-black font-black py-4 rounded-xl shadow-[0_5px_20px_rgba(212,175,55,0.2)] active:scale-95 transition-all outline-none tracking-widest mt-4">
                    {sending ? 'PROCESSING...' : 'CONFIRM TRANSFER'}
-                 </button>
-               </form>
-             </>
-           )}
-         </div>
-       )}
-
-       {activeTab === 'withdraw' && (
-         <div className="bg-white/5 rounded-[32px] border border-white/10 p-8">
-           <h3 className="text-xl font-bold mb-6">Withdraw CM Coins</h3>
-           {user.transactionsBlocked ? (
-             <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center">
-               <p className="text-red-500 font-bold text-lg mb-2">Transactions Blocked</p>
-               <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support at cmnetwork122@gmail.com.</p>
-             </div>
-           ) : (
-             <>
-               {error && <p className="text-red-400 text-sm mb-4 bg-red-400/10 p-4 rounded-xl border border-red-400/20 font-medium">{error}</p>}
-               {success && <p className="text-green-400 text-sm mb-4 bg-green-400/10 p-4 rounded-xl border border-green-400/20 font-medium">{success}</p>}
-               <form onSubmit={handleWithdraw} className="space-y-6">
-                 <div>
-                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Wallet Address (TRC20)</label>
-                   <input 
-                     type="text" 
-                     value={receiverUid}
-                     onChange={(e) => setReceiverUid(e.target.value)}
-                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#FFD700]/50 transition-colors placeholder:text-gray-600 focus:ring-1 focus:ring-[#FFD700]/50 font-mono" 
-                     placeholder="Enter Wallet Address / Binance UID"
-                     required
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Amount (CM)</label>
-                   <div className="relative">
-                     <input 
-                       type="number" 
-                       value={amount}
-                       onChange={(e) => setAmount(e.target.value)}
-                       step="0.01"
-                       min="5"
-                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white pl-4 pr-20 focus:outline-none focus:border-[#FFD700]/50 transition-colors font-mono focus:ring-1 focus:ring-[#FFD700]/50" 
-                       placeholder="5.00 minimum"
-                       required
-                     />
-                     <button type="button" onClick={() => setAmount(user.balance.toString())} className="absolute right-4 text-xs top-1/2 -translate-y-1/2 font-bold text-[#FFD700] hover:text-white transition-colors bg-[#FFD700]/10 px-3 py-1 rounded-md">MAX</button>
-                   </div>
-                 </div>
-                 <button disabled={sending} className="w-full bg-[#FFD700] text-black font-black py-4 rounded-xl shadow-[0_5px_20px_rgba(212,175,55,0.2)] active:scale-95 transition-all outline-none tracking-widest mt-4">
-                   {sending ? 'PROCESSING...' : 'REQUEST WITHDRAWAL'}
                  </button>
                </form>
              </>

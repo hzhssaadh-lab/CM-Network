@@ -163,7 +163,7 @@ export function Dashboard() {
           <div className={`absolute inset-0 rounded-full border-2 border-dashed border-[#FFD700]/30 transition-all duration-1000 ${mineState === 'MINING' ? 'animate-[spin_10s_linear_infinite]' : ''}`}></div>
           <div className={`absolute inset-4 rounded-full border border-[#FFD700]/50 transition-all duration-700 ${mineState === 'MINING' ? 'bg-[#FFD700]/5 shadow-[0_0_40px_rgba(212,175,55,0.15)] animate-pulse' : ''}`}></div>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-xs md:text-sm text-gray-400 font-medium mb-1">{mineState === 'MINING' ? "MINING SESSION" : "READY TO MINE"}</p>
+            <p className="text-xs md:text-sm text-gray-400 font-medium mb-1">{mineState === 'MINING' ? "EXTRACTION SESSION" : "READY TO EXTRACT"}</p>
             <h2 className="text-4xl md:text-5xl font-black text-[#FFD700] my-2 font-mono tracking-tighter">
               {mineState === 'MINING' ? timeLeft : "24:00:00"}
             </h2>
