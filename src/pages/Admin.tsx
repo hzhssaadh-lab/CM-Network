@@ -18,7 +18,7 @@ export function Admin() {
   const [usdtWithdrawals, setUsdtWithdrawals] = useState<any[]>([]);
   const [adLogs, setAdLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config'>('users');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Edit User State
@@ -39,13 +39,39 @@ export function Admin() {
   const [showAds, setShowAds] = useState(false);
   const [adsterraSnippet, setAdsterraSnippet] = useState('');
   const [admobBannerId, setAdmobBannerId] = useState('');
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
 
   useEffect(() => {
     if (user?.role === 'admin') {
       fetchData();
       fetchAdsSettings();
+      fetchAppSettings();
     }
   }, [user]);
+
+  const fetchAppSettings = async () => {
+    try {
+      const docRef = doc(db, 'settings', 'app');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setMaintenanceMode(data.maintenanceMode === true);
+      }
+    } catch (e) {
+      console.error("Failed to load app settings", e);
+    }
+  };
+
+  const saveMaintenanceMode = async (newMode: boolean) => {
+    try {
+      const docRef = doc(db, 'settings', 'app');
+      await setDoc(docRef, { maintenanceMode: newMode }, { merge: true });
+      setMaintenanceMode(newMode);
+    } catch (error) {
+      console.error(error);
+      alert("Error saving maintenance mode.");
+    }
+  };
 
   const fetchAdsSettings = async () => {
     try {
@@ -627,6 +653,12 @@ export function Admin() {
           Approvals
         </button>
         <button 
+          onClick={() => setActiveTab('config')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'config' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          App Config
+        </button>
+        <button 
           onClick={() => setActiveTab('ads')}
           className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'ads' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
@@ -738,6 +770,26 @@ export function Admin() {
               ))}
             </tbody>
           </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'config' && (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">App Configuration</h3>
+          </div>
+          <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-bold uppercase tracking-widest text-white">Enable Maintenance Mode</label>
+                <div 
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors relative flex items-center ${maintenanceMode ? 'bg-red-500' : 'bg-gray-600'}`}
+                  onClick={() => saveMaintenanceMode(!maintenanceMode)}
+                >
+                  <div className={`absolute left-1 bg-white w-4 h-4 rounded-full transition-transform ${maintenanceMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 tracking-wide leading-relaxed">Turn this on to block the app for all non-admin users. A full-screen maintenance message with a WhatsApp channel link will be shown. Admins and existing logged-in admins will still be able to access the app.</p>
           </div>
         </div>
       )}

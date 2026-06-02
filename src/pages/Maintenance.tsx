@@ -3,7 +3,7 @@ import { Wrench } from 'lucide-react';
 
 export function Maintenance() {
   return (
-    <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center z-[9999] fixed inset-0">
       <div className="w-24 h-24 mb-6 rounded-full bg-[#FFD700]/10 flex items-center justify-center">
         <Wrench className="w-12 h-12 text-[#FFD700]" />
       </div>
@@ -17,7 +17,7 @@ export function Maintenance() {
       </p>
       
       <p className="text-gray-500 text-sm mb-10 max-w-md">
-        Updates aur announcements ke liye WhatsApp channel join karein.
+        Follow the CM Network channel on WhatsApp:
       </p>
       
       <a 

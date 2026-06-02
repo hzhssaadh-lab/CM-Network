@@ -21,6 +21,25 @@ import { db } from './lib/firebase';
 function AppContent() {
   const { user, loading, submitReferralCode } = useApp();
   const location = useLocation();
+  const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'settings', 'app'),
+      (snap) => {
+        if (snap.exists()) {
+          setMaintenanceMode(snap.data().maintenanceMode === true);
+        } else {
+          setMaintenanceMode(false);
+        }
+      },
+      (error) => {
+        console.error("Maintenance check failed:", error);
+        if (maintenanceMode === null) setMaintenanceMode(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [maintenanceMode]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -51,12 +70,17 @@ function AppContent() {
 
   const isAdminRoute = location.pathname.startsWith('/admin');
 
-  if (loading) {
+  if (loading || maintenanceMode === null) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#050505]">
         <div className="w-16 h-16 border-4 border-[#FFD700]/30 border-t-[#FFD700] rounded-full animate-spin"></div>
       </div>
     );
+  }
+
+  // If maintenance mode is ON and user is NOT an admin, block access
+  if (maintenanceMode && user?.role !== 'admin') {
+    return <Maintenance />;
   }
 
   if (!user) {
@@ -96,38 +120,6 @@ function AppContent() {
 }
 
 export default function App() {
-  const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      doc(db, 'settings', 'app'),
-      (snap) => {
-        if (snap.exists()) {
-          setMaintenanceMode(snap.data().maintenanceMode === true);
-        } else {
-          setMaintenanceMode(false);
-        }
-      },
-      (error) => {
-        console.error("Maintenance check failed:", error);
-        if (maintenanceMode === null) setMaintenanceMode(false);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
-
-  if (maintenanceMode === null) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#FFD700]/30 border-t-[#FFD700] rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  if (maintenanceMode) {
-    return <Maintenance />;
-  }
-
   return (
     <AppProvider>
       <BrowserRouter>
