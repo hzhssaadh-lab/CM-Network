@@ -1,6 +1,6 @@
 import { useApp } from '../hooks/useAppStore';
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UserProfile } from '../types';
 
@@ -12,7 +12,7 @@ function FriendLeaderboard({ userUid, userCode }: { userUid: string, userCode: s
     const fetchFriends = async () => {
       try {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('referredBy', 'in', [userUid, userCode]));
+        const q = query(usersRef, where('referredBy', 'in', [userUid, userCode]), limit(200));
         const querySnapshot = await getDocs(q);
         
         const topFriends: UserProfile[] = [];

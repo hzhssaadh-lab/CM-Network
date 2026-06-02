@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, onSnapshot, collection, query, where, getDocs, getDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs, getDoc, writeBatch } from 'firebase/firestore';
 import { UserProfile, AdSettings } from '../types';
 import { generateReferralCode } from '../lib/utils';
 
@@ -15,6 +15,7 @@ interface AppState {
   signupWithEmail: (name: string, email: string, pass: string, inviteCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
+  updateLocalUser: (data: Partial<UserProfile>) => void;
   submitReferralCode: (code: string) => Promise<boolean>;
   claimDailyCheckIn: () => Promise<{ success: boolean; reward: number; message: string }>;
   claimSquadBonus: (squadSize: number) => Promise<{ success: boolean; reward: number; message: string }>;
@@ -294,6 +295,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const userRef = doc(db, 'users', user.uid);
     await setDoc(userRef, data, { merge: true });
+    setUser(prev => prev ? { ...prev, ...data } : null);
+  };
+
+  const updateLocalUser = (data: Partial<UserProfile>) => {
+    if (!user) return;
     setUser(prev => prev ? { ...prev, ...data } : null);
   };
 
@@ -666,7 +672,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, claimUsdtAdReward, requestWithdrawal, requestUsdtWithdrawal }}>
+    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, updateLocalUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, claimUsdtAdReward, requestWithdrawal, requestUsdtWithdrawal }}>
       {children}
     </AppContext.Provider>
   );

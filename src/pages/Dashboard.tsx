@@ -11,7 +11,7 @@ import { InterstitialAd } from '../components/InterstitialAd';
 import toast from 'react-hot-toast';
 
 export function Dashboard() {
-  const { user, updateUser } = useApp();
+  const { user, updateUser, updateLocalUser } = useApp();
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
   const [mineState, setMineState] = useState<'IDLE' | 'MINING' | 'READY'>('IDLE');
   const [currentBalance, setCurrentBalance] = useState(user?.balance || 0);
@@ -84,7 +84,7 @@ export function Dashboard() {
         });
         
         if (claimed) {
-            updateUser({
+            updateLocalUser({
                 balance: (user.balance || 0) + earned,
                 totalMined: (user.totalMined || 0) + earned,
                 miningSessionStartTime: null,
@@ -95,7 +95,7 @@ export function Dashboard() {
                 duration: 6000,
             });
         } else if (localAlreadyClaimed) {
-             updateUser({
+             updateLocalUser({
                 miningSessionStartTime: null,
                 miningSessionEndTime: null
             });

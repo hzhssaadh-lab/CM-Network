@@ -1,7 +1,7 @@
 import { useApp } from '../hooks/useAppStore';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, doc, updateDoc, setDoc, getDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, setDoc, getDoc, deleteDoc, writeBatch, increment, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { formatCurrency } from '../lib/utils';
 import { UserProfile, Task as AppTask, TaskClaim } from '../types';
@@ -79,38 +79,38 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      const q = query(collection(db, 'users'));
+      const q = query(collection(db, 'users'), limit(500));
       const snap = await getDocs(q);
       const userData: UserProfile[] = [];
       snap.docs.forEach(d => userData.push(d.data() as UserProfile));
       setUsers(userData);
 
-      const tq = query(collection(db, 'tasks'));
+      const tq = query(collection(db, 'tasks'), limit(100));
       const tSnap = await getDocs(tq);
       const tasksData: AppTask[] = [];
       tSnap.docs.forEach(d => tasksData.push({ id: d.id, ...d.data() } as AppTask));
       setTasks(tasksData);
 
-      const cQ = query(collection(db, 'taskClaims'));
+      const cQ = query(collection(db, 'taskClaims'), limit(200));
       const cSnap = await getDocs(cQ);
       const claimsData: TaskClaim[] = [];
       cSnap.docs.forEach(d => claimsData.push({ id: d.id, ...d.data() } as TaskClaim));
       setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
 
-      const wQ = query(collection(db, 'withdrawals'));
+      const wQ = query(collection(db, 'withdrawals'), limit(200));
       const wSnap = await getDocs(wQ);
       const wData: any[] = [];
       wSnap.docs.forEach(d => wData.push({ id: d.id, ...d.data() }));
       setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
 
-      const wuQ = query(collection(db, 'withdrawals_usdt'));
+      const wuQ = query(collection(db, 'withdrawals_usdt'), limit(200));
       const wuSnap = await getDocs(wuQ);
       const wuData: any[] = [];
       wuSnap.docs.forEach(d => wuData.push({ id: d.id, ...d.data() }));
       setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
 
       // Fetch Ad Logs
-      const adLogQ = query(collection(db, 'ads_log'));
+      const adLogQ = query(collection(db, 'ads_log'), limit(200));
       const adLogSnap = await getDocs(adLogQ);
       const adLogData: any[] = [];
       adLogSnap.docs.forEach(d => adLogData.push({ id: d.id, ...d.data() }));

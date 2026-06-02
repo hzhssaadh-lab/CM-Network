@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, arrayUnion, arrayRemove, limit } from 'firebase/firestore';
 import { Users, Coins, UserPlus, Shield, Check, Plus, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Squad } from '../types';
@@ -53,7 +53,7 @@ export function Squads() {
       
       // Fetch friends (referred users)
       if (user.uid && user.referralCode) {
-        const friendsQ = query(collection(db, 'users'), where('referredBy', 'in', [user.uid, user.referralCode]));
+        const friendsQ = query(collection(db, 'users'), where('referredBy', 'in', [user.uid, user.referralCode]), limit(200));
         const friendsRes = await getDocs(friendsQ);
         setFriends(friendsRes.docs.map(d => {
           const u = d.data() as UserProfile;

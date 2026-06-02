@@ -40,7 +40,7 @@ export function Wallet() {
       setTasksMetaMap(tMap);
 
       // Fetch completedTasks
-      const q = query(collection(db, 'users', user.uid, 'completedTasks'), orderBy('completedAt', 'desc'));
+      const q = query(collection(db, 'users', user.uid, 'completedTasks'), orderBy('completedAt', 'desc'), limit(100));
       const snap = await getDocs(q);
       const ct: any[] = [];
       snap.docs.forEach(d => ct.push(d.data()));
@@ -55,8 +55,8 @@ export function Wallet() {
     if (!user) return;
     setLoadingHistory(true);
     try {
-      const q = query(collection(db, 'transactions'), where('senderUid', '==', user.uid));
-      const q2 = query(collection(db, 'transactions'), where('receiverUid', '==', user.uid));
+      const q = query(collection(db, 'transactions'), where('senderUid', '==', user.uid), limit(100));
+      const q2 = query(collection(db, 'transactions'), where('receiverUid', '==', user.uid), limit(100));
       const [snap1, snap2] = await Promise.all([getDocs(q), getDocs(q2)]);
       
       let txs: any[] = [];
