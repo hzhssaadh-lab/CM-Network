@@ -18,7 +18,7 @@ export function Admin() {
   const [usdtWithdrawals, setUsdtWithdrawals] = useState<any[]>([]);
   const [adLogs, setAdLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config' | 'all_data'>('users');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Edit User State
@@ -633,16 +633,22 @@ export function Admin() {
         </div>
       </div>
 
-      <div className="flex space-x-4 mb-6">
+      <div className="flex space-x-4 mb-6 overflow-x-auto pb-2">
         <button 
           onClick={() => setActiveTab('users')}
-          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'users' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'users' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           Users
         </button>
         <button 
+          onClick={() => setActiveTab('all_data')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'all_data' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          All Data
+        </button>
+        <button 
           onClick={() => setActiveTab('tasks')}
-          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           Tasks
         </button>
@@ -683,6 +689,51 @@ export function Admin() {
           Competition
         </button>
       </div>
+
+      {activeTab === 'all_data' && (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">All Data Explorer</h3>
+            <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Total: {users.length} Records</div>
+          </div>
+          <div className="overflow-x-auto overflow-y-auto max-h-[70vh] rounded-xl pr-2">
+            <table className="w-full text-left border-collapse min-w-[1200px]">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">UID</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Name</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Email</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Country</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">CM Coins</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-green-500">USDT</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Referral Code</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Referred By</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Ref Count</th>
+                  <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Joined At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.uid} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <td className="p-3 text-[10px] font-mono text-gray-500">{u.uid}</td>
+                    <td className="p-3 text-sm font-bold truncate max-w-[150px]">{u.name}</td>
+                    <td className="p-3 text-xs font-mono text-gray-400">{u.email}</td>
+                    <td className="p-3 text-xs font-bold text-gray-300 uppercase tracking-widest">{u.country || 'N/A'}</td>
+                    <td className="p-3 font-mono font-bold text-[#FFD700]">{formatCurrency(u.balance)}</td>
+                    <td className="p-3 font-mono font-bold text-green-500">${(u.usdtBalance || 0).toFixed(4)}</td>
+                    <td className="p-3 text-xs font-mono font-bold text-blue-400">{u.referralCode}</td>
+                    <td className="p-3 text-xs font-mono text-gray-400">{u.referredBy || 'None'}</td>
+                    <td className="p-3 text-xs font-bold text-gray-300">{u.referralCount || 0}</td>
+                    <td className="p-3 text-[10px] font-mono text-gray-500">
+                      {u.joinDate ? new Date(u.joinDate).toLocaleString() : 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'users' && (
         <div className="bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-8">
