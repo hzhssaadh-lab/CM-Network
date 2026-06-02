@@ -1,13 +1,15 @@
 import { useApp } from '../hooks/useAppStore';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 
 export function Header() {
-  const { user, updateUser } = useApp();
+  const { user, updateUser, refreshUser } = useApp();
   const [clicks, setClicks] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
   const [pwdInput, setPwdInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
   
   const handleAdminClick = async () => {
@@ -31,6 +33,13 @@ export function Header() {
     } else {
       setErrorMsg('Incorrect Access Code');
     }
+  };
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    await refreshUser();
+    setTimeout(() => setIsRefreshing(false), 500); // UI feel
   };
 
   return (
@@ -84,6 +93,13 @@ export function Header() {
         </div>
         
         <div className="flex items-center space-x-6">
+        <button 
+          onClick={handleRefresh} 
+          disabled={isRefreshing}
+          className="p-2 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-[#FFD700]' : ''}`} />
+        </button>
         <div className="text-right hidden sm:block">
           <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Global Price</p>
           <p className="text-[#FFD700] font-mono font-bold text-lg">$6.00 <span className="text-[10px] text-green-400 font-normal ml-1">+0.0%</span></p>

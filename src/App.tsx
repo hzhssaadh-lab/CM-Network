@@ -12,8 +12,11 @@ import { Admin } from './pages/Admin';
 import { Leaderboard } from './pages/Leaderboard';
 import { Squads } from './pages/Squads';
 import { Ads } from './pages/Ads';
-import React, { useEffect } from 'react';
+import { Maintenance } from './pages/Maintenance';
+import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 function AppContent() {
   const { user, loading, submitReferralCode } = useApp();
@@ -93,6 +96,38 @@ function AppContent() {
 }
 
 export default function App() {
+  const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'settings', 'app'),
+      (snap) => {
+        if (snap.exists()) {
+          setMaintenanceMode(snap.data().maintenanceMode === true);
+        } else {
+          setMaintenanceMode(false);
+        }
+      },
+      (error) => {
+        console.error("Maintenance check failed:", error);
+        if (maintenanceMode === null) setMaintenanceMode(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  if (maintenanceMode === null) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[#FFD700]/30 border-t-[#FFD700] rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (maintenanceMode) {
+    return <Maintenance />;
+  }
+
   return (
     <AppProvider>
       <BrowserRouter>

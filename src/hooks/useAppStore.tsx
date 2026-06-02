@@ -16,6 +16,7 @@ interface AppState {
   logout: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
   updateLocalUser: (data: Partial<UserProfile>) => void;
+  refreshUser: () => Promise<void>;
   submitReferralCode: (code: string) => Promise<boolean>;
   claimDailyCheckIn: () => Promise<{ success: boolean; reward: number; message: string }>;
   claimSquadBonus: (squadSize: number) => Promise<{ success: boolean; reward: number; message: string }>;
@@ -301,6 +302,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateLocalUser = (data: Partial<UserProfile>) => {
     if (!user) return;
     setUser(prev => prev ? { ...prev, ...data } : null);
+  };
+
+  const refreshUser = async () => {
+    if (!firebaseUser) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const u = docSnap.data() as UserProfile;
+        u.uid = firebaseUser.uid;
+        setUser(u);
+      }
+    } catch (error) {
+      console.error("Error refreshing user:", error);
+    }
   };
 
   const submitReferralCode = async (code: string) => {
@@ -672,7 +688,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, updateLocalUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, claimUsdtAdReward, requestWithdrawal, requestUsdtWithdrawal }}>
+    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, updateLocalUser, refreshUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, claimUsdtAdReward, requestWithdrawal, requestUsdtWithdrawal }}>
       {children}
     </AppContext.Provider>
   );
