@@ -9,15 +9,15 @@ export function Maintenance() {
       </div>
       
       <h1 className="text-2xl font-bold text-white mb-4">
-        CM Network temporary maintenance par hai.
+        CM Network is temporarily under maintenance.
       </h1>
       
       <p className="text-gray-400 mb-2 max-w-md">
-        Agle 24 ghante ke baad app dobara open hogi toh update mil jayega.
+        The app will be back online with a new update within the next 24 hours.
       </p>
       
       <p className="text-gray-500 text-sm mb-10 max-w-md">
-        Follow the CM Network channel on WhatsApp:
+        Follow the CM Network channel on WhatsApp for updates:
       </p>
       
       <a 
