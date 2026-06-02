@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { collection, query, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, writeBatch, getDoc, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Task as AppTask } from '../types';
 import toast from 'react-hot-toast';
@@ -127,21 +127,25 @@ export function Tasks() {
 
     const fetchTasks = async () => {
       try {
-        const q = query(collection(db, 'tasks'));
+        const q = query(collection(db, 'tasks'), where('isActive', '==', true));
         const snap = await getDocs(q);
         const tasksData: AppTask[] = [];
         snap.docs.forEach(d => {
-          const t = { id: d.id, ...d.data() } as AppTask;
-          if (t.isActive) tasksData.push(t);
+          tasksData.push({ id: d.id, ...d.data() } as AppTask);
         });
         setTasks(tasksData);
 
-        const completionsSnap = await getDocs(collection(db, 'users', user.uid, 'completedTasks'));
         const completedMap = new Map<string, string>();
-        completionsSnap.forEach(d => {
-          const data = d.data();
-          completedMap.set(d.id, data.status || 'completed');
-        });
+        // Only fetch completion status for the active tasks directly using their ID
+        await Promise.all(
+          tasksData.map(async (t) => {
+            const completedRef = doc(db, 'users', user.uid, 'completedTasks', t.id);
+            const docSnap = await getDoc(completedRef);
+            if (docSnap.exists()) {
+              completedMap.set(t.id, docSnap.data().status || 'completed');
+            }
+          })
+        );
         setCompletedTaskMap(completedMap);
       } catch (err) {
         console.error(err);

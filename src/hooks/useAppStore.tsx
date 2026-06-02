@@ -56,29 +56,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Listen to global AdSettings
-    const adSettingsRef = doc(db, 'settings', 'ads');
-    const unsubscribeAds = onSnapshot(adSettingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setAdSettings(docSnap.data() as AdSettings);
-      } else {
-        setAdSettings({ showAds: false });
+    // Fetch global AdSettings once
+    const fetchAdSettings = async () => {
+      try {
+        const adSettingsRef = doc(db, 'settings', 'ads');
+        const docSnap = await getDoc(adSettingsRef);
+        if (docSnap.exists()) {
+          setAdSettings(docSnap.data() as AdSettings);
+        } else {
+          setAdSettings({ showAds: false });
+        }
+      } catch (error) {
+        console.error("Error fetching ad settings:", error);
       }
-    }, (error) => {
-      console.error("Error listening to ad settings:", error);
-    });
-
-    let unsubscribeUser: (() => void) | null = null;
+    };
+    fetchAdSettings();
 
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
       setLoading(true);
       setFirebaseUser(fUser);
       
-      if (unsubscribeUser) {
-        unsubscribeUser();
-        unsubscribeUser = null;
-      }
-
       if (!fUser) {
         setUser(null);
         setLoading(false);
@@ -94,97 +91,99 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
          return;
       }
 
-      const userRef = doc(db, 'users', fUser.uid);
-      
-      unsubscribeUser = onSnapshot(userRef, async (docSnap) => {
-        if (docSnap.exists()) {
-          const u = docSnap.data() as UserProfile;
-          u.uid = fUser.uid; // Ensure uid is present even for older documents
-          if (u.isActive === false && u.role !== 'admin') {
-            await signOut(auth);
-            setUser(null);
-            alert("Your account has been blocked by an administrator.");
-          } else {
-            // Auto-upgrade to admin for the specific email
-            if (fUser.email === 'hzhssaadh@gmail.com' && u.role !== 'admin') {
-               await setDoc(userRef, { role: 'admin' }, { merge: true });
-               u.role = 'admin';
-            }
-            // Bind device ID if missing
-            const currentDeviceId = getDeviceId();
-            let updates: any = {};
-            let needsUpdate = false;
-            
-            if (!u.deviceId) {
-              updates.deviceId = currentDeviceId;
-              u.deviceId = currentDeviceId;
-              needsUpdate = true;
-            }
-            
-            if (!u.country) {
-              try {
-                const res = await fetch('https://ipapi.co/json/');
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.country_name) {
-                    updates.country = data.country_name;
-                    u.country = data.country_name;
-                    needsUpdate = true;
+      const fetchUserData = async () => {
+        const userRef = doc(db, 'users', fUser.uid);
+        try {
+          const docSnap = await getDoc(userRef);
+          if (docSnap.exists()) {
+            const u = docSnap.data() as UserProfile;
+            u.uid = fUser.uid; // Ensure uid is present even for older documents
+            if (u.isActive === false && u.role !== 'admin') {
+              await signOut(auth);
+              setUser(null);
+              alert("Your account has been blocked by an administrator.");
+            } else {
+              // Auto-upgrade to admin for the specific email
+              if (fUser.email === 'hzhssaadh@gmail.com' && u.role !== 'admin') {
+                 await setDoc(userRef, { role: 'admin' }, { merge: true });
+                 u.role = 'admin';
+              }
+              // Bind device ID if missing
+              const currentDeviceId = getDeviceId();
+              let updates: any = {};
+              let needsUpdate = false;
+              
+              if (!u.deviceId) {
+                updates.deviceId = currentDeviceId;
+                u.deviceId = currentDeviceId;
+                needsUpdate = true;
+              }
+              
+              if (!u.country) {
+                try {
+                  const res = await fetch('https://ipapi.co/json/');
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.country_name) {
+                      updates.country = data.country_name;
+                      u.country = data.country_name;
+                      needsUpdate = true;
+                    }
                   }
-                }
-              } catch(e) { console.warn("Failed to fetch IP", e); }
-            }
+                } catch(e) { console.warn("Failed to fetch IP", e); }
+              }
 
-            if (needsUpdate) {
-              await setDoc(userRef, updates, { merge: true });
-            }
+              if (needsUpdate) {
+                await setDoc(userRef, updates, { merge: true });
+              }
 
-            setUser(u);
+              setUser(u);
+            }
+          } else {
+            // Create new user profile
+            try {
+              const newUser: UserProfile = {
+                uid: fUser.uid,
+                name: fUser.displayName || 'User',
+                email: fUser.email || '',
+                photoURL: fUser.photoURL || '',
+                balance: 0,
+                miningRate: 0.05 / 24, // 0.05 CM daily = per hour rate
+                miningSessionEndTime: null,
+                miningSessionStartTime: null,
+                referralCode: generateReferralCode(),
+                referredBy: null,
+                referralCount: 0,
+                joinDate: Date.now(),
+                dailyStreak: 0,
+                kycStatus: 'pending',
+                role: (fUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
+                isActive: true,
+                totalMined: 0,
+                lastCheckIn: null,
+                deviceId: getDeviceId()
+              };
+              await setDoc(userRef, newUser);
+              setUser(newUser);
+            } catch (err: any) {
+              console.error("Error creating user document", err);
+              await signOut(auth);
+              setUser(null);
+              alert("Error creating account. Please try again later.");
+            }
           }
-        } else {
-          // Create new user profile
-          try {
-            const newUser: UserProfile = {
-              uid: fUser.uid,
-              name: fUser.displayName || 'User',
-              email: fUser.email || '',
-              photoURL: fUser.photoURL || '',
-              balance: 0,
-              miningRate: 0.05 / 24, // 0.05 CM daily = per hour rate
-              miningSessionEndTime: null,
-              miningSessionStartTime: null,
-              referralCode: generateReferralCode(),
-              referredBy: null,
-              referralCount: 0,
-              joinDate: Date.now(),
-              dailyStreak: 0,
-              kycStatus: 'pending',
-              role: (fUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
-              isActive: true,
-              totalMined: 0,
-              lastCheckIn: null,
-              deviceId: getDeviceId()
-            };
-            await setDoc(userRef, newUser);
-            setUser(newUser);
-          } catch (err: any) {
-            console.error("Error creating user document", err);
-            await signOut(auth);
-            setUser(null);
-            alert("Error creating account. Please try again later.");
-          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
-      }, (error) => {
-        console.error("Error fetching user data:", error);
-        setLoading(false);
-      });
+      };
+
+      fetchUserData();
     });
 
     return () => {
       unsubscribe();
-      if (unsubscribeUser) unsubscribeUser();
-      unsubscribeAds();
     };
   }, []);
 
