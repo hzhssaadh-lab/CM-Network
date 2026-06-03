@@ -250,11 +250,11 @@ export function Ads() {
             </div>
           )}
 
-          {user.adsWatchedToday! >= 100 ? (
+          {user.adsWatchedToday! >= 200 ? (
             <div className="text-center relative z-10">
               <Gift className="w-12 h-12 text-gray-600 mx-auto mb-4" />
               <h3 className="text-xl font-black tracking-tight text-white mb-2">Daily Ad Limit Reached</h3>
-              <p className="text-gray-400 text-sm">You have watched 100 ads today. Come back tomorrow for more USDT rewards!</p>
+              <p className="text-gray-400 text-sm">You have watched 200 ads today. Come back tomorrow for more USDT rewards!</p>
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
@@ -265,7 +265,7 @@ export function Ads() {
                 <p className="text-green-100/70 text-sm mt-2">Watch sponsor ads. Every ad gives you real USDT!</p>
                 <div className="mt-3 flex items-center gap-2 text-xs font-bold text-green-500">
                   <span className="bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
-                    {100 - (user.adsWatchedToday || 0)} ADS REMAINING TODAY
+                    {200 - (user.adsWatchedToday || 0)} ADS REMAINING TODAY
                   </span>
                 </div>
               </div>
