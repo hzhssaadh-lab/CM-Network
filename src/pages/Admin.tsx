@@ -713,11 +713,36 @@ export function Admin() {
                     `"${u.joinDate ? new Date(u.joinDate).toLocaleString().replace(/"/g, '""') : 'N/A'}"`
                   ]);
                   const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
-                  navigator.clipboard.writeText(csv).then(() => {
-                    toast.success('All user data copied to clipboard as CSV');
-                  }).catch(() => {
-                    toast.error('Failed to copy data');
-                  });
+                  
+                  const fallbackCopyTextToClipboard = (text: string) => {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.top = "0";
+                    textArea.style.left = "0";
+                    textArea.style.position = "fixed";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                      const successful = document.execCommand('copy');
+                      if (successful) {
+                         toast.success('All user data copied to clipboard as CSV');
+                      } else {
+                         toast.error('Failed to copy data. Try manually selecting.');
+                      }
+                    } catch (err) {
+                      toast.error('Failed to copy data');
+                    }
+                    document.body.removeChild(textArea);
+                  };
+
+                  if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(csv).then(() => {
+                      toast.success('All user data copied to clipboard as CSV');
+                    }).catch(() => fallbackCopyTextToClipboard(csv));
+                  } else {
+                    fallbackCopyTextToClipboard(csv);
+                  }
                 }}
                 className="bg-[#FFD700]/10 hover:bg-[#FFD700]/20 text-[#FFD700] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
               >
