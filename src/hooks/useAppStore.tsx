@@ -355,7 +355,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = async () => {
     if (!supabaseUser) return;
     try {
-      const { data: u } = await supabase.from('users').select('*').eq('uid', supabaseUser.id).single();
+      let u = null;
+      if (supabaseUser.email) {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .ilike('email', supabaseUser.email)
+          .order('balance', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0) u = data[0];
+      }
+      
+      if (!u) {
+        const { data } = await supabase.from('users').select('*').eq('uid', supabaseUser.id).single();
+        if (data) u = data;
+      }
+
       if (u) {
         setUser(u as UserProfile);
       }

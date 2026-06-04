@@ -59,7 +59,7 @@ export function Admin() {
 
   const saveMaintenanceMode = async (newMode: boolean) => {
     try {
-      await supabase.from('settings').upsert({ id: 'app', maintenanceMode: newMode });
+      await supabase.from('settings').update({ maintenanceMode: newMode }).eq('id', 'app');
       setMaintenanceMode(newMode);
     } catch (error) {
       console.error(error);
