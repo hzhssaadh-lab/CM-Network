@@ -162,7 +162,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             console.error("Error creating user", insertError);
             await supabase.auth.signOut();
             setUser(null);
-            alert("Error creating account.");
+            alert("Error creating account: " + insertError.message);
           } else {
             setUser(newUser);
           }
