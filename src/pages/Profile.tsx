@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { Edit2, X, Check, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatCurrency } from '../lib/utils';

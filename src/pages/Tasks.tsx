@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { collection, query, getDocs, doc, writeBatch, getDoc, where } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { Task as AppTask } from '../types';
 import toast from 'react-hot-toast';
 import { AdDisplay } from '../components/AdDisplay';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, X } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 function DailyRewards() {
   const { user, claimDailyCheckIn } = useApp();
@@ -127,22 +126,17 @@ export function Tasks() {
 
     const fetchTasks = async () => {
       try {
-        const q = query(collection(db, 'tasks'), where('isActive', '==', true));
-        const snap = await getDocs(q);
-        const tasksData: AppTask[] = [];
-        snap.docs.forEach(d => {
-          tasksData.push({ id: d.id, ...d.data() } as AppTask);
-        });
-        setTasks(tasksData);
+        const { data: tasksData, error } = await supabase.from('tasks').select('*').eq('isActive', true);
+        if (error) throw error;
+        
+        setTasks(tasksData || []);
 
         const completedMap = new Map<string, string>();
-        // Only fetch completion status for the active tasks directly using their ID
         await Promise.all(
-          tasksData.map(async (t) => {
-            const completedRef = doc(db, 'users', user.uid, 'completedTasks', t.id);
-            const docSnap = await getDoc(completedRef);
-            if (docSnap.exists()) {
-              completedMap.set(t.id, docSnap.data().status || 'completed');
+          (tasksData || []).map(async (t) => {
+            const { data: completed } = await supabase.from('completedTasks').select('status').eq('userId', user.uid).eq('taskId', t.id).single();
+            if (completed) {
+              completedMap.set(t.id, completed.status || 'completed');
             }
           })
         );
@@ -162,19 +156,14 @@ export function Tasks() {
     
     setClaiming(task.id);
     try {
-      const batch = writeBatch(db);
-      const completedRef = doc(db, 'users', user.uid, 'completedTasks', task.id);
-      
-      // Add to completedTasks as pending.
-      batch.set(completedRef, {
-        completedAt: Date.now(),
+      await supabase.from('completedTasks').insert([{
+        userId: user.uid,
         taskId: task.id,
+        completedAt: Date.now(),
         status: 'pending'
-      });
+      }]);
       
-      // Add a claim for admin to approve
-      const claimRef = doc(collection(db, 'taskClaims'));
-      batch.set(claimRef, {
+      await supabase.from('taskClaims').insert([{
         userId: user.uid,
         userEmail: user.email || '',
         userName: user.name || 'Anonymous',
@@ -183,10 +172,8 @@ export function Tasks() {
         reward: task.reward || 0,
         status: 'pending',
         timestamp: Date.now()
-      });
+      }]);
 
-      await batch.commit();
-      
       setCompletedTaskMap(prev => new Map(prev).set(task.id, 'pending'));
       toast.success(`Task ${task.title} submitted for verification!`);
     } catch (err: any) {

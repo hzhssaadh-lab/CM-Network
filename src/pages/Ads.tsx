@@ -3,8 +3,7 @@ import { useApp } from '../hooks/useAppStore';
 import { InterstitialAd } from '../components/InterstitialAd';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet, Clock, CheckCircle2, XCircle } from 'lucide-react';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 
 export function Ads() {
   const { user, claimUsdtAdReward, requestUsdtWithdrawal } = useApp();
@@ -33,20 +32,21 @@ export function Ads() {
     if (!user) return;
     setLoadingHistory(true);
     try {
-      const q = query(
-        collection(db, 'withdrawals_usdt'), 
-        where('userId', '==', user.uid)
-      );
-      const snap = await getDocs(q);
-      const txs: any[] = [];
-      snap.docs.forEach(d => txs.push({ id: d.id, ...d.data() }));
-      txs.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0));
-      setHistory(txs);
+      const { data, error } = await supabase
+        .from('withdrawals_usdt')
+        .select('*')
+        .eq('userId', user.uid)
+        .order('requestedAt', { ascending: false });
+        
+      if (data) {
+        setHistory(data);
+      }
     } catch (e) {
       console.error(e);
     }
     setLoadingHistory(false);
   };
+
 
   if (!user) return null;
 

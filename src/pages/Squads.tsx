@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc, arrayUnion, arrayRemove, limit } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { Users, Coins, UserPlus, Shield, Check, Plus, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Squad } from '../types';
@@ -30,36 +29,25 @@ export function Squads() {
     }
     
     try {
-      // Fetch user's squad
-      const squadQ = query(collection(db, 'squads'), where('memberUids', 'array-contains', user.uid));
-      const squadRes = await getDocs(squadQ);
+      const { data: squadRes } = await supabase.from('squads').select('*').contains('memberUids', [user.uid]);
       
       let fetchedSquad: Squad | null = null;
-      if (!squadRes.empty) {
-        fetchedSquad = { id: squadRes.docs[0].id, ...squadRes.docs[0].data() } as Squad;
+      if (squadRes && squadRes.length > 0) {
+        fetchedSquad = squadRes[0] as Squad;
         setMySquad(fetchedSquad);
         
-        // Fetch squad members
         if (fetchedSquad.memberUids && fetchedSquad.memberUids.length > 0) {
-          // split into chunks of 10 if necessary, but assume small squads for now
-          const membersQ = query(collection(db, 'users'), where('uid', 'in', fetchedSquad.memberUids.slice(0, 10)));
-          const membersRes = await getDocs(membersQ);
-          setSquadMembers(membersRes.docs.map(d => d.data() as UserProfile));
+          const { data: membersRes } = await supabase.from('users').select('*').in('uid', fetchedSquad.memberUids.slice(0, 10));
+          if (membersRes) setSquadMembers(membersRes as UserProfile[]);
         }
       } else {
         setMySquad(null);
         setSquadMembers([]);
       }
       
-      // Fetch friends (referred users)
       if (user.uid && user.referralCode) {
-        const friendsQ = query(collection(db, 'users'), where('referredBy', 'in', [user.uid, user.referralCode]), limit(200));
-        const friendsRes = await getDocs(friendsQ);
-        setFriends(friendsRes.docs.map(d => {
-          const u = d.data() as UserProfile;
-          u.uid = d.id; // Make sure uid is present
-          return u;
-        }));
+        const { data: friendsRes } = await supabase.from('users').select('*').in('referredBy', [user.uid, user.referralCode]).limit(200);
+        if (friendsRes) setFriends(friendsRes as UserProfile[]);
       }
       
     } catch(e) {
@@ -84,7 +72,7 @@ export function Squads() {
         createdAt: Date.now()
       };
       
-      await setDoc(doc(db, 'squads', squadId), newSquad);
+      await supabase.from('squads').insert([{ id: squadId, ...newSquad }]);
       toast.success("Squad created successfully!");
       fetchData();
     } catch (e: any) {
@@ -100,11 +88,12 @@ export function Squads() {
     
     setAddingFriend(friendUid);
     try {
-      const squadRef = doc(db, 'squads', mySquad.id);
-      await updateDoc(squadRef, {
-        memberUids: arrayUnion(friendUid),
+      const newUids = [...(mySquad.memberUids || []), friendUid];
+      await supabase.from('squads').update({
+        memberUids: newUids,
         members: (mySquad.members || 1) + 1
-      });
+      }).eq('id', mySquad.id);
+      
       toast.success("Friend added to squad!");
       fetchData();
     } catch(e) {
@@ -118,7 +107,6 @@ export function Squads() {
   const handleLeaveSquad = async () => {
     if (!mySquad || !user) return;
     
-    // Prevent owner from leaving (they should delete the squad instead, though not implemented yet)
     if (mySquad.ownerId === user.uid) {
       toast.error("Squad owners cannot leave. You must delete the squad or transfer ownership.");
       return;
@@ -126,11 +114,12 @@ export function Squads() {
 
     setLeaving(true);
     try {
-      const squadRef = doc(db, 'squads', mySquad.id);
-      await updateDoc(squadRef, {
-        memberUids: arrayRemove(user.uid),
+      const newUids = (mySquad.memberUids || []).filter(u => u !== user.uid);
+      await supabase.from('squads').update({
+        memberUids: newUids,
         members: Math.max(0, (mySquad.members || 1) - 1)
-      });
+      }).eq('id', mySquad.id);
+      
       toast.success("You have left the squad");
       setMySquad(null);
       setSquadMembers([]);

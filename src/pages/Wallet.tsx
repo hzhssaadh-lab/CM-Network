@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
-import { collection, query, where, orderBy, getDocs, limit, runTransaction, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { Transaction } from '../types';
 
 export function Wallet() {
@@ -33,18 +32,23 @@ export function Wallet() {
     if (!user) return;
     setLoadingTasksHistory(true);
     try {
-      // Fetch all tasks first to build a map for title/reward lookups
-      const tp = await getDocs(collection(db, 'tasks'));
+      const { data: tp } = await supabase.from('tasks').select('*');
       const tMap = new Map();
-      tp.docs.forEach(d => tMap.set(d.id, { id: d.id, ...d.data() }));
+      if (tp) {
+        tp.forEach(d => tMap.set(d.id, d));
+      }
       setTasksMetaMap(tMap);
 
-      // Fetch completedTasks
-      const q = query(collection(db, 'users', user.uid, 'completedTasks'), orderBy('completedAt', 'desc'), limit(100));
-      const snap = await getDocs(q);
-      const ct: any[] = [];
-      snap.docs.forEach(d => ct.push(d.data()));
-      setCompletedTasksHistory(ct);
+      const { data: ct } = await supabase
+        .from('completedTasks')
+        .select('*')
+        .eq('userId', user.uid)
+        .order('completedAt', { ascending: false })
+        .limit(100);
+        
+      if (ct) {
+        setCompletedTasksHistory(ct);
+      }
     } catch (e) {
       console.error('Failed to fetch task history', e);
     }
@@ -55,13 +59,12 @@ export function Wallet() {
     if (!user) return;
     setLoadingHistory(true);
     try {
-      const q = query(collection(db, 'transactions'), where('senderUid', '==', user.uid), limit(100));
-      const q2 = query(collection(db, 'transactions'), where('receiverUid', '==', user.uid), limit(100));
-      const [snap1, snap2] = await Promise.all([getDocs(q), getDocs(q2)]);
+      const { data: sent } = await supabase.from('transactions').select('*').eq('senderUid', user.uid).limit(100);
+      const { data: received } = await supabase.from('transactions').select('*').eq('receiverUid', user.uid).limit(100);
       
       let txs: any[] = [];
-      snap1.docs.forEach(d => txs.push({id: d.id, ...d.data()}));
-      snap2.docs.forEach(d => txs.push({id: d.id, ...d.data()}));
+      if (sent) txs.push(...sent);
+      if (received) txs.push(...received);
       
       const unique = txs.filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i);
       unique.sort((a,b) => b.timestamp - a.timestamp);
@@ -126,41 +129,36 @@ export function Wallet() {
 
     setSending(true);
     try {
-      await runTransaction(db, async (t) => {
-        const senderRef = doc(db, 'users', user.uid);
-        const receiverRef = doc(db, 'users', receiverUid);
+        const { data: senderDoc, error: senderError } = await supabase.from('users').select('*').eq('uid', user.uid).single();
+        const { data: receiverDoc, error: receiverError } = await supabase.from('users').select('*').eq('uid', receiverUid).single();
         
-        const senderDoc = await t.get(senderRef);
-        const receiverDoc = await t.get(receiverRef);
-        
-        if (!receiverDoc.exists()) {
+        if (!receiverDoc || receiverError) {
           throw new Error("Receiver does not exist");
         }
         
-        const currentSenderBalance = senderDoc.data().balance;
+        const currentSenderBalance = senderDoc.balance;
         if (currentSenderBalance < sendAmount) {
           throw new Error("Insufficient balance during transaction");
         }
         
-        const receiverData = receiverDoc.data();
-        if (receiverData.transactionsBlocked) {
+        if (receiverDoc.transactionsBlocked) {
           throw new Error("Receiver's account is currently blocked from transactions.");
         }
-        const currentReceiverBalance = receiverData.balance;
+        const currentReceiverBalance = receiverDoc.balance;
         
-        t.update(senderRef, { balance: currentSenderBalance - sendAmount });
-        t.update(receiverRef, { balance: currentReceiverBalance + sendAmount });
+        await supabase.from('users').update({ balance: currentSenderBalance - sendAmount }).eq('uid', user.uid);
+        await supabase.from('users').update({ balance: currentReceiverBalance + sendAmount }).eq('uid', receiverUid);
         
-        const txRef = doc(collection(db, 'transactions'));
-        t.set(txRef, {
+        await supabase.from('transactions').insert([{
+          id: 'tx_send_' + Date.now(),
           type: 'transfer_sent',
           amount: sendAmount,
           timestamp: Date.now(),
           status: 'completed',
           senderUid: user.uid,
           receiverUid: receiverUid
-        });
-      });
+        }]);
+        
       setSuccess(`Successfully sent ${sendAmount} CM!`);
       setAmount('');
       setReceiverUid('');

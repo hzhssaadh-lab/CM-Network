@@ -1,7 +1,6 @@
 import { useApp } from '../hooks/useAppStore';
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
 
 function FriendLeaderboard({ userUid, userCode }: { userUid: string, userCode: string }) {
@@ -11,19 +10,17 @@ function FriendLeaderboard({ userUid, userCode }: { userUid: string, userCode: s
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('referredBy', 'in', [userUid, userCode]), limit(200));
-        const querySnapshot = await getDocs(q);
-        
-        const topFriends: UserProfile[] = [];
-        querySnapshot.forEach((doc) => {
-          topFriends.push(doc.data() as UserProfile);
-        });
-        
-        // Sort by balance locally (since we don't have a composite index guaranteed) 
-        topFriends.sort((a, b) => (b.balance || 0) - (a.balance || 0));
-        
-        setFriends(topFriends);
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .in('referredBy', [userUid, userCode])
+          .limit(200);
+          
+        if (data) {
+          const topFriends = data as UserProfile[];
+          topFriends.sort((a, b) => (b.balance || 0) - (a.balance || 0));
+          setFriends(topFriends);
+        }
       } catch (error) {
         console.error("Error fetching friends", error);
       } finally {
@@ -35,6 +32,7 @@ function FriendLeaderboard({ userUid, userCode }: { userUid: string, userCode: s
       fetchFriends();
     }
   }, [userUid, userCode]);
+
 
   return (
     <div className="w-full max-w-2xl mx-auto bg-white/5 border border-white/10 rounded-[32px] p-6 sm:p-8 mt-8">

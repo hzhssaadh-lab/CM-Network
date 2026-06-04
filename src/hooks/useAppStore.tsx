@@ -1,13 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db, googleProvider } from '../lib/firebase';
-import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, collection, query, where, getDocs, getDoc, writeBatch } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { UserProfile, AdSettings } from '../types';
 import { generateReferralCode } from '../lib/utils';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AppState {
   user: UserProfile | null;
-  firebaseUser: FirebaseUser | null;
+  supabaseUser: SupabaseUser | null; // Changed from firebaseUser
   loading: boolean;
   adSettings: AdSettings | null;
   loginWithGoogle: () => Promise<void>;
@@ -24,6 +23,9 @@ interface AppState {
   claimUsdtAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   requestWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
   requestUsdtWithdrawal: (amount: number, wallet: string, method?: string) => Promise<{ success: boolean; message: string }>;
+
+  // Backwards compat for old pages components for now:
+  firebaseUser?: any; 
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -38,33 +40,33 @@ const getDeviceId = () => {
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [adSettings, setAdSettings] = useState<AdSettings | null>(null);
 
   const verifyDeviceLimit = async (authenticatedUid: string) => {
     const deviceId = getDeviceId();
-    const q = query(collection(db, 'users'), where('deviceId', '==', deviceId));
-    const qs = await getDocs(q);
-    
-    if (!qs.empty) {
-      const isBoundToOther = qs.docs.some(d => d.id !== authenticatedUid);
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('uid')
+      .eq('deviceId', deviceId);
+      
+    if (users && users.length > 0) {
+      const isBoundToOther = users.some(u => u.uid !== authenticatedUid);
       if (isBoundToOther) {
-        await signOut(auth);
+        await supabase.auth.signOut();
         throw new Error("Anti-Cheat: Another account is already registered on this device.");
       }
     }
   };
 
   useEffect(() => {
-    // Fetch global AdSettings once
     const fetchAdSettings = async () => {
       try {
-        const adSettingsRef = doc(db, 'settings', 'ads');
-        const docSnap = await getDoc(adSettingsRef);
-        if (docSnap.exists()) {
-          setAdSettings(docSnap.data() as AdSettings);
+        const { data, error } = await supabase.from('settings').select('*').eq('id', 'ads').single();
+        if (data) {
+          setAdSettings(data as AdSettings);
         } else {
           setAdSettings({ showAds: false });
         }
@@ -74,129 +76,140 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     fetchAdSettings();
 
-    const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
-      setLoading(true);
-      setFirebaseUser(fUser);
-      
-      if (!fUser) {
+    const fetchUserData = async (sUser: SupabaseUser) => {
+      try {
+        await verifyDeviceLimit(sUser.id);
+      } catch (err: any) {
+        alert(err.message);
         setUser(null);
         setLoading(false);
         return;
       }
-      
+
       try {
-         await verifyDeviceLimit(fUser.uid);
-      } catch (err: any) {
-         alert(err.message);
-         setUser(null);
-         setLoading(false);
-         return;
-      }
+        const { data: u, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('uid', sUser.id)
+          .single();
 
-      const fetchUserData = async () => {
-        const userRef = doc(db, 'users', fUser.uid);
-        try {
-          const docSnap = await getDoc(userRef);
-          if (docSnap.exists()) {
-            const u = docSnap.data() as UserProfile;
-            u.uid = fUser.uid; // Ensure uid is present even for older documents
-            if (u.isActive === false && u.role !== 'admin') {
-              await signOut(auth);
-              setUser(null);
-              alert("Your account has been blocked by an administrator.");
-            } else {
-              // Auto-upgrade to admin for the specific email
-              if (fUser.email === 'hzhssaadh@gmail.com' && u.role !== 'admin') {
-                 await setDoc(userRef, { role: 'admin' }, { merge: true });
-                 u.role = 'admin';
-              }
-              // Bind device ID if missing
-              const currentDeviceId = getDeviceId();
-              let updates: any = {};
-              let needsUpdate = false;
-              
-              if (!u.deviceId) {
-                updates.deviceId = currentDeviceId;
-                u.deviceId = currentDeviceId;
-                needsUpdate = true;
-              }
-              
-              if (!u.country) {
-                try {
-                  const res = await fetch('https://ipapi.co/json/');
-                  if (res.ok) {
-                    const data = await res.json();
-                    if (data.country_name) {
-                      updates.country = data.country_name;
-                      u.country = data.country_name;
-                      needsUpdate = true;
-                    }
-                  }
-                } catch(e) { console.warn("Failed to fetch IP", e); }
-              }
-
-              if (needsUpdate) {
-                await setDoc(userRef, updates, { merge: true });
-              }
-
-              setUser(u);
-            }
+        if (u) {
+          if (u.isActive === false && u.role !== 'admin') {
+            await supabase.auth.signOut();
+            setUser(null);
+            alert("Your account has been blocked by an administrator.");
           } else {
-            // Create new user profile
-            try {
-              const newUser: UserProfile = {
-                uid: fUser.uid,
-                name: fUser.displayName || 'User',
-                email: fUser.email || '',
-                photoURL: fUser.photoURL || '',
-                balance: 0,
-                miningRate: 0.05 / 24, // 0.05 CM daily = per hour rate
-                miningSessionEndTime: null,
-                miningSessionStartTime: null,
-                referralCode: generateReferralCode(),
-                referredBy: null,
-                referralCount: 0,
-                joinDate: Date.now(),
-                dailyStreak: 0,
-                kycStatus: 'pending',
-                role: (fUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
-                isActive: true,
-                totalMined: 0,
-                lastCheckIn: null,
-                deviceId: getDeviceId()
-              };
-              await setDoc(userRef, newUser);
-              setUser(newUser);
-            } catch (err: any) {
-              console.error("Error creating user document", err);
-              await signOut(auth);
-              setUser(null);
-              alert("Error creating account. Please try again later.");
+            let updates: any = {};
+            let needsUpdate = false;
+            
+            if (sUser.email === 'hzhssaadh@gmail.com' && u.role !== 'admin') {
+               updates.role = 'admin';
+               u.role = 'admin';
+               needsUpdate = true;
             }
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
+            
+            const currentDeviceId = getDeviceId();
+            if (!u.deviceId) {
+              updates.deviceId = currentDeviceId;
+              u.deviceId = currentDeviceId;
+              needsUpdate = true;
+            }
+            
+            if (!u.country) {
+              try {
+                const res = await fetch('https://ipapi.co/json/');
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.country_name) {
+                    updates.country = data.country_name;
+                    u.country = data.country_name;
+                    needsUpdate = true;
+                  }
+                }
+              } catch(e) { console.warn("Failed to fetch IP", e); }
+            }
 
-      fetchUserData();
+            if (needsUpdate) {
+              await supabase.from('users').update(updates).eq('uid', sUser.id);
+            }
+
+            setUser({ ...u, uid: sUser.id } as UserProfile);
+          }
+        } else {
+          const newUser: UserProfile = {
+            uid: sUser.id,
+            name: sUser.user_metadata?.full_name || 'User',
+            email: sUser.email || '',
+            photoURL: sUser.user_metadata?.avatar_url || '',
+            balance: 0,
+            miningRate: 0.05 / 24,
+            miningSessionEndTime: null,
+            miningSessionStartTime: null,
+            referralCode: generateReferralCode(),
+            referredBy: null,
+            referralCount: 0,
+            joinDate: Date.now(),
+            dailyStreak: 0,
+            kycStatus: 'pending',
+            role: (sUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
+            isActive: true,
+            totalMined: 0,
+            lastCheckIn: null,
+            deviceId: getDeviceId()
+          };
+          const { error: insertError } = await supabase.from('users').insert([newUser]);
+          if (insertError) {
+            console.error("Error creating user", insertError);
+            await supabase.auth.signOut();
+            setUser(null);
+            alert("Error creating account.");
+          } else {
+            setUser(newUser);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      // Intentionally not setting user if getting session is not complete immediately, waiting for onAuthStateChange
+      // However to prevent flicker, if session exists:
+      if (session?.user) {
+        setSupabaseUser(session.user);
+        fetchUserData(session.user);
+      } else {
+        setLoading(false); // No session initially
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setLoading(true); // Always loading when state changes
+      if (session?.user) {
+        setSupabaseUser(session.user);
+        fetchUserData(session.user);
+      } else {
+        setSupabaseUser(null);
+        setUser(null);
+        setLoading(false);
+      }
     });
 
     return () => {
-      unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
   const loginWithGoogle = async () => {
     try {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider);
-      }
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+           redirectTo: window.location.origin
+        }
+      });
     } catch (error) {
       console.error("Login failed", error);
       throw error;
@@ -205,7 +218,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = async (email: string, pass: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
     } catch (error) {
       console.error("Email login failed", error);
       throw error;
@@ -214,33 +228,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const signupWithEmail = async (name: string, email: string, pass: string, inviteCode?: string) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: pass,
+        options: {
+          data: { full_name: name }
+        }
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error("No user returned");
       
       let referredByUid = null;
       let newUserBonus = 0;
 
       if (inviteCode && inviteCode.trim() !== '') {
         const trimmedCode = inviteCode.trim();
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('referralCode', '==', trimmedCode));
-        const querySnapshot = await getDocs(q);
+        const { data: inviterData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('referralCode', trimmedCode)
+          .single();
         
-        if (!querySnapshot.empty) {
-          const inviterDoc = querySnapshot.docs[0];
-          const inviter = inviterDoc.data() as UserProfile;
+        if (inviterData) {
+          const inviter = inviterData as UserProfile;
           referredByUid = inviter.uid;
-          newUserBonus = 0.05; // Instant reward for using a code (matching inviter reward)
+          newUserBonus = 0.05;
           
-          const inviterRef = doc(db, 'users', inviter.uid);
-          await setDoc(inviterRef, {
+          await supabase.from('users').update({
             referralCount: (inviter.referralCount || 0) + 1,
             balance: (inviter.balance || 0) + 0.05
-          }, { merge: true });
+          }).eq('uid', inviter.uid);
           
-          const txRef = doc(collection(db, 'transactions'));
-          await setDoc(txRef, {
-            id: txRef.id,
+          await supabase.from('transactions').insert([{
+            id: 'tx_' + Date.now() + Math.random().toString(36).substring(2),
             type: 'referral_bonus',
             amount: 0.05,
             timestamp: Date.now(),
@@ -248,34 +268,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             receiverUid: inviter.uid,
             senderUid: 'system',
             description: `Referral bonus for inviting ${name || 'User'}`
-          });
+          }]);
           
-          // Transaction for new user bonus
-          const newUserTxRef = doc(collection(db, 'transactions'));
-          await setDoc(newUserTxRef, {
-            id: newUserTxRef.id,
+          await supabase.from('transactions').insert([{
+            id: 'tx_signup_' + Date.now(),
             type: 'signup_bonus',
             amount: 0.05,
             timestamp: Date.now() + 1,
             status: 'completed',
-            receiverUid: userCredential.user.uid,
+            receiverUid: data.user.id,
             senderUid: 'system',
             description: `Sign-up reward for using an invite code`
-          });
+          }]);
         }
       }
 
-      const userRef = doc(db, 'users', userCredential.user.uid);
-      const updateData: Partial<UserProfile> = {
-        name: name,
-      };
-      
       if (referredByUid) {
-        updateData.referredBy = referredByUid;
-        updateData.balance = newUserBonus;
+        // We defer creation of the users doc in sign up since auth onChange handles it. 
+        // We will just create it manually now to set referredBy properly
+        const newUser: UserProfile = {
+            uid: data.user.id,
+            name: name,
+            email: email,
+            photoURL: '',
+            balance: newUserBonus,
+            miningRate: 0.05 / 24,
+            miningSessionEndTime: null,
+            miningSessionStartTime: null,
+            referralCode: generateReferralCode(),
+            referredBy: referredByUid,
+            referralCount: 0,
+            joinDate: Date.now(),
+            dailyStreak: 0,
+            kycStatus: 'pending',
+            role: (email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
+            isActive: true,
+            totalMined: 0,
+            lastCheckIn: null,
+            deviceId: getDeviceId()
+        };
+        await supabase.from('users').insert([newUser]);
       }
-      
-      await setDoc(userRef, updateData, { merge: true });
     } catch (error) {
       console.error("Email signup failed", error);
       throw error;
@@ -284,18 +317,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     setUser(null);
-    setFirebaseUser(null);
-    try {
-      await signOut(auth);
-    } catch (e) {
-      console.error("Logout issue:", e);
-    }
+    setSupabaseUser(null);
+    await supabase.auth.signOut();
   };
 
   const updateUser = async (data: Partial<UserProfile>) => {
     if (!user) return;
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, data, { merge: true });
+    await supabase.from('users').update(data).eq('uid', user.uid);
     setUser(prev => prev ? { ...prev, ...data } : null);
   };
 
@@ -305,14 +333,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshUser = async () => {
-    if (!firebaseUser) return;
+    if (!supabaseUser) return;
     try {
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        const u = docSnap.data() as UserProfile;
-        u.uid = firebaseUser.uid;
-        setUser(u);
+      const { data: u } = await supabase.from('users').select('*').eq('uid', supabaseUser.id).single();
+      if (u) {
+        setUser(u as UserProfile);
       }
     } catch (error) {
       console.error("Error refreshing user:", error);
@@ -325,23 +350,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (trimmedCode === user.referralCode) return false;
     
     try {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('referralCode', '==', trimmedCode));
-      const querySnapshot = await getDocs(q);
+      const { data: inviterData } = await supabase.from('users').select('*').eq('referralCode', trimmedCode).single();
       
-      if (!querySnapshot.empty) {
-        const inviterDoc = querySnapshot.docs[0];
-        const inviter = inviterDoc.data() as UserProfile;
+      if (inviterData) {
+        const inviter = inviterData as UserProfile;
         
-        const inviterRef = doc(db, 'users', inviter.uid);
-        await setDoc(inviterRef, {
+        await supabase.from('users').update({
           referralCount: (inviter.referralCount || 0) + 1,
           balance: (inviter.balance || 0) + 0.05
-        }, { merge: true });
+        }).eq('uid', inviter.uid);
         
-        const txRef = doc(collection(db, 'transactions'));
-        await setDoc(txRef, {
-          id: txRef.id,
+        await supabase.from('transactions').insert([{
+          id: 'tx_ref_' + Date.now(),
           type: 'referral_bonus',
           amount: 0.05,
           timestamp: Date.now(),
@@ -349,12 +369,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           receiverUid: inviter.uid,
           senderUid: 'system',
           description: `Referral bonus for inviting ${user.name || 'User'}`
-        });
+        }]);
 
-        // Current user bonus for using the code
-        const userTxRef = doc(collection(db, 'transactions'));
-        await setDoc(userTxRef, {
-          id: userTxRef.id,
+        await supabase.from('transactions').insert([{
+          id: 'tx_ref_rcv_' + Date.now(),
           type: 'referral_bonus_received',
           amount: 0.05,
           timestamp: Date.now() + 1,
@@ -362,13 +380,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           receiverUid: user.uid,
           senderUid: 'system',
           description: `Reward for using an invite code`
-        });
+        }]);
 
-        const userRef = doc(db, 'users', user.uid);
-        await setDoc(userRef, {
+        await supabase.from('users').update({
           referredBy: inviter.uid,
           balance: (user.balance || 0) + 0.05
-        }, { merge: true });
+        }).eq('uid', user.uid);
         
         return true;
       }
@@ -390,19 +407,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, reward: 0, message: "Already claimed today" };
     }
     
-    // Reward between 0.01 and 0.2 depending on squad size or random
     const maxReward = 0.2;
     const calcReward = squadSize * 0.01;
     let rewardAmount = Math.min(calcReward, maxReward);
-    // ensure at least 0.01
     rewardAmount = Math.max(rewardAmount, 0.01);
     
     try {
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
+      await supabase.from('users').update({
         lastSquadClaim: Date.now(),
         balance: (user.balance || 0) + rewardAmount
-      }, { merge: true });
+      }).eq('uid', user.uid);
       
       return { success: true, reward: rewardAmount, message: "Claimed successfully" };
     } catch (e) {
@@ -422,29 +436,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     
     let newStreak = (user.dailyStreak || 0) + 1;
-    
-    // Check if missed a day
     const startOfYesterday = startOfDay - 24 * 60 * 60 * 1000;
     if (user.lastCheckIn && user.lastCheckIn < startOfYesterday) {
-      newStreak = 1; // Reset streak
+      newStreak = 1;
     }
     
-    // Cycle from 1 to 5
     const dayInCycle = ((newStreak - 1) % 5) + 1;
     const rewardAmounts = [0.02, 0.04, 0.06, 0.08, 0.10];
     const rewardAmount = rewardAmounts[dayInCycle - 1];
     
     try {
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
+      await supabase.from('users').update({
         dailyStreak: newStreak,
         lastCheckIn: Date.now(),
         balance: (user.balance || 0) + rewardAmount
-      }, { merge: true });
+      }).eq('uid', user.uid);
       
-      const txRef = doc(collection(db, 'transactions'));
-      await setDoc(txRef, {
-        id: txRef.id,
+      await supabase.from('transactions').insert([{
+        id: 'tx_chk_' + Date.now(),
         type: 'daily_checkin',
         amount: rewardAmount,
         timestamp: Date.now(),
@@ -452,7 +461,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         receiverUid: user.uid,
         senderUid: 'system',
         description: `Daily check-in reward (Day ${dayInCycle})`
-      });
+      }]);
       
       return { success: true, reward: rewardAmount, message: `Day ${dayInCycle} check-in successful!` };
     } catch (e) {
@@ -476,25 +485,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, reward: 0, message: "Daily limit of 30 ads reached.", limitReached: true };
     }
     
-    // Reward between 0.01 and 0.05 per ad
     const rewardAmount = Number((Math.random() * (0.05 - 0.01) + 0.01).toFixed(3));
     
     try {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
+      await supabase.from('users').update({
         lastAdWatchDate: today,
         lastAdWatchTimestamp: currentTime,
         adsWatchedToday: currentWatched + 1,
         totalAdsWatched: (user.totalAdsWatched || 0) + 1,
         balance: (user.balance || 0) + rewardAmount
-      }, { merge: true });
+      }).eq('uid', user.uid);
       
-      const txRef = doc(collection(db, 'transactions'));
-      await setDoc(txRef, {
-        id: txRef.id,
+      await supabase.from('transactions').insert([{
+        id: 'tx_ad_' + Date.now(),
         type: 'ad_reward',
         amount: rewardAmount,
         timestamp: currentTime,
@@ -502,11 +508,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         receiverUid: user.uid,
         senderUid: 'system',
         description: `Watched ad #${currentWatched + 1}`
-      });
+      }]);
 
-      const adLogRef = doc(collection(db, 'ads_log'));
-      await setDoc(adLogRef, {
-        id: adLogRef.id,
+      await supabase.from('ads_log').insert([{
+        id: 'adlog_' + Date.now(),
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
@@ -515,7 +520,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timestamp: currentTime,
         timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
-      });
+      }]);
       
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} CM!` };
     } catch (e) {
@@ -539,25 +544,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, reward: 0, message: "Daily limit of 200 ads reached.", limitReached: true };
     }
     
-    // Exact reward of 0.0008 USDT per ad
     const rewardAmount = 0.0008;
     
     try {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
+      await supabase.from('users').update({
         lastAdWatchDate: today,
         lastAdWatchTimestamp: currentTime,
         adsWatchedToday: currentWatched + 1,
         totalAdsWatched: (user.totalAdsWatched || 0) + 1,
         usdtBalance: (user.usdtBalance || 0) + rewardAmount
-      }, { merge: true });
+      }).eq('uid', user.uid);
       
-      const txRef = doc(collection(db, 'transactions'));
-      await setDoc(txRef, {
-        id: txRef.id,
+      await supabase.from('transactions').insert([{
+        id: 'tx_usdtad_' + Date.now(),
         type: 'ad_reward',
         amount: rewardAmount,
         currency: 'USDT',
@@ -566,11 +568,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         receiverUid: user.uid,
         senderUid: 'system',
         description: `Watched ad #${currentWatched + 1} for USDT`
-      });
+      }]);
 
-      const adLogRef = doc(collection(db, 'ads_log'));
-      await setDoc(adLogRef, {
-        id: adLogRef.id,
+      await supabase.from('ads_log').insert([{
+        id: 'adlog_' + Date.now(),
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
@@ -579,7 +580,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timestamp: currentTime,
         timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
-      });
+      }]);
       
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} USDT!` };
     } catch (e) {
@@ -594,16 +595,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 5) return { success: false, message: "Minimum withdrawal is 5" };
 
     try {
-      const batch = writeBatch(db);
+      await supabase.from('users').update({ balance: user.balance - amount }).eq('uid', user.uid);
 
-      const userRef = doc(db, 'users', user.uid);
-      batch.set(userRef, { balance: user.balance - amount }, { merge: true });
-
-      const wRef = doc(collection(db, 'withdrawals'));
-      const txRef = doc(collection(db, 'transactions'));
+      const wId = 'w_' + Date.now();
+      const txId = 'tx_' + Date.now();
       
-      batch.set(wRef, {
-        id: wRef.id,
+      await supabase.from('transactions').insert([{
+        id: txId,
+        type: 'withdrawal',
+        amount: -amount,
+        timestamp: Date.now(),
+        status: 'pending',
+        receiverUid: 'system',
+        senderUid: user.uid,
+        description: `Withdrawal request to ${wallet}`
+      }]);
+
+      await supabase.from('withdrawals').insert([{
+        id: wId,
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
@@ -612,21 +621,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         status: 'pending',
         requestedAt: Date.now(),
         country: user.country || 'Unknown',
-        transactionId: txRef.id
-      });
+        transactionId: txId
+      }]);
 
-      batch.set(txRef, {
-        id: txRef.id,
-        type: 'withdrawal',
-        amount: -amount,
-        timestamp: Date.now(),
-        status: 'pending',
-        receiverUid: 'system',
-        senderUid: user.uid,
-        description: `Withdrawal request to ${wallet}`
-      });
-
-      await batch.commit();
       return { success: true, message: "Withdrawal requested successfully!" };
     } catch (e) {
       console.error(e);
@@ -640,16 +637,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 2) return { success: false, message: "Minimum withdrawal is 2 USDT" };
 
     try {
-      const batch = writeBatch(db);
+      await supabase.from('users').update({ usdtBalance: (user.usdtBalance || 0) - amount }).eq('uid', user.uid);
 
-      const userRef = doc(db, 'users', user.uid);
-      batch.set(userRef, { usdtBalance: (user.usdtBalance || 0) - amount }, { merge: true });
+      const wId = 'w_usdt_' + Date.now();
+      const txId = 'tx_' + Date.now();
 
-      const wRef = doc(collection(db, 'withdrawals_usdt'));
-      const txRef = doc(collection(db, 'transactions'));
-
-      batch.set(wRef, {
-        id: wRef.id,
+      await supabase.from('transactions').insert([{
+        id: txId,
+        type: 'withdrawal',
+        amount: -amount,
+        currency: 'USDT',
+        timestamp: Date.now(),
+        status: 'pending',
+        receiverUid: 'system',
+        senderUid: user.uid,
+        description: `USDT Withdrawal request to ${wallet}`
+      }]);
+      
+      await supabase.from('withdrawals_usdt').insert([{
+        id: wId,
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
@@ -660,35 +666,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         status: 'pending',
         requestedAt: Date.now(),
         country: user.country || 'Unknown',
-        transactionId: txRef.id
-      });
+        transactionId: txId
+      }]);
 
-      batch.set(txRef, {
-        id: txRef.id,
-        type: 'withdrawal',
-        amount: -amount,
-        currency: 'USDT',
-        timestamp: Date.now(),
-        status: 'pending',
-        receiverUid: 'system',
-        senderUid: user.uid,
-        description: `USDT Withdrawal request to ${wallet}`
-      });
-
-      await batch.commit();
       return { success: true, message: "USDT Withdrawal requested successfully!" };
     } catch (e: any) {
       console.error(e);
-      let msg = e.message || "Request failed. Please try again.";
-      if (msg.includes("Missing or insufficient permissions")) {
-         msg = "Missing permissions! Please update your Firestore Rules in Firebase Console to allow writes.";
-      }
-      return { success: false, message: msg };
+      return { success: false, message: e.message || "Request failed. Please try again." };
     }
   };
 
   return (
-    <AppContext.Provider value={{ user, firebaseUser, loading, adSettings, loginWithGoogle, loginWithEmail, signupWithEmail, logout, updateUser, updateLocalUser, refreshUser, submitReferralCode, claimDailyCheckIn, claimSquadBonus, claimAdReward, claimUsdtAdReward, requestWithdrawal, requestUsdtWithdrawal }}>
+    <AppContext.Provider value={{ 
+      user, 
+      supabaseUser, 
+      firebaseUser: supabaseUser, // Backwards compat
+      loading, 
+      adSettings, 
+      loginWithGoogle, 
+      loginWithEmail, 
+      signupWithEmail, 
+      logout, 
+      updateUser, 
+      updateLocalUser, 
+      refreshUser, 
+      submitReferralCode, 
+      claimDailyCheckIn, 
+      claimSquadBonus, 
+      claimAdReward, 
+      claimUsdtAdReward, 
+      requestWithdrawal, 
+      requestUsdtWithdrawal 
+    }}>
       {children}
     </AppContext.Provider>
   );

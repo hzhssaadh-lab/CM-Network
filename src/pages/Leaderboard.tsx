@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { useApp } from '../hooks/useAppStore';
@@ -13,13 +12,15 @@ export function Leaderboard() {
   useEffect(() => {
     async function fetchLeaders() {
       try {
-        const q = query(collection(db, 'users'), orderBy('balance', 'desc'), limit(5));
-        const snapshot = await getDocs(q);
-        const data: UserProfile[] = [];
-        snapshot.forEach(doc => {
-          data.push(doc.data() as UserProfile);
-        });
-        setLeaders(data);
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .order('balance', { ascending: false })
+          .limit(5);
+          
+        if (data) {
+          setLeaders(data as UserProfile[]);
+        }
       } catch (e) {
         console.error("Failed to fetch leaderboard", e);
       } finally {
@@ -28,6 +29,7 @@ export function Leaderboard() {
     }
     fetchLeaders();
   }, []);
+
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">

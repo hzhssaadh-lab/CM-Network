@@ -1,39 +1,18 @@
 import { useApp } from '../hooks/useAppStore';
-import React, { useState, useEffect } from 'react';
-import { getRedirectResult } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import React, { useState } from 'react';
 
 export function Login() {
   const { loginWithGoogle, loading } = useApp();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    getRedirectResult(auth).catch((error) => {
-      if (error?.code === 'auth/unauthorized-domain') {
-        setErrorCode('auth/unauthorized-domain');
-      } else {
-        setErrorMsg(error?.message || 'Google Login failed.');
-      }
-    });
-  }, []);
 
   const handleGoogleLogin = async () => {
     try {
       setErrorMsg(null);
-      setErrorCode(null);
       setIsSubmitting(true);
       await loginWithGoogle();
     } catch (error: any) {
-      if (error?.code === 'auth/unauthorized-domain') {
-        setErrorCode('auth/unauthorized-domain');
-      } else if (error?.code === 'auth/popup-closed-by-user') {
-        // The user closed the popup, we don't need to show a scary error message.
-        console.log('Login popup closed by user.');
-      } else {
-        setErrorMsg(error?.message || 'Google Login failed.');
-      }
+      setErrorMsg(error?.message || 'Google Login failed.');
     } finally {
       setIsSubmitting(false);
     }
@@ -62,17 +41,6 @@ export function Login() {
         </div>
       )}
 
-      {errorCode === 'auth/unauthorized-domain' && (
-        <div className="w-full max-w-sm mb-6 p-4 bg-red-900/40 border border-red-500/50 rounded-xl text-red-200 text-sm text-center relative z-10 break-words">
-          <p className="font-bold mb-2">Domain Not Authorized</p>
-          <p className="mb-2 text-xs">Please go to your Firebase Console under Authentication &gt; Settings &gt; Authorized domains and add the following domain:</p>
-          <code className="bg-black/50 px-2 py-1 rounded text-white block mb-2 break-all font-mono text-xs select-all">
-            {window.location.hostname}
-          </code>
-          <p className="text-[10px] text-red-300">You must do this manually because you are using a custom Firebase project.</p>
-        </div>
-      )}
-      
       <button 
         type="button"
         onClick={handleGoogleLogin}

@@ -1,11 +1,9 @@
 import { useApp } from '../hooks/useAppStore';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, doc, updateDoc, setDoc, getDoc, deleteDoc, writeBatch, increment, limit } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../lib/utils';
 import { UserProfile, Task as AppTask, TaskClaim } from '../types';
-import { runTransaction } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'react-hot-toast';
 
@@ -52,12 +50,8 @@ export function Admin() {
 
   const fetchAppSettings = async () => {
     try {
-      const docRef = doc(db, 'settings', 'app');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setMaintenanceMode(data.maintenanceMode === true);
-      }
+      const { data } = await supabase.from('settings').select('*').eq('id', 'app').single();
+      if (data) setMaintenanceMode(data.maintenanceMode === true);
     } catch (e) {
       console.error("Failed to load app settings", e);
     }
@@ -65,8 +59,7 @@ export function Admin() {
 
   const saveMaintenanceMode = async (newMode: boolean) => {
     try {
-      const docRef = doc(db, 'settings', 'app');
-      await setDoc(docRef, { maintenanceMode: newMode }, { merge: true });
+      await supabase.from('settings').upsert({ id: 'app', maintenanceMode: newMode });
       setMaintenanceMode(newMode);
     } catch (error) {
       console.error(error);
@@ -76,10 +69,8 @@ export function Admin() {
 
   const fetchAdsSettings = async () => {
     try {
-      const docRef = doc(db, 'settings', 'ads');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+      const { data } = await supabase.from('settings').select('*').eq('id', 'ads').single();
+      if (data) {
         setShowAds(data.showAds || false);
         setAdsterraSnippet(data.adsterraSnippet || '');
         setAdmobBannerId(data.admobBannerId || '');
@@ -91,12 +82,12 @@ export function Admin() {
 
   const saveAdsSettings = async () => {
     try {
-      const docRef = doc(db, 'settings', 'ads');
-      await setDoc(docRef, {
+      await supabase.from('settings').upsert({
+        id: 'ads',
         showAds,
         adsterraSnippet,
         admobBannerId
-      }, { merge: true });
+      });
       alert("Ad settings saved! Changes will take effect immediately.");
     } catch (error) {
       console.error(error);
@@ -106,42 +97,31 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      const q = query(collection(db, 'users'), limit(500));
-      const snap = await getDocs(q);
-      const userData: UserProfile[] = [];
-      snap.docs.forEach(d => userData.push(d.data() as UserProfile));
-      setUsers(userData);
+      const { data: userData } = await supabase.from('users').select('*').limit(500);
+      if (userData) setUsers(userData as UserProfile[]);
 
-      const tq = query(collection(db, 'tasks'), limit(100));
-      const tSnap = await getDocs(tq);
-      const tasksData: AppTask[] = [];
-      tSnap.docs.forEach(d => tasksData.push({ id: d.id, ...d.data() } as AppTask));
-      setTasks(tasksData);
+      const { data: tasksData } = await supabase.from('tasks').select('*').limit(100);
+      if (tasksData) setTasks(tasksData);
 
-      const cQ = query(collection(db, 'taskClaims'), limit(200));
-      const cSnap = await getDocs(cQ);
-      const claimsData: TaskClaim[] = [];
-      cSnap.docs.forEach(d => claimsData.push({ id: d.id, ...d.data() } as TaskClaim));
-      setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+      const { data: claimsData } = await supabase.from('taskClaims').select('*').limit(200);
+      if (claimsData) {
+        setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+      }
 
-      const wQ = query(collection(db, 'withdrawals'), limit(200));
-      const wSnap = await getDocs(wQ);
-      const wData: any[] = [];
-      wSnap.docs.forEach(d => wData.push({ id: d.id, ...d.data() }));
-      setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+      const { data: wData } = await supabase.from('withdrawals').select('*').limit(200);
+      if (wData) {
+        setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+      }
 
-      const wuQ = query(collection(db, 'withdrawals_usdt'), limit(200));
-      const wuSnap = await getDocs(wuQ);
-      const wuData: any[] = [];
-      wuSnap.docs.forEach(d => wuData.push({ id: d.id, ...d.data() }));
-      setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').limit(200);
+      if (wuData) {
+        setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+      }
 
-      // Fetch Ad Logs
-      const adLogQ = query(collection(db, 'ads_log'), limit(200));
-      const adLogSnap = await getDocs(adLogQ);
-      const adLogData: any[] = [];
-      adLogSnap.docs.forEach(d => adLogData.push({ id: d.id, ...d.data() }));
-      setAdLogs(adLogData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+      const { data: adLogData } = await supabase.from('ads_log').select('*').limit(200);
+      if (adLogData) {
+        setAdLogs(adLogData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+      }
     } catch (e) {
       console.error(e);
     }
@@ -151,11 +131,11 @@ export function Admin() {
   const handleSaveUser = async () => {
     if (!editingUser) return;
     try {
-      await updateDoc(doc(db, 'users', editingUser.uid), {
+      await supabase.from('users').update({
         balance: parseFloat(editBalance) || 0,
         usdtBalance: parseFloat(editUsdtBalance) || 0,
         miningRate: parseFloat(editMiningRate) || 0,
-      });
+      }).eq('uid', editingUser.uid);
       setEditingUser(null);
       fetchData();
     } catch (e) {
@@ -165,9 +145,9 @@ export function Admin() {
 
   const handleToggleUserStatus = async (uid: string, currentStatus: boolean) => {
     try {
-      await updateDoc(doc(db, 'users', uid), {
+      await supabase.from('users').update({
         isActive: !currentStatus
-      });
+      }).eq('uid', uid);
       fetchData();
     } catch (e) {
       console.error(e);
@@ -176,9 +156,9 @@ export function Admin() {
 
   const handleToggleTxStatus = async (uid: string, currentStatus: boolean) => {
     try {
-      await updateDoc(doc(db, 'users', uid), {
+      await supabase.from('users').update({
         transactionsBlocked: !currentStatus
-      });
+      }).eq('uid', uid);
       fetchData();
     } catch (e) {
       console.error(e);
@@ -196,10 +176,10 @@ export function Admin() {
       };
 
       if (editingTask) {
-        await updateDoc(doc(db, 'tasks', editingTask.id), taskData);
+        await supabase.from('tasks').update(taskData).eq('id', editingTask.id);
       } else {
-        const newRef = doc(collection(db, 'tasks'));
-        await setDoc(newRef, { id: newRef.id, ...taskData });
+        const id = 'task_' + Date.now();
+        await supabase.from('tasks').insert([{ id, ...taskData }]);
       }
 
       setEditingTask(null);
@@ -212,7 +192,7 @@ export function Admin() {
 
   const handleDeleteTask = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'tasks', id));
+      await supabase.from('tasks').delete().eq('id', id);
       fetchData();
     } catch (e) {
       console.error(e);
@@ -221,37 +201,37 @@ export function Admin() {
 
   const handleApproveClaim = async (claim: TaskClaim) => {
     try {
-      const batch = writeBatch(db);
+      const u = users.find(usr => usr.uid === claim.userId);
+      if (u) {
+        await supabase.from('users').update({
+          balance: (u.balance || 0) + Number(claim.reward),
+          totalTasksCompleted: (u.totalTasksCompleted || 0) + 1
+        }).eq('uid', claim.userId);
+      }
       
-      const userRef = doc(db, 'users', claim.userId);
-      batch.update(userRef, { 
-        balance: increment(Number(claim.reward)),
-        totalTasksCompleted: increment(1) 
-      });
-      
-      const txRef = doc(collection(db, 'transactions'));
-      batch.set(txRef, {
+      const txId = 'tx_' + Date.now();
+      await supabase.from('transactions').insert([{
+        id: txId,
         type: 'task_reward',
         amount: Number(claim.reward),
         timestamp: Date.now(),
         status: 'completed',
         receiverUid: claim.userId,
         description: `Admin approved task: ${claim.taskTitle}`
-      });
+      }]);
       
-      const completedTaskRef = doc(db, 'users', claim.userId, 'completedTasks', claim.taskId);
-      batch.set(completedTaskRef, {
+      await supabase.from('completedTasks').upsert({
+        id: `${claim.userId}_${claim.taskId}`,
+        userId: claim.userId,
         status: 'completed',
         taskId: claim.taskId,
         completedAt: Date.now()
-      }, { merge: true });
-      
-      const claimRef = doc(db, 'taskClaims', claim.id);
-      batch.update(claimRef, {
-        status: 'approved'
       });
+      
+      await supabase.from('taskClaims').update({
+        status: 'approved'
+      }).eq('id', claim.id);
 
-      await batch.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error approving task:', e);
@@ -260,17 +240,12 @@ export function Admin() {
 
   const handleRejectClaim = async (claim: TaskClaim) => {
     try {
-      const batch = writeBatch(db);
-
-      const completedTaskRef = doc(db, 'users', claim.userId, 'completedTasks', claim.taskId);
-      batch.delete(completedTaskRef); // Delete so they can try again if they want
+      await supabase.from('completedTasks').delete().match({ userId: claim.userId, taskId: claim.taskId });
       
-      const claimRef = doc(db, 'taskClaims', claim.id);
-      batch.update(claimRef, {
+      await supabase.from('taskClaims').update({
         status: 'rejected'
-      });
+      }).eq('id', claim.id);
 
-      await batch.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error rejecting task:', e);
@@ -283,52 +258,9 @@ export function Admin() {
       const pendingClaims = claims.filter(c => c.status === 'pending');
       if (pendingClaims.length === 0) return;
       
-      let batches = [];
-      let currentBatch = writeBatch(db);
-      let opCount = 0;
-      
       for (const claim of pendingClaims) {
-        if (opCount > 450) {
-          batches.push(currentBatch);
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
-
-        const userRef = doc(db, 'users', claim.userId);
-        currentBatch.update(userRef, { 
-          balance: increment(claim.reward),
-          totalTasksCompleted: increment(1)
-        });
-        
-        const txRef = doc(collection(db, 'transactions'));
-        currentBatch.set(txRef, {
-          type: 'task_reward',
-          amount: claim.reward,
-          timestamp: Date.now(),
-          status: 'completed',
-          receiverUid: claim.userId,
-          description: `Admin approved task: ${claim.taskTitle}`
-        });
-        
-        const completedTaskRef = doc(db, 'users', claim.userId, 'completedTasks', claim.taskId);
-        currentBatch.set(completedTaskRef, {
-          status: 'completed',
-          taskId: claim.taskId,
-          completedAt: Date.now()
-        }, { merge: true });
-        
-        const claimRef = doc(db, 'taskClaims', claim.id);
-        currentBatch.update(claimRef, {
-          status: 'approved'
-        });
-        
-        opCount += 4;
+        await handleApproveClaim(claim);
       }
-      
-      batches.push(currentBatch);
-      for (const b of batches) await b.commit();
-      
-      fetchData();
     } catch (e: any) {
       console.error('Error batch approving tasks:', e);
     }
@@ -340,32 +272,9 @@ export function Admin() {
       const pendingClaims = claims.filter(c => c.status === 'pending');
       if (pendingClaims.length === 0) return;
       
-      let batches = [];
-      let currentBatch = writeBatch(db);
-      let opCount = 0;
-      
       for (const claim of pendingClaims) {
-        if (opCount > 450) {
-          batches.push(currentBatch);
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
-
-        const completedTaskRef = doc(db, 'users', claim.userId, 'completedTasks', claim.taskId);
-        currentBatch.delete(completedTaskRef);
-        
-        const claimRef = doc(db, 'taskClaims', claim.id);
-        currentBatch.update(claimRef, {
-          status: 'rejected'
-        });
-        
-        opCount += 2;
+        await handleRejectClaim(claim);
       }
-      
-      batches.push(currentBatch);
-      for (const b of batches) await b.commit();
-      
-      fetchData();
     } catch (e: any) {
       console.error('Error batch rejecting tasks:', e);
     }
@@ -373,17 +282,12 @@ export function Admin() {
 
   const handleApproveWithdrawal = async (w: any) => {
     try {
-      const batch = writeBatch(db);
-      
-      const wRef = doc(db, 'withdrawals', w.id);
-      batch.update(wRef, { status: 'approved' });
+      await supabase.from('withdrawals').update({ status: 'approved' }).eq('id', w.id);
 
       if (w.transactionId) {
-        const txRef = doc(db, 'transactions', w.transactionId);
-        batch.update(txRef, { status: 'approved' });
+        await supabase.from('transactions').update({ status: 'approved' }).eq('id', w.transactionId);
       }
 
-      await batch.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error approving withdrawal:', e);
@@ -392,21 +296,17 @@ export function Admin() {
 
   const handleRejectWithdrawal = async (w: any) => {
     try {
-      const batch = writeBatch(db);
-      
-      const wRef = doc(db, 'withdrawals', w.id);
-      batch.update(wRef, { status: 'rejected' });
+      await supabase.from('withdrawals').update({ status: 'rejected' }).eq('id', w.id);
 
       if (w.transactionId) {
-        const txRef = doc(db, 'transactions', w.transactionId);
-        batch.update(txRef, { status: 'rejected' });
+        await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      // Refund the user
-      const userRef = doc(db, 'users', w.userId);
-      batch.update(userRef, { balance: increment(w.amount) });
+      const u = users.find(usr => usr.uid === w.userId);
+      if (u) {
+        await supabase.from('users').update({ balance: (u.balance || 0) + w.amount }).eq('uid', w.userId);
+      }
 
-      await batch.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error rejecting withdrawal:', e);
@@ -419,22 +319,9 @@ export function Admin() {
       const pending = withdrawals.filter(w => w.status === 'pending');
       if (pending.length === 0) return;
       
-      let batches = [];
-      let currentBatch = writeBatch(db);
-      let opCount = 0;
-      
       for (const w of pending) {
-        if (opCount > 450) {
-          batches.push(currentBatch);
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
-        const wRef = doc(db, 'withdrawals', w.id);
-        currentBatch.update(wRef, { status: 'approved' });
-        opCount++;
+        await handleApproveWithdrawal(w);
       }
-      batches.push(currentBatch);
-      for (const b of batches) await b.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error batch approving CM withdrawals:', e);
@@ -447,25 +334,9 @@ export function Admin() {
       const pending = withdrawals.filter(w => w.status === 'pending');
       if (pending.length === 0) return;
       
-      let batches = [];
-      let currentBatch = writeBatch(db);
-      let opCount = 0;
-      
       for (const w of pending) {
-        if (opCount > 450) {
-          batches.push(currentBatch);
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
-        const wRef = doc(db, 'withdrawals', w.id);
-        currentBatch.update(wRef, { status: 'rejected' });
-        
-        const userRef = doc(db, 'users', w.userId);
-        currentBatch.update(userRef, { balance: increment(w.amount) });
-        opCount += 2;
+        await handleRejectWithdrawal(w);
       }
-      batches.push(currentBatch);
-      for (const b of batches) await b.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error batch rejecting CM withdrawals:', e);
@@ -477,20 +348,16 @@ export function Admin() {
     if (txHash === null) return; // user cancelled
 
     try {
-      const batch = writeBatch(db);
-      const wRef = doc(db, 'withdrawals_usdt', w.id);
-      batch.update(wRef, { 
+      await supabase.from('withdrawals_usdt').update({ 
         status: 'approved', 
         txHash: txHash.trim(),
         approvedAt: Date.now()
-      });
+      }).eq('id', w.id);
 
       if (w.transactionId) {
-        const txRef = doc(db, 'transactions', w.transactionId);
-        batch.update(txRef, { status: 'approved' });
+        await supabase.from('transactions').update({ status: 'approved' }).eq('id', w.transactionId);
       }
 
-      await batch.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error approving USDT withdrawal:', e);
@@ -502,23 +369,20 @@ export function Admin() {
     if (reason === null) return; // user cancelled
 
     try {
-      const batch = writeBatch(db);
-      const wRef = doc(db, 'withdrawals_usdt', w.id);
-      batch.update(wRef, { 
+      await supabase.from('withdrawals_usdt').update({ 
         status: 'rejected',
         rejectionReason: reason.trim()
-      });
+      }).eq('id', w.id);
 
       if (w.transactionId) {
-        const txRef = doc(db, 'transactions', w.transactionId);
-        batch.update(txRef, { status: 'rejected' });
+        await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      // Refund the user USDT balance
-      const userRef = doc(db, 'users', w.userId);
-      batch.update(userRef, { usdtBalance: increment(w.amount) });
+      const u = users.find(usr => usr.uid === w.userId);
+      if (u) {
+        await supabase.from('users').update({ usdtBalance: (u.usdtBalance || 0) + w.amount }).eq('uid', w.userId);
+      }
 
-      await batch.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error rejecting USDT withdrawal:', e);
@@ -531,29 +395,12 @@ export function Admin() {
       const pending = usdtWithdrawals.filter(w => w.status === 'pending');
       if (pending.length === 0) return;
       
-      let batches = [];
-      let currentBatch = writeBatch(db);
-      let opCount = 0;
-      
       for (const w of pending) {
-        if (opCount > 450) {
-          batches.push(currentBatch);
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
-        const wRef = doc(db, 'withdrawals_usdt', w.id);
-        currentBatch.update(wRef, { status: 'approved' });
-        
+        await supabase.from('withdrawals_usdt').update({ status: 'approved' }).eq('id', w.id);
         if (w.transactionId) {
-          const txRef = doc(db, 'transactions', w.transactionId);
-          currentBatch.update(txRef, { status: 'approved' });
-          opCount++;
+          await supabase.from('transactions').update({ status: 'approved' }).eq('id', w.transactionId);
         }
-        
-        opCount++;
       }
-      batches.push(currentBatch);
-      for (const b of batches) await b.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error batch approving USDT withdrawals:', e);
@@ -566,31 +413,9 @@ export function Admin() {
       const pending = usdtWithdrawals.filter(w => w.status === 'pending');
       if (pending.length === 0) return;
       
-      let batches = [];
-      let currentBatch = writeBatch(db);
-      let opCount = 0;
-      
       for (const w of pending) {
-        if (opCount > 450) {
-          batches.push(currentBatch);
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
-        const wRef = doc(db, 'withdrawals_usdt', w.id);
-        currentBatch.update(wRef, { status: 'rejected' });
-        
-        if (w.transactionId) {
-          const txRef = doc(db, 'transactions', w.transactionId);
-          currentBatch.update(txRef, { status: 'rejected' });
-          opCount++;
-        }
-        
-        const userRef = doc(db, 'users', w.userId);
-        currentBatch.update(userRef, { usdtBalance: increment(w.amount) });
-        opCount += 2;
+        await handleRejectUsdtWithdrawal(w);
       }
-      batches.push(currentBatch);
-      for (const b of batches) await b.commit();
       fetchData();
     } catch (e: any) {
       console.error('Error batch rejecting USDT withdrawals:', e);

@@ -3,8 +3,7 @@ import { motion } from 'motion/react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
 import { Info } from 'lucide-react';
-import { doc, runTransaction, collection } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { BannerAd } from '../components/BannerAd';
 import { AdDisplay } from '../components/AdDisplay';
 import { InterstitialAd } from '../components/InterstitialAd';
@@ -50,56 +49,50 @@ export function Dashboard() {
     if (claimInProgress.current) return;
     claimInProgress.current = true;
     setIsClaiming(true);
-    let claimed = false;
-    let localAlreadyClaimed = false;
+    
     try {
-        await runTransaction(db, async (t) => {
-          const userRef = doc(db, 'users', userId);
-          const userDoc = await t.get(userRef);
-          if (!userDoc.exists()) return;
-          
-          const dbData = userDoc.data();
-          if (!dbData.miningSessionStartTime) {
-             localAlreadyClaimed = true;
-             return; // already claimed
-          }
-          if (dbData.miningSessionEndTime > Date.now()) return; // A new session already started
+        const { data: dbData, error } = await supabase.from('users').select('*').eq('uid', userId).single();
+        if (error || !dbData) throw new Error("Could not fetch user");
 
-          t.update(userRef, {
-              balance: (dbData.balance || 0) + earned,
-              totalMined: (dbData.totalMined || 0) + earned,
-              miningSessionStartTime: null,
-              miningSessionEndTime: null
-          });
-          
-          const txRef = doc(collection(db, 'transactions'));
-          t.set(txRef, {
-            type: 'mining_reward',
-            amount: earned,
-            timestamp: Date.now(),
-            status: 'completed',
-            receiverUid: userId
-          });
-          claimed = true;
-        });
-        
-        if (claimed) {
-            updateLocalUser({
-                balance: (user.balance || 0) + earned,
-                totalMined: (user.totalMined || 0) + earned,
-                miningSessionStartTime: null,
-                miningSessionEndTime: null
-            });
-            toast.success(`Mining session completed! You earned ${formatCurrency(earned)} CM.`, {
-                icon: '⛏️',
-                duration: 6000,
-            });
-        } else if (localAlreadyClaimed) {
+        if (!dbData.miningSessionStartTime) {
              updateLocalUser({
                 miningSessionStartTime: null,
                 miningSessionEndTime: null
             });
+            return;
         }
+        if (dbData.miningSessionEndTime > Date.now()) return; // A new session already started
+
+        const newBalance = (dbData.balance || 0) + earned;
+        const newTotalMined = (dbData.totalMined || 0) + earned;
+
+        await supabase.from('users').update({
+            balance: newBalance,
+            totalMined: newTotalMined,
+            miningSessionStartTime: null,
+            miningSessionEndTime: null
+        }).eq('uid', userId);
+        
+        await supabase.from('transactions').insert([{
+          id: 'tx_mine_' + Date.now(),
+          type: 'mining_reward',
+          amount: earned,
+          timestamp: Date.now(),
+          status: 'completed',
+          receiverUid: userId
+        }]);
+
+        updateLocalUser({
+            balance: newBalance,
+            totalMined: newTotalMined,
+            miningSessionStartTime: null,
+            miningSessionEndTime: null
+        });
+
+        toast.success(`Mining session completed! You earned ${formatCurrency(earned)} CM.`, {
+            icon: '⛏️',
+            duration: 6000,
+        });
     } catch(e) { 
         console.error('claim error', e)
         toast.error('Error claiming reward. Please try again.');

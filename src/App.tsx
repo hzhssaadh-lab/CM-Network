@@ -15,8 +15,7 @@ import { Ads } from './pages/Ads';
 import { Maintenance } from './pages/Maintenance';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from './lib/firebase';
+import { supabase } from './lib/supabase';
 
 function AppContent() {
   const { user, loading, submitReferralCode } = useApp();
@@ -24,22 +23,34 @@ function AppContent() {
   const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      doc(db, 'settings', 'app'),
-      (snap) => {
-        if (snap.exists()) {
-          setMaintenanceMode(snap.data().maintenanceMode === true);
+    const fetchMaintenance = async () => {
+      try {
+        const { data, error } = await supabase.from('settings').select('*').eq('id', 'app').single();
+        if (data) {
+           setMaintenanceMode(data.maintenanceMode === true);
         } else {
-          setMaintenanceMode(false);
+           setMaintenanceMode(false);
         }
-      },
-      (error) => {
-        console.error("Maintenance check failed:", error);
-        if (maintenanceMode === null) setMaintenanceMode(false);
+      } catch (err) {
+        console.error("Maintenance check failed:", err);
+        setMaintenanceMode(false);
       }
-    );
-    return () => unsubscribe();
-  }, [maintenanceMode]);
+    };
+    
+    fetchMaintenance();
+
+    const channel = supabase.channel('settings_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: 'id=eq.app' }, (payload: any) => {
+         if (payload.new) {
+            setMaintenanceMode(payload.new.maintenanceMode === true);
+         }
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
