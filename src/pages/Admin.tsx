@@ -694,7 +694,7 @@ export function Admin() {
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">App Configuration</h3>
           </div>
-          <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+          <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <label className="text-sm font-bold uppercase tracking-widest text-white">Enable Maintenance Mode</label>
                 <div 
@@ -705,6 +705,63 @@ export function Admin() {
                 </div>
               </div>
               <p className="text-xs text-gray-500 tracking-wide leading-relaxed">Turn this on to block the app for all non-admin users. A full-screen maintenance message with a WhatsApp channel link will be shown. Admins and existing logged-in admins will still be able to access the app.</p>
+          </div>
+
+          <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+              <div className="mb-4">
+                <label className="text-sm font-bold uppercase tracking-widest text-white block mb-2">Import Legacy Data (JSON)</label>
+                <textarea 
+                  id="legacyDataInput"
+                  placeholder="Paste JSON array of users here... e.g. [{ email: '...', balance: 10, usdtBalance: 5, cm_coins: 10 }]"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl p-4 text-xs font-mono text-gray-300 h-32 focus:outline-none focus:border-[#FFD700]/50"
+                ></textarea>
+              </div>
+              <button 
+                onClick={async () => {
+                  const input = document.getElementById('legacyDataInput') as HTMLTextAreaElement;
+                  if (!input || !input.value.trim()) return alert('Please paste JSON data first.');
+                  try {
+                    const data = JSON.parse(input.value);
+                    if (!Array.isArray(data)) return alert('Data must be a JSON array.');
+                    if (!confirm(`Are you sure you want to process ${data.length} records?`)) return;
+                    
+                    let updated = 0;
+                    for (const row of data) {
+                      if (!row.email) continue;
+                      
+                      // Fetch user by email
+                      const { data: existing } = await supabase.from('users').select('*').ilike('email', row.email).limit(1);
+                      if (existing && existing.length > 0) {
+                        const user = existing[0];
+                        const updates: any = {};
+                        let needsUpdate = false;
+                        
+                        const newBalance = Math.max(Number(user.balance || 0), Number(row.cm_coins || row.balance || 0));
+                        if (newBalance > Number(user.balance || 0)) { updates.balance = newBalance; needsUpdate = true; }
+                        
+                        const newUsdt = Math.max(Number(user.usdtBalance || 0), Number(row.usdt || row.usdtBalance || row.usdtbalance || 0));
+                        if (newUsdt > Number(user.usdtBalance || 0)) { updates.usdtBalance = newUsdt; needsUpdate = true; }
+
+                        if (needsUpdate) {
+                          await supabase.from('users').update(updates).eq('uid', user.uid);
+                          updated++;
+                        }
+                      }
+                    }
+                    alert(`Migration complete! Updated ${updated} users.`);
+                    input.value = '';
+                    fetchUsers();
+                  } catch (e: any) {
+                    alert('Error parsing or processing JSON: ' + e.message);
+                  }
+                }}
+                className="bg-[#FFD700]/10 text-[#FFD700] hover:bg-[#FFD700] hover:text-black border border-[#FFD700]/50 px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+              >
+                Start Import Process
+              </button>
+              <p className="text-xs text-gray-500 tracking-wide mt-4">
+                The script will search users by email and update their CM Coins and USDT balances to the provided values if the provided value is higher than their current balance.
+              </p>
           </div>
         </div>
       )}
