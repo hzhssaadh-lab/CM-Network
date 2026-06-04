@@ -11,6 +11,7 @@ export function Admin() {
   const { user } = useApp();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [totalUsersCount, setTotalUsersCount] = useState<number>(0);
   const [tasks, setTasks] = useState<AppTask[]>([]);
   const [claims, setClaims] = useState<TaskClaim[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -99,6 +100,9 @@ export function Admin() {
     try {
       const { data: userData } = await supabase.from('users').select('*').limit(500);
       if (userData) setUsers(userData as UserProfile[]);
+
+      const { count: uCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      if (uCount !== null) setTotalUsersCount(uCount);
 
       const { data: tasksData } = await supabase.from('tasks').select('*').limit(100);
       if (tasksData) setTasks(tasksData);
@@ -447,7 +451,7 @@ export function Admin() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Total Users</p>
-          <p className="text-4xl font-black">{loading ? '...' : users.length}</p>
+          <p className="text-4xl font-black">{loading ? '...' : totalUsersCount}</p>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Global Liquidity</p>

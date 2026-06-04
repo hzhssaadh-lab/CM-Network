@@ -113,17 +113,20 @@ export function Dashboard() {
     let interval: ReturnType<typeof setInterval>;
 
     const updateMiningState = () => {
-      if (user.miningSessionEndTime && user.miningSessionStartTime) {
+      const startTime = user.miningSessionStartTime ? Number(user.miningSessionStartTime) : null;
+      const endTime = user.miningSessionEndTime ? Number(user.miningSessionEndTime) : null;
+
+      if (endTime && startTime) {
         const now = Date.now();
-        if (now < user.miningSessionEndTime) {
+        if (now < endTime) {
           setMineState('MINING');
-          const remaining = user.miningSessionEndTime - now;
+          const remaining = endTime - now;
           const h = Math.floor((remaining / (1000 * 60 * 60)) % 24);
           const m = Math.floor((remaining / 1000 / 60) % 60);
           const s = Math.floor((remaining / 1000) % 60);
           setTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
 
-          const elapsed = now - user.miningSessionStartTime;
+          const elapsed = now - startTime;
           const minedNow = (user.miningRate / 3600000) * elapsed;
           setCurrentBalance(user.balance + minedNow);
         } else {
