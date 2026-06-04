@@ -88,7 +88,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const { data } = await supabase
             .from('users')
             .select('*')
-            .eq('email', sUser.email)
+            .ilike('email', sUser.email)
             .order('balance', { ascending: false })
             .limit(1);
             
