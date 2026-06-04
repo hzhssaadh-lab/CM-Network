@@ -6,7 +6,7 @@ import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AppState {
   user: UserProfile | null;
-  supabaseUser: SupabaseUser | null; // Changed from firebaseUser
+  supabaseUser: SupabaseUser | null;
   loading: boolean;
   adSettings: AdSettings | null;
   loginWithGoogle: () => Promise<void>;
@@ -23,8 +23,6 @@ interface AppState {
   claimUsdtAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   requestWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
   requestUsdtWithdrawal: (amount: number, wallet: string, method?: string) => Promise<{ success: boolean; message: string }>;
-
-  // Backwards compat for old pages components for now:
   firebaseUser?: any; 
 }
 
@@ -47,11 +45,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const verifyDeviceLimit = async (authenticatedUid: string) => {
     const deviceId = getDeviceId();
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('uid')
-      .eq('deviceId', deviceId);
-      
+    const { data: users } = await supabase.from('users').select('uid').eq('deviceId', deviceId);
     if (users && users.length > 0) {
       const isBoundToOther = users.some(u => u.uid !== authenticatedUid);
       if (isBoundToOther) {
@@ -64,7 +58,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchAdSettings = async () => {
       try {
-        const { data, error } = await supabase.from('settings').select('*').eq('id', 'ads').single();
+        const { data } = await supabase.from('settings').select('*').eq('id', 'ads').single();
         if (data) {
           setAdSettings(data as AdSettings);
         } else {
@@ -87,11 +81,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const { data: u, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('uid', sUser.id)
-          .single();
+        let { data: u, error } = await supabase.from('users').select('*').eq('uid', sUser.id).single();
+
+        // Check and link legacy account based on email if simple UID lookup fails
+        if (!u && sUser.email) {
+           try {
+             const { data: linked } = await supabase.rpc('link_legacy_account', {
+               user_email: sUser.email,
+               new_user_id: sUser.id
+             });
+             if (linked) {
+               console.log("Successfully linked legacy account!");
+               const { data: linkedUser } = await supabase.from('users').select('*').eq('uid', sUser.id).single();
+               if (linkedUser) u = linkedUser;
+             }
+           } catch (rpcErr) {
+             console.warn("Legacy link RPC checking...", rpcErr);
+           }
+        }
 
         if (u) {
           if (u.isActive === false && u.role !== 'admin') {
@@ -155,7 +162,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
-            deviceId: getDeviceId()
+            deviceId: getDeviceId(),
+            transactionsBlocked: false,
+            squadId: null,
+            adsWatchedToday: 0,
+            lastAdWatchDate: null,
+            totalAdsWatched: 0,
+            totalTasksCompleted: 0,
+            country: null,
+            isBlocked: false,
+            usdtBalance: 0
           };
           const { error: insertError } = await supabase.from('users').insert([newUser]);
           if (insertError) {
@@ -175,18 +191,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      // Intentionally not setting user if getting session is not complete immediately, waiting for onAuthStateChange
-      // However to prevent flicker, if session exists:
       if (session?.user) {
         setSupabaseUser(session.user);
         fetchUserData(session.user);
       } else {
-        setLoading(false); // No session initially
+        setLoading(false);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setLoading(true); // Always loading when state changes
+      setLoading(true);
       if (session?.user) {
         setSupabaseUser(session.user);
         fetchUserData(session.user);
@@ -206,9 +220,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-           redirectTo: window.location.origin
-        }
+        options: { redirectTo: window.location.origin }
       });
     } catch (error) {
       console.error("Login failed", error);
@@ -231,9 +243,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password: pass,
-        options: {
-          data: { full_name: name }
-        }
+        options: { data: { full_name: name } }
       });
       if (error) throw error;
       if (!data.user) throw new Error("No user returned");
@@ -243,11 +253,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (inviteCode && inviteCode.trim() !== '') {
         const trimmedCode = inviteCode.trim();
-        const { data: inviterData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('referralCode', trimmedCode)
-          .single();
+        const { data: inviterData } = await supabase.from('users').select('*').eq('referralCode', trimmedCode).single();
         
         if (inviterData) {
           const inviter = inviterData as UserProfile;
@@ -284,8 +290,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (referredByUid) {
-        // We defer creation of the users doc in sign up since auth onChange handles it. 
-        // We will just create it manually now to set referredBy properly
         const newUser: UserProfile = {
             uid: data.user.id,
             name: name,
@@ -305,7 +309,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
-            deviceId: getDeviceId()
+            deviceId: getDeviceId(),
+            transactionsBlocked: false,
+            squadId: null,
+            adsWatchedToday: 0,
+            lastAdWatchDate: null,
+            totalAdsWatched: 0,
+            totalTasksCompleted: 0,
+            country: null,
+            isBlocked: false,
+            usdtBalance: 0
         };
         await supabase.from('users').insert([newUser]);
       }
@@ -680,7 +693,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{ 
       user, 
       supabaseUser, 
-      firebaseUser: supabaseUser, // Backwards compat
+      firebaseUser: supabaseUser,
       loading, 
       adSettings, 
       loginWithGoogle, 
