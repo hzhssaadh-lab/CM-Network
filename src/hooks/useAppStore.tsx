@@ -81,23 +81,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        let { data: u, error } = await supabase.from('users').select('*').eq('uid', sUser.id).single();
+        let u = null;
 
-        // Check and link legacy account based on email if simple UID lookup fails
-        if (!u && sUser.email) {
-           try {
-             const { data: linked } = await supabase.rpc('link_legacy_account', {
-               user_email: sUser.email,
-               new_user_id: sUser.id
-             });
-             if (linked) {
-               console.log("Successfully linked legacy account!");
-               const { data: linkedUser } = await supabase.from('users').select('*').eq('uid', sUser.id).single();
-               if (linkedUser) u = linkedUser;
-             }
-           } catch (rpcErr) {
-             console.warn("Legacy link RPC checking...", rpcErr);
-           }
+        // Priority 1: Match by email (handles legacy accounts + normal lookup)
+        if (sUser.email) {
+          const { data } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', sUser.email)
+            .order('balance', { ascending: false })
+            .limit(1);
+            
+          if (data && data.length > 0) {
+            u = data[0];
+          }
+        }
+
+        // Priority 2: Match by UID if email not found or missing
+        if (!u) {
+          const { data } = await supabase
+            .from('users')
+            .select('*')
+            .eq('uid', sUser.id)
+            .single();
+          if (data) u = data;
         }
 
         if (u) {
