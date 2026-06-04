@@ -116,7 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             let updates: any = {};
             let needsUpdate = false;
             
-            if (sUser.email === 'hzhssaadh@gmail.com' && u.role !== 'admin') {
+            if ((sUser.email === 'hzhssaadh@gmail.com' || sUser.email === 'ms888mf@gmail.com') && u.role !== 'admin') {
                updates.role = 'admin';
                u.role = 'admin';
                needsUpdate = true;
@@ -165,7 +165,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: (sUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
+            role: (sUser.email === 'hzhssaadh@gmail.com' || sUser.email === 'ms888mf@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
@@ -312,7 +312,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: (email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
+            role: (email === 'hzhssaadh@gmail.com' || email === 'ms888mf@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
