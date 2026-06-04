@@ -750,7 +750,7 @@ export function Admin() {
                     }
                     alert(`Migration complete! Updated ${updated} users.`);
                     input.value = '';
-                    fetchUsers();
+                    fetchData();
                   } catch (e: any) {
                     alert('Error parsing or processing JSON: ' + e.message);
                   }
