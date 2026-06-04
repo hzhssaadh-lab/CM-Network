@@ -351,7 +351,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateUser = async (data: Partial<UserProfile>) => {
     if (!user) return;
-    await supabase.from('users').update(data).eq('uid', user.uid);
+    try {
+      const matchConditions = [];
+      if (user.uid) {
+        matchConditions.push(`uid.eq.${user.uid}`);
+        matchConditions.push(`UID.eq.${user.uid}`);
+      }
+      if (user.email) {
+        matchConditions.push(`email.ilike.${user.email}`);
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update(data)
+        .or(matchConditions.join(','));
+
+      if (error) {
+        console.error("Failed to update user in Supabase:", error);
+      }
+    } catch (err) {
+      console.error("Exception while updating user in Supabase:", err);
+    }
     setUser(prev => prev ? { ...prev, ...data } : null);
   };
 
@@ -380,7 +400,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (u) {
-        setUser(u as UserProfile);
+        setUser({ ...u, uid: supabaseUser.id } as UserProfile);
       }
     } catch (error) {
       console.error("Error refreshing user:", error);
@@ -456,11 +476,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     rewardAmount = Math.max(rewardAmount, 0.01);
     
     try {
+      const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
+      if (user.email) {
+        matchConditions.push(`email.ilike.${user.email}`);
+      }
+
+      const claimTime = Date.now();
+      const nextBalance = (user.balance || 0) + rewardAmount;
+
       await supabase.from('users').update({
-        lastSquadClaim: Date.now(),
-        balance: (user.balance || 0) + rewardAmount
-      }).eq('uid', user.uid);
+        lastSquadClaim: claimTime,
+        balance: nextBalance
+      }).or(matchConditions.join(','));
       
+      setUser(prev => prev ? {
+        ...prev,
+        lastSquadClaim: claimTime,
+        balance: nextBalance
+      } : null);
+
       return { success: true, reward: rewardAmount, message: "Claimed successfully" };
     } catch (e) {
       console.error(e);
@@ -489,23 +523,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const rewardAmount = rewardAmounts[dayInCycle - 1];
     
     try {
+      const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
+      if (user.email) {
+        matchConditions.push(`email.ilike.${user.email}`);
+      }
+
+      const checkInTime = Date.now();
+      const nextBalance = (user.balance || 0) + rewardAmount;
+
       await supabase.from('users').update({
         dailyStreak: newStreak,
-        lastCheckIn: Date.now(),
-        balance: (user.balance || 0) + rewardAmount
-      }).eq('uid', user.uid);
+        lastCheckIn: checkInTime,
+        balance: nextBalance
+      }).or(matchConditions.join(','));
       
       await supabase.from('transactions').insert([{
         id: 'tx_chk_' + Date.now(),
         type: 'daily_checkin',
         amount: rewardAmount,
-        timestamp: Date.now(),
+        timestamp: checkInTime,
         status: 'completed',
         receiverUid: user.uid,
         senderUid: 'system',
         description: `Daily check-in reward (Day ${dayInCycle})`
       }]);
       
+      setUser(prev => prev ? {
+        ...prev,
+        dailyStreak: newStreak,
+        lastCheckIn: checkInTime,
+        balance: nextBalance
+      } : null);
+
       return { success: true, reward: rewardAmount, message: `Day ${dayInCycle} check-in successful!` };
     } catch (e) {
       console.error(e);
@@ -534,13 +583,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
+      const nextWatched = currentWatched + 1;
+      const nextTotalAdsWatched = (user.totalAdsWatched || 0) + 1;
+      const nextBalance = (user.balance || 0) + rewardAmount;
+
+      const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
+      if (user.email) {
+        matchConditions.push(`email.ilike.${user.email}`);
+      }
+
       await supabase.from('users').update({
         lastAdWatchDate: today,
         lastAdWatchTimestamp: currentTime,
-        adsWatchedToday: currentWatched + 1,
-        totalAdsWatched: (user.totalAdsWatched || 0) + 1,
-        balance: (user.balance || 0) + rewardAmount
-      }).eq('uid', user.uid);
+        adsWatchedToday: nextWatched,
+        totalAdsWatched: nextTotalAdsWatched,
+        balance: nextBalance
+      }).or(matchConditions.join(','));
       
       await supabase.from('transactions').insert([{
         id: 'tx_ad_' + Date.now(),
@@ -550,7 +608,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         status: 'completed',
         receiverUid: user.uid,
         senderUid: 'system',
-        description: `Watched ad #${currentWatched + 1}`
+        description: `Watched ad #${nextWatched}`
       }]);
 
       await supabase.from('ads_log').insert([{
@@ -565,6 +623,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         country: user.country || 'Unknown'
       }]);
       
+      setUser(prev => prev ? {
+        ...prev,
+        lastAdWatchDate: today,
+        lastAdWatchTimestamp: currentTime,
+        adsWatchedToday: nextWatched,
+        totalAdsWatched: nextTotalAdsWatched,
+        balance: nextBalance
+      } : null);
+
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} CM!` };
     } catch (e) {
       console.error(e);
@@ -583,8 +650,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentWatched = 0;
     }
     
-    if (currentWatched >= 200) {
-      return { success: false, reward: 0, message: "Daily limit of 200 ads reached.", limitReached: true };
+    if (currentWatched >= 100) {
+      return { success: false, reward: 0, message: "Daily limit of 100 ads reached.", limitReached: true };
     }
     
     const rewardAmount = 0.0008;
@@ -593,13 +660,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
+      const nextWatched = currentWatched + 1;
+      const nextTotalAdsWatched = (user.totalAdsWatched || 0) + 1;
+      const nextUsdtBalance = (user.usdtBalance || 0) + rewardAmount;
+
+      const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
+      if (user.email) {
+        matchConditions.push(`email.ilike.${user.email}`);
+      }
+
       await supabase.from('users').update({
         lastAdWatchDate: today,
         lastAdWatchTimestamp: currentTime,
-        adsWatchedToday: currentWatched + 1,
-        totalAdsWatched: (user.totalAdsWatched || 0) + 1,
-        usdtBalance: (user.usdtBalance || 0) + rewardAmount
-      }).eq('uid', user.uid);
+        adsWatchedToday: nextWatched,
+        totalAdsWatched: nextTotalAdsWatched,
+        usdtBalance: nextUsdtBalance
+      }).or(matchConditions.join(','));
       
       await supabase.from('transactions').insert([{
         id: 'tx_usdtad_' + Date.now(),
@@ -610,7 +686,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         status: 'completed',
         receiverUid: user.uid,
         senderUid: 'system',
-        description: `Watched ad #${currentWatched + 1} for USDT`
+        description: `Watched ad #${nextWatched} for USDT`
       }]);
 
       await supabase.from('ads_log').insert([{
@@ -625,6 +701,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         country: user.country || 'Unknown'
       }]);
       
+      setUser(prev => prev ? {
+        ...prev,
+        lastAdWatchDate: today,
+        lastAdWatchTimestamp: currentTime,
+        adsWatchedToday: nextWatched,
+        totalAdsWatched: nextTotalAdsWatched,
+        usdtBalance: nextUsdtBalance
+      } : null);
+
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} USDT!` };
     } catch (e) {
       console.error(e);

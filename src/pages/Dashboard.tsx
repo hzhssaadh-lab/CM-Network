@@ -66,12 +66,17 @@ export function Dashboard() {
         const newBalance = (dbData.balance || 0) + earned;
         const newTotalMined = (dbData.totalMined || 0) + earned;
 
+        const matchConditions = [`uid.eq.${userId}`, `UID.eq.${userId}`];
+        if (dbData.email) {
+          matchConditions.push(`email.ilike.${dbData.email}`);
+        }
+
         await supabase.from('users').update({
             balance: newBalance,
             totalMined: newTotalMined,
             miningSessionStartTime: null,
             miningSessionEndTime: null
-        }).eq('uid', userId);
+        }).or(matchConditions.join(','));
         
         await supabase.from('transactions').insert([{
           id: 'tx_mine_' + Date.now(),
