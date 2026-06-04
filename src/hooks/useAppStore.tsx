@@ -160,6 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } else {
           const newUser: UserProfile = {
             uid: sUser.id,
+            UID: sUser.id,
             name: sUser.user_metadata?.full_name || 'User',
             email: sUser.email || '',
             photoURL: sUser.user_metadata?.avatar_url || '',
@@ -307,6 +308,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (referredByUid) {
         const newUser: UserProfile = {
             uid: data.user.id,
+            UID: data.user.id,
             name: name,
             email: email,
             photoURL: '',
