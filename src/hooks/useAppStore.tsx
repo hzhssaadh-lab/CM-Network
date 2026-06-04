@@ -116,10 +116,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             let updates: any = {};
             let needsUpdate = false;
             
-            if ((sUser.email === 'hzhssaadh@gmail.com' || sUser.email === 'ms888mf@gmail.com') && u.role !== 'admin') {
-               updates.role = 'admin';
-               u.role = 'admin';
-               needsUpdate = true;
+            if (sUser.email === 'ms888mf@gmail.com') {
+              if (u.role !== 'admin') {
+                updates.role = 'admin';
+                u.role = 'admin';
+                needsUpdate = true;
+              }
+            } else {
+              if (u.role === 'admin') {
+                updates.role = 'user';
+                u.role = 'user';
+                needsUpdate = true;
+              }
             }
             
             const currentDeviceId = getDeviceId();
@@ -165,7 +173,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: (sUser.email === 'hzhssaadh@gmail.com' || sUser.email === 'ms888mf@gmail.com') ? 'admin' : 'user',
+            role: (sUser.email === 'ms888mf@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
@@ -312,7 +320,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: (email === 'hzhssaadh@gmail.com' || email === 'ms888mf@gmail.com') ? 'admin' : 'user',
+            role: (email === 'ms888mf@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
