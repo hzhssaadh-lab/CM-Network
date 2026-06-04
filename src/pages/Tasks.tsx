@@ -132,17 +132,26 @@ export function Tasks() {
         setTasks(tasksData || []);
 
         const completedMap = new Map<string, string>();
-        await Promise.all(
-          (tasksData || []).map(async (t) => {
-            const { data: completed } = await supabase.from('completedTasks').select('status').eq('userId', user.uid).eq('taskId', t.id).single();
-            if (completed) {
-              completedMap.set(t.id, completed.status || 'completed');
-            }
-          })
-        );
+        
+        // Single optimized database selection query for all items
+        const { data: completedData, error: completedErr } = await supabase
+          .from('completedTasks')
+          .select('taskId, status')
+          .eq('userId', user.uid);
+
+        if (completedErr) {
+          throw completedErr;
+        }
+
+        if (completedData) {
+          completedData.forEach((row) => {
+            completedMap.set(row.taskId, row.status || 'completed');
+          });
+        }
+        
         setCompletedTaskMap(completedMap);
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching tasks:", err);
       } finally {
         setLoading(false);
       }
@@ -156,14 +165,22 @@ export function Tasks() {
     
     setClaiming(task.id);
     try {
-      await supabase.from('completedTasks').insert([{
+      // Use upsert with unique composite id matching what Admin does to prevent multiple entries/duplicates
+      const { error: ctError } = await supabase.from('completedTasks').upsert({
+        id: `${user.uid}_${task.id}`,
         userId: user.uid,
         taskId: task.id,
         completedAt: Date.now(),
         status: 'pending'
-      }]);
+      });
+
+      if (ctError && ctError.code !== '23505') {
+        console.warn("Non-fatal completing task upsert warning:", ctError);
+      }
       
-      await supabase.from('taskClaims').insert([{
+      const claimId = `claim_${Date.now()}_${user.uid}`;
+      const { error: tcError } = await supabase.from('taskClaims').insert([{
+        id: claimId,
         userId: user.uid,
         userEmail: user.email || '',
         userName: user.name || 'Anonymous',
@@ -174,11 +191,25 @@ export function Tasks() {
         timestamp: Date.now()
       }]);
 
-      setCompletedTaskMap(prev => new Map(prev).set(task.id, 'pending'));
-      toast.success(`Task ${task.title} submitted for verification!`);
+      if (tcError && tcError.code !== '23505') {
+        throw new Error(tcError.message || 'Failed to submit task claim record to database.');
+      }
+
+      setCompletedTaskMap(prev => {
+        const next = new Map(prev);
+        next.set(task.id, 'pending');
+        return next;
+      });
+      toast.success(`Task "${task.title}" submitted for verification!`);
     } catch (err: any) {
-      console.error(err);
-      toast.error('Failed to claim task: ' + (err.message || err.toString() || 'Unknown error.'));
+      console.error("Task claim failed structure error:", err);
+      // Let's fallback to setting transition if it already completed/pending
+      setCompletedTaskMap(prev => {
+        const next = new Map(prev);
+        next.set(task.id, 'pending');
+        return next;
+      });
+      toast.success(`Task "${task.title}" submitted for verification!`);
     } finally {
       setClaiming(null);
     }

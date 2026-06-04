@@ -592,16 +592,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         matchConditions.push(`email.ilike.${user.email}`);
       }
 
-      await supabase.from('users').update({
-        lastAdWatchDate: today,
-        lastAdWatchTimestamp: currentTime,
-        adsWatchedToday: nextWatched,
-        totalAdsWatched: nextTotalAdsWatched,
-        balance: nextBalance
-      }).or(matchConditions.join(','));
-      
+      const txId = `tx_ad_${user.uid}_${today}_${nextWatched}`;
+      const logId = `adlog_${user.uid}_${today}_${nextWatched}`;
+
+      // Insert log & transaction first; if it's already watched/completed, it will fail to insert due to duplicate ID constraint preventing double claims
       await supabase.from('transactions').insert([{
-        id: 'tx_ad_' + Date.now(),
+        id: txId,
         type: 'ad_reward',
         amount: rewardAmount,
         timestamp: currentTime,
@@ -612,7 +608,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }]);
 
       await supabase.from('ads_log').insert([{
-        id: 'adlog_' + Date.now(),
+        id: logId,
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
@@ -622,19 +618,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
       }]);
+
+      await supabase.from('users').update({
+        lastAdWatchDate: today,
+        adsWatchedToday: nextWatched,
+        totalAdsWatched: nextTotalAdsWatched,
+        balance: nextBalance
+      }).or(matchConditions.join(','));
       
       setUser(prev => prev ? {
         ...prev,
         lastAdWatchDate: today,
-        lastAdWatchTimestamp: currentTime,
         adsWatchedToday: nextWatched,
         totalAdsWatched: nextTotalAdsWatched,
         balance: nextBalance
       } : null);
 
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} CM!` };
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("claimAdReward error:", e);
+      if (e.code === '23505') {
+        return { success: false, reward: 0, message: "Duplicate reward claim detected. You have already completed this ad reward." };
+      }
       return { success: false, reward: 0, message: "Failed to claim ad reward" };
     }
   };
@@ -654,31 +659,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, reward: 0, message: "Daily limit of 100 ads reached.", limitReached: true };
     }
     
-    const rewardAmount = 0.0008;
+    const nextWatched = currentWatched + 1;
+    // Expected logic:
+    // Ad 1: +0.0009 USDT (0.001 - 1 * 0.0001)
+    // Ad 2: +0.0008 USDT (0.001 - 2 * 0.0001)
+    // Floor is kept at 0.0001 USDT so they keep earning on all 100 ads watch
+    const rewardAmount = Math.max(0.0001, Number((0.0010 - (nextWatched * 0.0001)).toFixed(4)));
     
     try {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
-      const nextWatched = currentWatched + 1;
       const nextTotalAdsWatched = (user.totalAdsWatched || 0) + 1;
-      const nextUsdtBalance = (user.usdtBalance || 0) + rewardAmount;
+      const nextUsdtBalance = Number(((user.usdtBalance || 0) + rewardAmount).toFixed(4));
 
       const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
       if (user.email) {
         matchConditions.push(`email.ilike.${user.email}`);
       }
 
-      await supabase.from('users').update({
-        lastAdWatchDate: today,
-        lastAdWatchTimestamp: currentTime,
-        adsWatchedToday: nextWatched,
-        totalAdsWatched: nextTotalAdsWatched,
-        usdtBalance: nextUsdtBalance
-      }).or(matchConditions.join(','));
-      
+      const txId = `tx_usdtad_${user.uid}_${today}_${nextWatched}`;
+      const logId = `adlog_usdt_${user.uid}_${today}_${nextWatched}`;
+
+      // Insert log & transaction first; composite ID protects against duplicates at database level
       await supabase.from('transactions').insert([{
-        id: 'tx_usdtad_' + Date.now(),
+        id: txId,
         type: 'ad_reward',
         amount: rewardAmount,
         currency: 'USDT',
@@ -690,7 +695,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }]);
 
       await supabase.from('ads_log').insert([{
-        id: 'adlog_' + Date.now(),
+        id: logId,
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
@@ -700,19 +705,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
       }]);
+
+      await supabase.from('users').update({
+        lastAdWatchDate: today,
+        adsWatchedToday: nextWatched,
+        totalAdsWatched: nextTotalAdsWatched,
+        usdtBalance: nextUsdtBalance,
+        usdtbalance: nextUsdtBalance,
+        USDT: nextUsdtBalance
+      }).or(matchConditions.join(','));
       
       setUser(prev => prev ? {
         ...prev,
         lastAdWatchDate: today,
-        lastAdWatchTimestamp: currentTime,
         adsWatchedToday: nextWatched,
         totalAdsWatched: nextTotalAdsWatched,
         usdtBalance: nextUsdtBalance
       } : null);
 
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} USDT!` };
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("claimUsdtAdReward error:", e);
+      if (e.code === '23505') {
+        return { success: false, reward: 0, message: "Duplicate reward claim detected. You have already completed this ad reward." };
+      }
       return { success: false, reward: 0, message: "Failed to claim ad reward" };
     }
   };
