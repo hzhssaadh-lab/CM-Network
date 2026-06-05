@@ -98,31 +98,31 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      const { data: userData } = await supabase.from('users').select('*').limit(50000);
+      const { data: userData } = await supabase.from('users').select('*').limit(2000);
       if (userData) setUsers(userData as UserProfile[]);
 
       const { count: uCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       if (uCount !== null) setTotalUsersCount(uCount);
 
-      const { data: tasksData } = await supabase.from('tasks').select('*').limit(10000);
+      const { data: tasksData } = await supabase.from('tasks').select('*').limit(200);
       if (tasksData) setTasks(tasksData);
 
-      const { data: claimsData } = await supabase.from('taskClaims').select('*').limit(50000);
+      const { data: claimsData } = await supabase.from('taskClaims').select('*').limit(2000);
       if (claimsData) {
         setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
       }
 
-      const { data: wData } = await supabase.from('withdrawals').select('*').limit(50000);
+      const { data: wData } = await supabase.from('withdrawals').select('*').limit(2000);
       if (wData) {
         setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
-      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').limit(50000);
+      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').limit(2000);
       if (wuData) {
         setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
-      const { data: adLogData } = await supabase.from('ads_log').select('*').limit(50000);
+      const { data: adLogData } = await supabase.from('ads_log').select('*').limit(1000);
       if (adLogData) {
         setAdLogs(adLogData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
       }
@@ -630,23 +630,27 @@ export function Admin() {
             <div className="flex items-center gap-4">
               <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Total: {users.length} Records</div>
               <button 
-                onClick={() => {
-                  const header = ['UID', 'Name', 'Email', 'Country', 'CM Coins', 'USDT', 'Referral Code', 'Referred By', 'Ref Count', 'Joined At'];
-                  const rows = users.map(u => [
-                    u.uid,
-                    `"${(u.name || '').replace(/"/g, '""')}"`,
-                    `"${(u.email || '').replace(/"/g, '""')}"`,
-                    `"${(u.country || 'N/A').replace(/"/g, '""')}"`,
-                    u.balance || 0,
-                    u.usdtBalance || 0,
-                    u.referralCode || '',
-                    u.referredBy || '',
-                    u.referralCount || 0,
-                    `"${u.joinDate ? new Date(u.joinDate).toLocaleString().replace(/"/g, '""') : 'N/A'}"`
-                  ]);
-                  const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
-                  
+                onClick={async () => {
                   try {
+                    toast.success('Preparing export, please wait...');
+                    const { data: allUsers } = await supabase.from('users').select('*');
+                    const dataToExport = allUsers || users;
+                    
+                    const header = ['UID', 'Name', 'Email', 'Country', 'CM Coins', 'USDT', 'Referral Code', 'Referred By', 'Ref Count', 'Joined At'];
+                    const rows = dataToExport.map(u => [
+                      u.uid,
+                      `"${(u.name || '').replace(/"/g, '""')}"`,
+                      `"${(u.email || '').replace(/"/g, '""')}"`,
+                      `"${(u.country || 'N/A').replace(/"/g, '""')}"`,
+                      u.balance || 0,
+                      u.usdtBalance || 0,
+                      u.referralCode || '',
+                      u.referredBy || '',
+                      u.referralCount || 0,
+                      `"${u.joinDate ? new Date(u.joinDate).toLocaleString().replace(/"/g, '""') : 'N/A'}"`
+                    ]);
+                    const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+                    
                     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement('a');
                     const url = URL.createObjectURL(blob);
@@ -658,6 +662,7 @@ export function Admin() {
                     document.body.removeChild(link);
                     toast.success('Data exported as CSV file');
                   } catch (err) {
+                    console.error(err);
                     toast.error('Failed to export data');
                   }
                 }}
