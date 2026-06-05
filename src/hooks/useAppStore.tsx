@@ -113,6 +113,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setUser(null);
             alert("Your account has been blocked by an administrator.");
           } else {
+            const oldUid = u.uid || u.UID;
+            if (oldUid && oldUid !== sUser.id) {
+              console.log(`Legacy user detected: migrating old ID "${oldUid}" to new ID "${sUser.id}"`);
+              
+              try {
+                await supabase.from('transactions').update({ senderUid: sUser.id }).eq('senderUid', oldUid);
+                await supabase.from('transactions').update({ receiverUid: sUser.id }).eq('receiverUid', oldUid);
+                await supabase.from('withdrawals').update({ userId: sUser.id }).eq('userId', oldUid);
+                await supabase.from('withdrawals_usdt').update({ userId: sUser.id }).eq('userId', oldUid);
+                await supabase.from('ads_log').update({ userId: sUser.id }).eq('userId', oldUid);
+                await supabase.from('completedTasks').update({ userId: sUser.id }).eq('userId', oldUid);
+                await supabase.from('taskClaims').update({ userId: sUser.id }).eq('userId', oldUid);
+              } catch (e) {
+                console.warn("Non-fatal dependent table link update warning:", e);
+              }
+
+              const { error: linkErr } = await supabase
+                .from('users')
+                .update({ uid: sUser.id, UID: sUser.id })
+                .or(`uid.eq.${oldUid},UID.eq.${oldUid}`);
+
+              if (linkErr) {
+                console.error("Error migrating user ID field in DB:", linkErr);
+              } else {
+                u.uid = sUser.id;
+                u.UID = sUser.id;
+                console.log(`Successfully migrated user entry inside DB to "${sUser.id}"`);
+              }
+            }
+
             let updates: any = {};
             let needsUpdate = false;
             
