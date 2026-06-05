@@ -669,7 +669,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: txId,
         type: 'ad_reward',
         amount: rewardAmount,
-        currency: 'CM',
         timestamp: currentTime,
         status: 'completed',
         receiverUid: user.uid,
@@ -680,12 +679,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await supabase.from('ads_log').insert([{
         id: logId,
         userId: user.uid,
-        userName: user.name || 'Anonymous',
-        userEmail: user.email || 'Unknown',
         adNetwork: 'Monetag (CM)',
         reward: rewardAmount,
         timestamp: currentTime,
-        timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
       }]);
 
@@ -750,7 +746,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: txId,
         type: 'ad_reward',
         amount: rewardAmount,
-        currency: 'USDT',
         timestamp: currentTime,
         status: 'completed',
         receiverUid: user.uid,
@@ -761,12 +756,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await supabase.from('ads_log').insert([{
         id: logId,
         userId: user.uid,
-        userName: user.name || 'Anonymous',
-        userEmail: user.email || 'Unknown',
         adNetwork: 'Monetag (USDT)',
         reward: rewardAmount,
         timestamp: currentTime,
-        timeGapSeconds: timeGapSeconds,
         country: user.country || 'Unknown'
       }]);
 
@@ -854,7 +846,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: txId,
         type: 'withdrawal',
         amount: -amount,
-        currency: 'USDT',
         timestamp: Date.now(),
         status: 'pending',
         receiverUid: 'system',
@@ -868,7 +859,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
         amount: amount,
-        currency: 'USDT',
         wallet: wallet,
         method: method || 'TRC20 / Binance UID',
         status: 'pending',
