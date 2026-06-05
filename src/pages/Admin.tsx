@@ -98,31 +98,31 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      const { data: userData } = await supabase.from('users').select('*').limit(500);
+      const { data: userData } = await supabase.from('users').select('*').limit(50000);
       if (userData) setUsers(userData as UserProfile[]);
 
       const { count: uCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       if (uCount !== null) setTotalUsersCount(uCount);
 
-      const { data: tasksData } = await supabase.from('tasks').select('*').limit(100);
+      const { data: tasksData } = await supabase.from('tasks').select('*').limit(10000);
       if (tasksData) setTasks(tasksData);
 
-      const { data: claimsData } = await supabase.from('taskClaims').select('*').limit(200);
+      const { data: claimsData } = await supabase.from('taskClaims').select('*').limit(50000);
       if (claimsData) {
         setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
       }
 
-      const { data: wData } = await supabase.from('withdrawals').select('*').limit(200);
+      const { data: wData } = await supabase.from('withdrawals').select('*').limit(50000);
       if (wData) {
         setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
-      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').limit(200);
+      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').limit(50000);
       if (wuData) {
         setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
-      const { data: adLogData } = await supabase.from('ads_log').select('*').limit(200);
+      const { data: adLogData } = await supabase.from('ads_log').select('*').limit(50000);
       if (adLogData) {
         setAdLogs(adLogData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
       }
@@ -205,12 +205,12 @@ export function Admin() {
 
   const handleApproveClaim = async (claim: TaskClaim) => {
     try {
-      const u = users.find(usr => usr.uid === claim.userId);
+      const u = users.find(usr => usr.uid === claim.userId || usr.UID === claim.userId);
       if (u) {
         await supabase.from('users').update({
           balance: (u.balance || 0) + Number(claim.reward),
           totalTasksCompleted: (u.totalTasksCompleted || 0) + 1
-        }).eq('uid', claim.userId);
+        }).or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`);
       }
       
       const txId = 'tx_' + Date.now();
@@ -282,17 +282,18 @@ export function Admin() {
       for (const [userId, update] of userUpdates.entries()) {
         const { data: dbUser } = await supabase
           .from('users')
-          .select('balance, totalTasksCompleted')
-          .eq('uid', userId)
+          .select('balance, totalTasksCompleted, uid')
+          .or(`uid.eq.${userId},UID.eq.${userId}`)
           .single();
 
         const currentBalance = dbUser ? (dbUser.balance || 0) : 0;
         const currentCompleted = dbUser ? (dbUser.totalTasksCompleted || 0) : 0;
+        const realUid = dbUser?.uid || userId;
 
         await supabase.from('users').update({
           balance: currentBalance + update.rewardSum,
           totalTasksCompleted: currentCompleted + update.completedCount
-        }).eq('uid', userId);
+        }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
       }
 
       // 2. Prepare transaction insertions in bulk
@@ -310,7 +311,10 @@ export function Admin() {
       });
 
       if (transactionsToInsert.length > 0) {
-        await supabase.from('transactions').insert(transactionsToInsert);
+        for (let i = 0; i < transactionsToInsert.length; i += 100) {
+          const batch = transactionsToInsert.slice(i, i + 100);
+          await supabase.from('transactions').insert(batch);
+        }
       }
 
       // 3. Prepare completed tasks upserts in bulk
@@ -323,12 +327,18 @@ export function Admin() {
       }));
 
       if (completedTasksToUpsert.length > 0) {
-        await supabase.from('completedTasks').upsert(completedTasksToUpsert);
+        for (let i = 0; i < completedTasksToUpsert.length; i += 100) {
+          const batch = completedTasksToUpsert.slice(i, i + 100);
+          await supabase.from('completedTasks').upsert(batch);
+        }
       }
 
       // 4. Update task claims in bulk
       const claimIds = pendingClaims.map(c => c.id);
-      await supabase.from('taskClaims').update({ status: 'approved' }).in('id', claimIds);
+      for (let i = 0; i < claimIds.length; i += 100) {
+        const batch = claimIds.slice(i, i + 100);
+        await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch);
+      }
 
       toast.success(`Successfully approved ${pendingClaims.length} tasks!`);
       fetchData();
@@ -354,12 +364,18 @@ export function Admin() {
       // 1. Delete completed tasks in bulk
       const completedTaskIds = pendingClaims.map(claim => `${claim.userId}_${claim.taskId}`);
       if (completedTaskIds.length > 0) {
-        await supabase.from('completedTasks').delete().in('id', completedTaskIds);
+        for (let i = 0; i < completedTaskIds.length; i += 100) {
+          const batch = completedTaskIds.slice(i, i + 100);
+          await supabase.from('completedTasks').delete().in('id', batch);
+        }
       }
 
       // 2. Bulk update status of claims to 'rejected'
       const claimIds = pendingClaims.map(c => c.id);
-      await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', claimIds);
+      for (let i = 0; i < claimIds.length; i += 100) {
+        const batch = claimIds.slice(i, i + 100);
+        await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch);
+      }
 
       toast.success(`Successfully rejected ${pendingClaims.length} tasks!`);
       fetchData();
@@ -393,9 +409,9 @@ export function Admin() {
         await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      const u = users.find(usr => usr.uid === w.userId);
+      const u = users.find(usr => usr.uid === w.userId || usr.UID === w.userId);
       if (u) {
-        await supabase.from('users').update({ balance: (u.balance || 0) + w.amount }).eq('uid', w.userId);
+        await supabase.from('users').update({ balance: (u.balance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
       }
 
       fetchData();
@@ -469,9 +485,9 @@ export function Admin() {
         await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      const u = users.find(usr => usr.uid === w.userId);
+      const u = users.find(usr => usr.uid === w.userId || usr.UID === w.userId);
       if (u) {
-        await supabase.from('users').update({ usdtBalance: (u.usdtBalance || 0) + w.amount }).eq('uid', w.userId);
+        await supabase.from('users').update({ usdtBalance: (u.usdtBalance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
       }
 
       fetchData();
