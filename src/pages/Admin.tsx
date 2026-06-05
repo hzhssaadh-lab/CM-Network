@@ -98,7 +98,7 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      const { data: userData } = await supabase.from('users').select('*').limit(2000);
+      const { data: userData } = await supabase.from('users').select('*').order('joinDate', { ascending: false, nullsFirst: false }).limit(2000);
       if (userData) setUsers(userData as UserProfile[]);
 
       const { count: uCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
@@ -107,22 +107,22 @@ export function Admin() {
       const { data: tasksData } = await supabase.from('tasks').select('*').limit(200);
       if (tasksData) setTasks(tasksData);
 
-      const { data: claimsData } = await supabase.from('taskClaims').select('*').limit(2000);
+      const { data: claimsData } = await supabase.from('taskClaims').select('*').order('timestamp', { ascending: false }).limit(2000);
       if (claimsData) {
         setClaims(claimsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
       }
 
-      const { data: wData } = await supabase.from('withdrawals').select('*').limit(2000);
+      const { data: wData } = await supabase.from('withdrawals').select('*').order('requestedAt', { ascending: false }).limit(2000);
       if (wData) {
         setWithdrawals(wData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
-      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').limit(2000);
+      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').order('requestedAt', { ascending: false }).limit(2000);
       if (wuData) {
         setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
-      const { data: adLogData } = await supabase.from('ads_log').select('*').limit(1000);
+      const { data: adLogData } = await supabase.from('ads_log').select('*').order('timestamp', { ascending: false }).limit(1000);
       if (adLogData) {
         setAdLogs(adLogData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
       }
@@ -205,11 +205,11 @@ export function Admin() {
 
   const handleApproveClaim = async (claim: TaskClaim) => {
     try {
-      const u = users.find(usr => usr.uid === claim.userId || usr.UID === claim.userId);
-      if (u) {
+      const { data: dbUser } = await supabase.from('users').select('balance, totalTasksCompleted').or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`).single();
+      if (dbUser) {
         await supabase.from('users').update({
-          balance: (u.balance || 0) + Number(claim.reward),
-          totalTasksCompleted: (u.totalTasksCompleted || 0) + 1
+          balance: (dbUser.balance || 0) + Number(claim.reward),
+          totalTasksCompleted: (dbUser.totalTasksCompleted || 0) + 1
         }).or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`);
       }
       
@@ -409,9 +409,9 @@ export function Admin() {
         await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      const u = users.find(usr => usr.uid === w.userId || usr.UID === w.userId);
-      if (u) {
-        await supabase.from('users').update({ balance: (u.balance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+      const { data: dbUser } = await supabase.from('users').select('balance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+      if (dbUser) {
+        await supabase.from('users').update({ balance: (dbUser.balance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
       }
 
       fetchData();
@@ -485,9 +485,9 @@ export function Admin() {
         await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      const u = users.find(usr => usr.uid === w.userId || usr.UID === w.userId);
-      if (u) {
-        await supabase.from('users').update({ usdtBalance: (u.usdtBalance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+      const { data: dbUser } = await supabase.from('users').select('usdtBalance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+      if (dbUser) {
+        await supabase.from('users').update({ usdtBalance: (dbUser.usdtBalance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
       }
 
       fetchData();
