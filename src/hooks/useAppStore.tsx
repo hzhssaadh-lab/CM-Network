@@ -594,43 +594,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const now = new Date();
     const today = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
     
-    let currentWatched = user.adsWatchedToday || 0;
-    if (user.lastAdWatchDate !== today) {
+    let currentWatched = user.cmAdsWatchedToday || 0;
+    if (user.lastCmAdWatchDate !== today) {
       currentWatched = 0;
     }
     
-    if (currentWatched >= 30) {
-      return { success: false, reward: 0, message: "Daily limit of 30 ads reached.", limitReached: true };
+    if (currentWatched >= 50) {
+      return { success: false, reward: 0, message: "Daily limit of 50 ads reached.", limitReached: true };
     }
     
-    const rewardAmount = Number((Math.random() * (0.05 - 0.01) + 0.01).toFixed(3));
+    const rewardAmount = 0.002;
     
     try {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
       const nextWatched = currentWatched + 1;
-      const nextTotalAdsWatched = (user.totalAdsWatched || 0) + 1;
-      const nextBalance = (user.balance || 0) + rewardAmount;
+      const nextTotalAdsWatched = (user.totalCmAdsWatched || 0) + 1;
+      const nextBalance = Number(((user.balance || 0) + rewardAmount).toFixed(4));
 
       const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
       if (user.email) {
         matchConditions.push(`email.ilike.${user.email}`);
       }
 
-      const txId = `tx_ad_${user.uid}_${today}_${nextWatched}`;
-      const logId = `adlog_${user.uid}_${today}_${nextWatched}`;
+      const txId = `tx_cmad_${user.uid}_${today}_${nextWatched}`;
+      const logId = `adlog_cm_${user.uid}_${today}_${nextWatched}`;
 
       // Insert log & transaction first; if it's already watched/completed, it will fail to insert due to duplicate ID constraint preventing double claims
       await supabase.from('transactions').insert([{
         id: txId,
         type: 'ad_reward',
         amount: rewardAmount,
+        currency: 'CM',
         timestamp: currentTime,
         status: 'completed',
         receiverUid: user.uid,
         senderUid: 'system',
-        description: `Watched ad #${nextWatched}`
+        description: `Watched CM ad #${nextWatched}`
       }]);
 
       await supabase.from('ads_log').insert([{
@@ -638,7 +639,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
-        adNetwork: 'Monetag',
+        adNetwork: 'Monetag (CM)',
         reward: rewardAmount,
         timestamp: currentTime,
         timeGapSeconds: timeGapSeconds,
@@ -646,21 +647,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }]);
 
       await supabase.from('users').update({
-        lastAdWatchDate: today,
-        adsWatchedToday: nextWatched,
-        totalAdsWatched: nextTotalAdsWatched,
+        lastCmAdWatchDate: today,
+        cmAdsWatchedToday: nextWatched,
+        totalCmAdsWatched: nextTotalAdsWatched,
         balance: nextBalance
       }).or(matchConditions.join(','));
       
       setUser(prev => prev ? {
         ...prev,
-        lastAdWatchDate: today,
-        adsWatchedToday: nextWatched,
-        totalAdsWatched: nextTotalAdsWatched,
+        lastCmAdWatchDate: today,
+        cmAdsWatchedToday: nextWatched,
+        totalCmAdsWatched: nextTotalAdsWatched,
         balance: nextBalance
       } : null);
 
-      return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} CM!` };
+      return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} CM Coins!` };
     } catch (e: any) {
       console.error("claimAdReward error:", e);
       if (e.code === '23505') {

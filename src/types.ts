@@ -25,6 +25,9 @@ export interface UserProfile {
   adsWatchedToday?: number;
   lastAdWatchDate?: string; // YYYY-MM-DD format
   totalAdsWatched?: number;
+  cmAdsWatchedToday?: number;
+  lastCmAdWatchDate?: string;
+  totalCmAdsWatched?: number;
   totalTasksCompleted?: number;
   country?: string;
   isBlocked?: boolean;

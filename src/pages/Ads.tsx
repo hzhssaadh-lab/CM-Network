@@ -6,10 +6,13 @@ import { PlaySquare, Gift, Wallet, Clock, CheckCircle2, XCircle, Grid } from 'lu
 import { supabase } from '../lib/supabase';
 
 export function Ads() {
-  const { user, claimUsdtAdReward, requestUsdtWithdrawal } = useApp();
+  const { user, claimUsdtAdReward, claimAdReward, requestUsdtWithdrawal } = useApp();
   const [watching, setWatching] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  
+  const [fetchingCm, setFetchingCm] = useState(false);
+  const [successMsgCm, setSuccessMsgCm] = useState('');
 
   const [withdrawMode, setWithdrawMode] = useState(false);
   const [withdrawMethod, setWithdrawMethod] = useState('Binance UID');
@@ -102,6 +105,31 @@ export function Ads() {
     }
   };
 
+  const handleWatchCmAd = () => {
+    window.open("https://omg10.com/4/11069214", "_blank");
+    processCmAdReward();
+  };
+
+  const processCmAdReward = async () => {
+    if (fetchingCm) return;
+    setFetchingCm(true);
+    const res = await claimAdReward();
+    setFetchingCm(false);
+
+    if (res.success) {
+       setSuccessMsgCm(`+${res.reward} CM!`);
+       confetti({
+         particleCount: 150,
+         spread: 80,
+         origin: { y: 0.6 },
+         colors: ['#3b82f6', '#ffffff', '#2563eb']
+       });
+       setTimeout(() => setSuccessMsgCm(''), 3000);
+    } else {
+       alert(res.message);
+    }
+  };
+
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setSuccess('');
@@ -132,6 +160,9 @@ export function Ads() {
 
   const adsWatchedToday = user.adsWatchedToday || 0;
   const remainingAdsToday = Math.max(0, 100 - adsWatchedToday);
+  
+  const cmAdsWatchedToday = user.cmAdsWatchedToday || 0;
+  const remainingCmAdsToday = Math.max(0, 50 - cmAdsWatchedToday);
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10 px-4">
@@ -320,6 +351,87 @@ export function Ads() {
       {/* Ad Section - only show if not in withdraw mode */}
       {!withdrawMode && (
         <>
+          {/* CM Coins Ad Block */}
+          <div className="mb-6 p-6 sm:p-8 bg-gradient-to-br from-[#0f172a] to-black border border-blue-500/30 rounded-[32px] relative overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.05)]">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 opacity-20 blur-[50px] pointer-events-none"></div>
+            
+            {successMsgCm && (
+              <div className="mb-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl text-center animate-in fade-in slide-in-from-top-2 relative z-20">
+                <p className="text-blue-500 font-bold tracking-widest">{successMsgCm}</p>
+              </div>
+            )}
+
+            {cmAdsWatchedToday >= 50 ? (
+              <div className="text-center relative z-10 py-6">
+                <Gift className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-xl font-black tracking-tight text-white mb-2">Daily CM Ad Limit Reached</h3>
+                <p className="text-gray-400 text-sm">You have watched 50 ads today. Come back tomorrow for more CM rewards!</p>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+                <div>
+                  <h3 className="text-2xl font-black tracking-tight text-white mb-1 flex items-center gap-3">
+                    <PlaySquare className="text-blue-500 w-6 h-6" /> Watch & Earn <span className="text-blue-500 text-xs px-2 py-1 bg-blue-500/10 rounded">CM COINS</span>
+                  </h3>
+                  <p className="text-blue-100/70 text-sm mt-2">Watch sponsor ads. Every ad gives you 0.002 CM Coins!</p>
+                  <div className="mt-3 flex items-center gap-2 text-xs font-bold text-blue-500">
+                    <span className="bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                      {remainingCmAdsToday} ADS REMAINING TODAY
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleWatchCmAd}
+                  disabled={fetchingCm}
+                  className="w-full sm:w-auto px-8 py-4 bg-blue-500 text-black font-black uppercase text-sm tracking-widest rounded-2xl hover:bg-blue-400 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] shrink-0 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <PlaySquare className="w-5 h-5 animate-pulse" /> {fetchingCm ? 'PROCESSING...' : 'WATCH NOW'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 mb-10 bg-black/40 border border-white/10 rounded-3xl">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+              <Grid className="w-4 h-4 text-blue-500" /> CM Ad Tracker Progress (50 Ads)
+            </h4>
+            
+            <div className="grid grid-cols-10 gap-2">
+              {Array.from({ length: 50 }).map((_, idx) => {
+                const isCompleted = idx < cmAdsWatchedToday;
+                const isNext = idx === cmAdsWatchedToday;
+                
+                return (
+                  <div 
+                    key={idx}
+                    title={
+                      isCompleted ? `Ad #${idx + 1} Completed` : 
+                      isNext ? `Ad #${idx + 1} - Next Up!` : 
+                      `Ad #${idx + 1} Locked`
+                    }
+                    onClick={() => {
+                      if (isCompleted) {
+                        alert(`Ad #${idx + 1} is already completed! You cannot receive the reward again for the same ad.`);
+                      } else if (isNext) {
+                        handleWatchCmAd();
+                      }
+                    }}
+                    className={`aspect-square rounded-md text-[8px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer ${
+                      isCompleted 
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30' 
+                        : isNext 
+                          ? 'bg-orange-500/10 text-orange-400 border border-orange-500/60 animate-pulse font-extrabold shadow-[0_0_8px_rgba(249,115,22,0.3)] hover:scale-105' 
+                          : 'bg-white/5 text-gray-600 border border-white/5 hover:bg-white/10 hover:text-gray-400'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* USDT Ads Block */}
           <div className="mb-6 p-6 sm:p-8 bg-gradient-to-br from-[#052e16] to-black border border-green-500/30 rounded-[32px] relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-green-500 opacity-20 blur-[50px] pointer-events-none"></div>
             

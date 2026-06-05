@@ -752,7 +752,8 @@ export function Admin() {
               <tr className="border-b border-white/10">
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">User</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Country</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Ads Watched</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">USDT Ads</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-blue-400">CM Ads</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Status</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">CM Balance</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-green-500">USDT Balance</th>
@@ -775,6 +776,7 @@ export function Admin() {
                   </td>
                   <td className="p-3 text-xs font-bold text-gray-300 uppercase tracking-widest">{u.country || 'N/A'}</td>
                   <td className="p-3 font-mono font-bold text-[#FFD700]">{u.totalAdsWatched || 0}</td>
+                  <td className="p-3 font-mono font-bold text-blue-400">{u.totalCmAdsWatched || 0}</td>
                   <td className="p-3">
                     <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${u.isActive ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
                       {u.isActive ? 'Active' : 'Blocked'}
@@ -1154,16 +1156,16 @@ export function Admin() {
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
           <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-6">
             <h3 className="text-xl font-bold uppercase tracking-widest text-[#FFD700]">Ads & Tasks Competition</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-full">Score = Ads Watched + Tasks Completed</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-full">Score = Ads Watched + CM Ads + Tasks Completed</p>
           </div>
           
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             {users.slice().sort((a,b) => {
-              const scoreA = (a.totalAdsWatched || 0) + (a.totalTasksCompleted || 0);
-              const scoreB = (b.totalAdsWatched || 0) + (b.totalTasksCompleted || 0);
+              const scoreA = (a.totalAdsWatched || 0) + (a.totalCmAdsWatched || 0) + (a.totalTasksCompleted || 0);
+              const scoreB = (b.totalAdsWatched || 0) + (b.totalCmAdsWatched || 0) + (b.totalTasksCompleted || 0);
               return scoreB - scoreA;
             }).map((u, idx) => {
-              const score = (u.totalAdsWatched || 0) + (u.totalTasksCompleted || 0);
+              const score = (u.totalAdsWatched || 0) + (u.totalCmAdsWatched || 0) + (u.totalTasksCompleted || 0);
               if (score === 0) return null; // You can show them or not, but hiding those with 0 score makes sense
               
               const isTop3 = idx < 3;
@@ -1202,7 +1204,7 @@ export function Admin() {
               );
             })}
             
-            {users.filter(u => ((u.totalAdsWatched || 0) + (u.totalTasksCompleted || 0)) > 0).length === 0 && !loading && (
+            {users.filter(u => ((u.totalAdsWatched || 0) + (u.totalCmAdsWatched || 0) + (u.totalTasksCompleted || 0)) > 0).length === 0 && !loading && (
               <p className="text-center text-sm text-gray-500 uppercase tracking-widest font-bold py-8">No competition data yet</p>
             )}
           </div>
@@ -1301,7 +1303,7 @@ export function Admin() {
             {adLogs.map(log => (
               <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
                 <div>
-                  <p className="font-bold text-sm text-[#FFD700] uppercase tracking-widest">{log.reward > 0.01 ? 'CM Ad' : 'USDT Ad'} - {log.adNetwork}</p>
+                  <p className="font-bold text-sm text-[#FFD700] uppercase tracking-widest">{log.adNetwork.includes('USDT') ? 'USDT Ad' : 'CM Ad'} - {log.adNetwork}</p>
                   <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-1">USER: {log.userName || log.userId} ({log.userEmail || 'N/A'})</p>
                   <p className="text-[10px] text-gray-500 font-bold tracking-widest mt-1">TIME: {new Date(log.timestamp).toLocaleString()}</p>
                   {log.timeGapSeconds !== null && log.timeGapSeconds !== undefined && (
