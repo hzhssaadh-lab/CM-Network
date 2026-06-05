@@ -20,6 +20,7 @@ export function Admin() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config' | 'all_data'>('users');
   const [searchQuery, setSearchQuery] = useState('');
+  const [globalStats, setGlobalStats] = useState({ totalBalance: 0, totalMined: 0 });
 
   // Edit User State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -44,10 +45,35 @@ export function Admin() {
   useEffect(() => {
     if (user?.role === 'admin') {
       fetchData();
+      fetchGlobalStats();
       fetchAdsSettings();
       fetchAppSettings();
     }
   }, [user]);
+
+  const fetchGlobalStats = async () => {
+    try {
+      let fetched = 0;
+      let totalBalance = 0;
+      let totalMined = 0;
+      
+      while(true) {
+        const { data, error } = await supabase.from('users').select('balance, totalMined').range(fetched, fetched + 999);
+        if (!data || data.length === 0) break;
+        
+        for(const d of data) {
+           totalBalance += d.balance || 0;
+           totalMined += d.totalMined || 0;
+        }
+        
+        fetched += data.length;
+        if (data.length < 1000) break;
+      }
+      setGlobalStats({ totalBalance, totalMined });
+    } catch (e) {
+      console.error("Failed to load global stats", e);
+    }
+  };
 
   const fetchAppSettings = async () => {
     try {
@@ -533,9 +559,6 @@ export function Admin() {
     return <div className="text-center p-12 text-red-500 font-bold uppercase tracking-widest">Unauthorized Access</div>;
   }
 
-  const totalMined = users.reduce((acc, curr) => acc + (curr.totalMined || 0), 0);
-  const totalBalance = users.reduce((acc, curr) => acc + (curr.balance || 0), 0);
-
   return (
     <div className="w-full max-w-5xl mx-auto animate-in fade-in duration-500 pb-20">
       <div className="mb-8 p-8 bg-gradient-to-br from-red-900/40 to-black border border-red-500/20 rounded-[32px] relative overflow-hidden flex justify-between items-center">
@@ -558,11 +581,11 @@ export function Admin() {
         </div>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Global Liquidity</p>
-          <p className="text-4xl font-mono font-black text-[#FFD700]">{loading ? '...' : formatCurrency(totalBalance)}</p>
+          <p className="text-4xl font-mono font-black text-[#FFD700]">{loading ? '...' : formatCurrency(globalStats.totalBalance)}</p>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Total Mined</p>
-          <p className="text-4xl font-mono font-black">{loading ? '...' : formatCurrency(totalMined)}</p>
+          <p className="text-4xl font-mono font-black">{loading ? '...' : formatCurrency(globalStats.totalMined)}</p>
         </div>
       </div>
 
