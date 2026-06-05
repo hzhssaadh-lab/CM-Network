@@ -662,11 +662,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     
     const nextWatched = currentWatched + 1;
-    // Expected logic:
-    // Ad 1: +0.0009 USDT (0.001 - 1 * 0.0001)
-    // Ad 2: +0.0008 USDT (0.001 - 2 * 0.0001)
-    // Floor is kept at 0.0001 USDT so they keep earning on all 100 ads watch
-    const rewardAmount = Math.max(0.0001, Number((0.0010 - (nextWatched * 0.0001)).toFixed(4)));
+    // Flat 0.001 USDT per ad watched
+    const rewardAmount = 0.001;
     
     try {
       const currentTime = Date.now();

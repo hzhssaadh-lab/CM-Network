@@ -5,8 +5,8 @@ import { supabase } from '../lib/supabase';
 import { Transaction } from '../types';
 
 export function Wallet() {
-  const { user, requestWithdrawal } = useApp();
-  const [activeTab, setActiveTab] = useState<'send'|'receive'|'history'|'tasks'>('send');
+  const { user, requestWithdrawal, refreshUser } = useApp();
+  const [activeTab, setActiveTab ] = useState<'send'|'receive'|'history'|'tasks'>('send');
   const [receiverUid, setReceiverUid] = useState('');
   const [amount, setAmount] = useState('');
   const [sending, setSending] = useState(false);
@@ -117,7 +117,9 @@ export function Wallet() {
       return;
     }
     const sendAmount = parseFloat(amount);
-    if (!receiverUid || receiverUid === user.uid) {
+    const trimmedReceiverUid = receiverUid.trim();
+
+    if (!trimmedReceiverUid || trimmedReceiverUid === user.uid.trim()) {
       setError("Invalid receiver UID"); return;
     }
     if (isNaN(sendAmount) || sendAmount <= 0) {
@@ -129,39 +131,82 @@ export function Wallet() {
 
     setSending(true);
     try {
-        const { data: senderDoc, error: senderError } = await supabase.from('users').select('*').eq('uid', user.uid).single();
-        const { data: receiverDoc, error: receiverError } = await supabase.from('users').select('*').eq('uid', receiverUid).single();
+        const trimmedSenderUid = user.uid.trim();
+
+        // 1. Fetch sender profile safely supporting uid or UID matches
+        const { data: senderQuery, error: senderError } = await supabase
+          .from('users')
+          .select('*')
+          .or(`uid.eq.${trimmedSenderUid},UID.eq.${trimmedSenderUid}`)
+          .limit(1);
+        const senderDoc = senderQuery && senderQuery.length > 0 ? senderQuery[0] : null;
+
+        if (!senderDoc || senderError) {
+          throw new Error("Sender account data not found in database.");
+        }
+
+        // 2. Fetch receiver profile supporting uid or UID matching
+        const { data: receiverQuery, error: receiverError } = await supabase
+          .from('users')
+          .select('*')
+          .or(`uid.eq.${trimmedReceiverUid},UID.eq.${trimmedReceiverUid}`)
+          .limit(1);
+        const receiverDoc = receiverQuery && receiverQuery.length > 0 ? receiverQuery[0] : null;
         
         if (!receiverDoc || receiverError) {
-          throw new Error("Receiver does not exist");
+          throw new Error("Receiver does not exist or UID is invalid.");
         }
         
-        const currentSenderBalance = senderDoc.balance;
+        const currentSenderBalance = senderDoc.balance || 0;
         if (currentSenderBalance < sendAmount) {
-          throw new Error("Insufficient balance during transaction");
+          throw new Error("Insufficient balance during transaction verification.");
         }
         
         if (receiverDoc.transactionsBlocked) {
-          throw new Error("Receiver's account is currently blocked from transactions.");
+          throw new Error("Receiver's account is currently blocked from receiving transactions.");
         }
-        const currentReceiverBalance = receiverDoc.balance;
+        const currentReceiverBalance = receiverDoc.balance || 0;
         
-        await supabase.from('users').update({ balance: currentSenderBalance - sendAmount }).eq('uid', user.uid);
-        await supabase.from('users').update({ balance: currentReceiverBalance + sendAmount }).eq('uid', receiverUid);
+        // 3. Update sender balance using OR matching
+        const senderSelector = `uid.eq.${senderDoc.uid},UID.eq.${senderDoc.uid}`;
+        const { error: senderUpError } = await supabase
+          .from('users')
+          .update({ balance: currentSenderBalance - sendAmount })
+          .or(senderSelector);
+
+        if (senderUpError) {
+          throw new Error("Failed to deduct balance: " + senderUpError.message);
+        }
+
+        // 4. Update receiver balance using OR matching
+        const receiverSelector = `uid.eq.${receiverDoc.uid},UID.eq.${receiverDoc.uid}`;
+        const { error: receiverUpError } = await supabase
+          .from('users')
+          .update({ balance: currentReceiverBalance + sendAmount })
+          .or(receiverSelector);
+
+        if (receiverUpError) {
+          // Revert sender balance on failure
+          await supabase.from('users').update({ balance: currentSenderBalance }).or(senderSelector);
+          throw new Error("Failed to credit receiver balance: " + receiverUpError.message);
+        }
         
+        // 5. Insert transaction
         await supabase.from('transactions').insert([{
-          id: 'tx_send_' + Date.now(),
+          id: 'tx_send_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
           type: 'transfer_sent',
           amount: sendAmount,
           timestamp: Date.now(),
           status: 'completed',
-          senderUid: user.uid,
-          receiverUid: receiverUid
+          senderUid: senderDoc.uid,
+          receiverUid: receiverDoc.uid,
+          description: `Transfer to ${receiverDoc.name || receiverDoc.email || receiverDoc.uid}`
         }]);
         
       setSuccess(`Successfully sent ${sendAmount} CM!`);
       setAmount('');
       setReceiverUid('');
+      await refreshUser();
     } catch (err: any) {
       setError(err.message || 'Transaction failed');
     }

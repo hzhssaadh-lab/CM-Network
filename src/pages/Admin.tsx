@@ -260,13 +260,83 @@ export function Admin() {
     if (!window.confirm('Are you sure you want to approve ALL pending tasks?')) return;
     try {
       const pendingClaims = claims.filter(c => c.status === 'pending');
-      if (pendingClaims.length === 0) return;
-      
-      for (const claim of pendingClaims) {
-        await handleApproveClaim(claim);
+      if (pendingClaims.length === 0) {
+        toast.error("No pending tasks to approve.");
+        return;
       }
+      
+      setLoading(true);
+
+      // Group reward amounts and completion counts by userId
+      const userUpdates = new Map<string, { rewardSum: number, completedCount: number }>();
+      for (const claim of pendingClaims) {
+        const uId = claim.userId;
+        const current = userUpdates.get(uId) || { rewardSum: 0, completedCount: 0 };
+        current.rewardSum += Number(claim.reward);
+        current.completedCount += 1;
+        userUpdates.set(uId, current);
+      }
+
+      // 1. Fetch latest balance and complete counts for each user, then increase
+      // This defends against stale state or concurrent balance changes
+      for (const [userId, update] of userUpdates.entries()) {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('balance, totalTasksCompleted')
+          .eq('uid', userId)
+          .single();
+
+        const currentBalance = dbUser ? (dbUser.balance || 0) : 0;
+        const currentCompleted = dbUser ? (dbUser.totalTasksCompleted || 0) : 0;
+
+        await supabase.from('users').update({
+          balance: currentBalance + update.rewardSum,
+          totalTasksCompleted: currentCompleted + update.completedCount
+        }).eq('uid', userId);
+      }
+
+      // 2. Prepare transaction insertions in bulk
+      const transactionsToInsert = pendingClaims.map(claim => {
+        const txId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        return {
+          id: txId,
+          type: 'task_reward',
+          amount: Number(claim.reward),
+          timestamp: Date.now(),
+          status: 'completed',
+          receiverUid: claim.userId,
+          description: `Admin approved task: ${claim.taskTitle}`
+        };
+      });
+
+      if (transactionsToInsert.length > 0) {
+        await supabase.from('transactions').insert(transactionsToInsert);
+      }
+
+      // 3. Prepare completed tasks upserts in bulk
+      const completedTasksToUpsert = pendingClaims.map(claim => ({
+        id: `${claim.userId}_${claim.taskId}`,
+        userId: claim.userId,
+        status: 'completed',
+        taskId: claim.taskId,
+        completedAt: Date.now()
+      }));
+
+      if (completedTasksToUpsert.length > 0) {
+        await supabase.from('completedTasks').upsert(completedTasksToUpsert);
+      }
+
+      // 4. Update task claims in bulk
+      const claimIds = pendingClaims.map(c => c.id);
+      await supabase.from('taskClaims').update({ status: 'approved' }).in('id', claimIds);
+
+      toast.success(`Successfully approved ${pendingClaims.length} tasks!`);
+      fetchData();
     } catch (e: any) {
       console.error('Error batch approving tasks:', e);
+      toast.error('Failed to batch approve tasks.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -274,13 +344,30 @@ export function Admin() {
     if (!window.confirm('Are you sure you want to reject ALL pending tasks?')) return;
     try {
       const pendingClaims = claims.filter(c => c.status === 'pending');
-      if (pendingClaims.length === 0) return;
-      
-      for (const claim of pendingClaims) {
-        await handleRejectClaim(claim);
+      if (pendingClaims.length === 0) {
+        toast.error("No pending tasks to reject.");
+        return;
       }
+
+      setLoading(true);
+
+      // 1. Delete completed tasks in bulk
+      const completedTaskIds = pendingClaims.map(claim => `${claim.userId}_${claim.taskId}`);
+      if (completedTaskIds.length > 0) {
+        await supabase.from('completedTasks').delete().in('id', completedTaskIds);
+      }
+
+      // 2. Bulk update status of claims to 'rejected'
+      const claimIds = pendingClaims.map(c => c.id);
+      await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', claimIds);
+
+      toast.success(`Successfully rejected ${pendingClaims.length} tasks!`);
+      fetchData();
     } catch (e: any) {
       console.error('Error batch rejecting tasks:', e);
+      toast.error('Failed to batch reject tasks.');
+    } finally {
+      setLoading(false);
     }
   };
 

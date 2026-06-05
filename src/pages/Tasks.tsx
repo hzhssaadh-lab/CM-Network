@@ -133,7 +133,7 @@ export function Tasks() {
 
         const completedMap = new Map<string, string>();
         
-        // Single optimized database selection query for all items
+        // Single optimized database selection query for completed (approved) tasks
         const { data: completedData, error: completedErr } = await supabase
           .from('completedTasks')
           .select('taskId, status')
@@ -146,6 +146,25 @@ export function Tasks() {
         if (completedData) {
           completedData.forEach((row) => {
             completedMap.set(row.taskId, row.status || 'completed');
+          });
+        }
+
+        // Search taskClaims for pending / approved status to cross-reference
+        const { data: claimsData } = await supabase
+          .from('taskClaims')
+          .select('taskId, status')
+          .eq('userId', user.uid);
+
+        if (claimsData) {
+          claimsData.forEach((row) => {
+            if (row.status === 'approved') {
+              completedMap.set(row.taskId, 'completed');
+            } else if (row.status === 'pending') {
+              // Only override with pending if not already marked as completed
+              if (completedMap.get(row.taskId) !== 'completed') {
+                completedMap.set(row.taskId, 'pending');
+              }
+            }
           });
         }
         
@@ -165,19 +184,6 @@ export function Tasks() {
     
     setClaiming(task.id);
     try {
-      // Use upsert with unique composite id matching what Admin does to prevent multiple entries/duplicates
-      const { error: ctError } = await supabase.from('completedTasks').upsert({
-        id: `${user.uid}_${task.id}`,
-        userId: user.uid,
-        taskId: task.id,
-        completedAt: Date.now(),
-        status: 'pending'
-      });
-
-      if (ctError && ctError.code !== '23505') {
-        console.warn("Non-fatal completing task upsert warning:", ctError);
-      }
-      
       const claimId = `claim_${Date.now()}_${user.uid}`;
       const { error: tcError } = await supabase.from('taskClaims').insert([{
         id: claimId,
@@ -203,13 +209,7 @@ export function Tasks() {
       toast.success(`Task "${task.title}" submitted for verification!`);
     } catch (err: any) {
       console.error("Task claim failed structure error:", err);
-      // Let's fallback to setting transition if it already completed/pending
-      setCompletedTaskMap(prev => {
-        const next = new Map(prev);
-        next.set(task.id, 'pending');
-        return next;
-      });
-      toast.success(`Task "${task.title}" submitted for verification!`);
+      toast.error('Failed to claim task: ' + (err.message || err.toString() || 'Unknown error.'));
     } finally {
       setClaiming(null);
     }
