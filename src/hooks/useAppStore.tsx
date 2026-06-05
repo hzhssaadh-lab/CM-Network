@@ -179,6 +179,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               await supabase.from('users').update(updates).eq('uid', sUser.id);
             }
 
+            const now = new Date();
+            const today = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            
+            const { count: cmCountToday } = await supabase.from('ads_log')
+              .select('*', { count: 'exact', head: true })
+              .eq('userId', sUser.id)
+              .eq('adNetwork', 'Monetag (CM)')
+              .gte('timestamp', startOfDay);
+
+            const { count: cmCountTotal } = await supabase.from('ads_log')
+              .select('*', { count: 'exact', head: true })
+              .eq('userId', sUser.id)
+              .eq('adNetwork', 'Monetag (CM)');
+            
+            u.cmAdsWatchedToday = cmCountToday || 0;
+            u.totalCmAdsWatched = cmCountTotal || 0;
+            u.lastCmAdWatchDate = (cmCountToday || 0) > 0 ? today : undefined;
+
             setUser({ ...u, uid: sUser.id } as UserProfile);
           }
         } else {
@@ -426,6 +445,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (u) {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const { count: cmCountToday } = await supabase.from('ads_log')
+          .select('*', { count: 'exact', head: true })
+          .eq('userId', supabaseUser.id)
+          .eq('adNetwork', 'Monetag (CM)')
+          .gte('timestamp', startOfDay);
+
+        const { count: cmCountTotal } = await supabase.from('ads_log')
+          .select('*', { count: 'exact', head: true })
+          .eq('userId', supabaseUser.id)
+          .eq('adNetwork', 'Monetag (CM)');
+          
+        u.cmAdsWatchedToday = cmCountToday || 0;
+        u.totalCmAdsWatched = cmCountTotal || 0;
+
         setUser({ ...u, uid: supabaseUser.id } as UserProfile);
       }
     } catch (error) {
@@ -593,13 +628,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     const now = new Date();
     const today = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
-    let currentWatched = user.cmAdsWatchedToday || 0;
-    if (user.lastCmAdWatchDate !== today) {
-      currentWatched = 0;
-    }
-    
-    if (currentWatched >= 50) {
+    // Count dynamically to ensure accurate enforcement
+    const { count: currentWatched } = await supabase.from('ads_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('userId', user.uid)
+      .eq('adNetwork', 'Monetag (CM)')
+      .gte('timestamp', startOfDay);
+
+    const { count: totalCmAdsWatched } = await supabase.from('ads_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('userId', user.uid)
+      .eq('adNetwork', 'Monetag (CM)');
+      
+    if ((currentWatched || 0) >= 50) {
       return { success: false, reward: 0, message: "Daily limit of 50 ads reached.", limitReached: true };
     }
     
@@ -609,8 +652,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
-      const nextWatched = currentWatched + 1;
-      const nextTotalAdsWatched = (user.totalCmAdsWatched || 0) + 1;
+      const nextWatched = (currentWatched || 0) + 1;
+      const nextTotalAdsWatched = (totalCmAdsWatched || 0) + 1;
       const nextBalance = Number(((user.balance || 0) + rewardAmount).toFixed(4));
 
       const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
@@ -647,9 +690,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }]);
 
       await supabase.from('users').update({
-        lastCmAdWatchDate: today,
-        cmAdsWatchedToday: nextWatched,
-        totalCmAdsWatched: nextTotalAdsWatched,
         balance: nextBalance
       }).or(matchConditions.join(','));
       
