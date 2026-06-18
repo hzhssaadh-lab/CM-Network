@@ -85,13 +85,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         // Priority 1: Match by email (handles legacy accounts + normal lookup)
         if (sUser.email) {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('users')
             .select('*')
             .ilike('email', sUser.email)
             .order('balance', { ascending: false })
             .limit(1);
             
+          if (error) { console.error("email search error:", error); throw error; }
           if (data && data.length > 0) {
             u = data[0];
           }
@@ -99,11 +100,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         // Priority 2: Match by UID if email not found or missing
         if (!u) {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('users')
             .select('*')
             .eq('uid', sUser.id)
             .single();
+          if (error && error.code !== 'PGRST116') { console.error("uid search error:", error); throw error; }
           if (data) u = data;
         }
 
@@ -685,9 +687,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         country: user.country || 'Unknown'
       }]);
 
-      await supabase.from('users').update({
-        balance: nextBalance
+      const { error: updateError } = await supabase.from('users').update({
+        balance: nextBalance,
+        cm_coins: nextBalance,
+        "CM Coins": nextBalance
       }).or(matchConditions.join(','));
+      
+      if (updateError) throw updateError;
       
       setUser(prev => prev ? {
         ...prev,
@@ -762,7 +768,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         country: user.country || 'Unknown'
       }]);
 
-      await supabase.from('users').update({
+      const { error: updateError } = await supabase.from('users').update({
         lastAdWatchDate: today,
         adsWatchedToday: nextWatched,
         totalAdsWatched: nextTotalAdsWatched,
@@ -770,6 +776,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         usdtbalance: nextUsdtBalance,
         USDT: nextUsdtBalance
       }).or(matchConditions.join(','));
+      
+      if (updateError) throw updateError;
       
       setUser(prev => prev ? {
         ...prev,
