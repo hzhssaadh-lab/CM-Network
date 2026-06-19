@@ -13,7 +13,7 @@ export function Maintenance() {
       </h1>
       
       <p className="text-gray-400 mb-2 max-w-md">
-        The app will be back online with a new update within the next 24 hours.
+        The app will be back online with a new update within the next 5 to 15 days.
       </p>
       
       <p className="text-gray-500 text-sm mb-10 max-w-md">
