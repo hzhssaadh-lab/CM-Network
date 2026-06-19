@@ -24,17 +24,8 @@ function AppContent() {
 
   useEffect(() => {
     const fetchMaintenance = async () => {
-      try {
-        const { data, error } = await supabase.from('settings').select('*').eq('id', 'app').single();
-        if (data) {
-           setMaintenanceMode(data.maintenanceMode === true);
-        } else {
-           setMaintenanceMode(false);
-        }
-      } catch (err) {
-        console.error("Maintenance check failed:", err);
-        setMaintenanceMode(false);
-      }
+      // Force maintenance mode ON as requested
+      setMaintenanceMode(true);
     };
     
     fetchMaintenance();
