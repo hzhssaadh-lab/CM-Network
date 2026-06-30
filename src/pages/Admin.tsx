@@ -7,6 +7,8 @@ import { UserProfile, Task as AppTask, TaskClaim } from '../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'react-hot-toast';
 
+import { ShieldAlert } from 'lucide-react';
+
 export function Admin() {
   const { user } = useApp();
   const navigate = useNavigate();
@@ -86,7 +88,11 @@ export function Admin() {
 
   const saveMaintenanceMode = async (newMode: boolean) => {
     try {
-      await supabase.from('settings').update({ maintenanceMode: newMode }).eq('id', 'app');
+      const { error } = await supabase.from('settings').upsert({ id: 'app', maintenanceMode: newMode });
+      if (error && error.code === '42501') {
+         alert("Cannot save maintenance mode due to database permissions. Please go to your Supabase SQL Editor and run:\n\nINSERT INTO settings (id, \"maintenanceMode\") VALUES ('app', false);");
+         return;
+      }
       setMaintenanceMode(newMode);
     } catch (error) {
       console.error(error);
@@ -587,6 +593,21 @@ export function Admin() {
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Total Mined</p>
           <p className="text-4xl font-mono font-black">{loading ? '...' : formatCurrency(globalStats.totalMined)}</p>
         </div>
+      </div>
+
+      <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+              <h3 className="text-lg font-bold text-red-500 uppercase tracking-widest flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5" /> Maintenance Mode
+              </h3>
+              <p className="text-xs text-red-400/70 mt-1">Block the app for all non-admin users. Admins can still access the app.</p>
+          </div>
+          <div 
+            className={`w-14 h-7 rounded-full cursor-pointer transition-colors relative flex items-center shrink-0 ${maintenanceMode ? 'bg-red-500' : 'bg-gray-600'}`}
+            onClick={() => saveMaintenanceMode(!maintenanceMode)}
+          >
+            <div className={`absolute left-1 bg-white w-5 h-5 rounded-full transition-transform ${maintenanceMode ? 'translate-x-7' : 'translate-x-0'}`}></div>
+          </div>
       </div>
 
       <div className="flex space-x-4 mb-6 overflow-x-auto pb-2">
