@@ -128,6 +128,37 @@ export function Admin() {
     }
   };
 
+  useEffect(() => {
+    if (!user || user.role !== 'admin') return;
+    
+    // Don't trigger if it's the initial load and searchQuery is empty
+    if (!searchQuery && users.length > 0) return;
+
+    const timeoutId = setTimeout(async () => {
+      if (!searchQuery.trim()) {
+        const { data: userData } = await supabase.from('users').select('*').order('joinDate', { ascending: false, nullsFirst: false }).limit(2000);
+        if (userData) setUsers(userData as UserProfile[]);
+        return;
+      }
+      
+      try {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+          .limit(200);
+          
+        if (data) {
+          setUsers(data as UserProfile[]);
+        }
+      } catch (err) {
+        console.error("Search error", err);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, user]);
+
   const fetchData = async () => {
     try {
       const { data: userData } = await supabase.from('users').select('*').order('joinDate', { ascending: false, nullsFirst: false }).limit(2000);
@@ -783,13 +814,7 @@ export function Admin() {
               </tr>
             </thead>
             <tbody>
-              {users.filter(u => {
-                if (!searchQuery.trim()) return true;
-                const lowerQ = searchQuery.toLowerCase();
-                const userName = u.name || '';
-                const userEmail = u.email || '';
-                return userName.toLowerCase().includes(lowerQ) || userEmail.toLowerCase().includes(lowerQ);
-              }).map((u) => (
+              {users.map((u) => (
                 <tr key={u.uid} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                   <td className="p-3">
                     <div className="font-bold text-sm truncate max-w-[150px]">{u.name}</div>
