@@ -26,28 +26,15 @@ export function Ads() {
   
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [totalUsdtEarned, setTotalUsdtEarned] = useState(0);
-  const [totalCmEarned, setTotalCmEarned] = useState(0);
+
+  const totalUsdtEarned = (user?.totalAdsWatched || 0) * 0.001;
+  const totalCmEarned = (user?.totalCmAdsWatched || 0) * 0.002;
 
   useEffect(() => {
     if (user) {
       fetchHistory();
-      fetchTotalEarned();
-      fetchTotalCmEarned();
     }
   }, [user?.uid, withdrawMode]);
-
-  useEffect(() => {
-    if (user) {
-      fetchTotalEarned();
-    }
-  }, [user?.usdtBalance, user?.totalAdsWatched]);
-
-  useEffect(() => {
-    if (user) {
-      fetchTotalCmEarned();
-    }
-  }, [user?.balance, user?.totalCmAdsWatched]);
 
   const fetchHistory = async () => {
     if (!user) return;
@@ -66,42 +53,6 @@ export function Ads() {
       console.error("Error fetching withdrawal history:", e);
     }
     setLoadingHistory(false);
-  };
-
-  const fetchTotalEarned = async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from('ads_log')
-        .select('reward')
-        .eq('userId', user.uid)
-        .ilike('adNetwork', '%USDT%');
-        
-      if (data) {
-        const sum = data.reduce((acc, row) => acc + (row.reward || 0), 0);
-        setTotalUsdtEarned(sum);
-      }
-    } catch (e) {
-      console.error("Error fetching total USDT earned:", e);
-    }
-  };
-
-  const fetchTotalCmEarned = async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from('ads_log')
-        .select('reward')
-        .eq('userId', user.uid)
-        .ilike('adNetwork', '%CM%');
-        
-      if (data) {
-        const sum = data.reduce((acc, row) => acc + (row.reward || 0), 0);
-        setTotalCmEarned(sum);
-      }
-    } catch (e) {
-      console.error("Error fetching total CM earned:", e);
-    }
   };
 
   if (!user) return null;
@@ -127,7 +78,6 @@ export function Ads() {
          colors: ['#22c55e', '#ffffff', '#16a34a']
        });
        setTimeout(() => setSuccessMsg(''), 3000);
-       fetchTotalEarned();
     } else {
        alert(res.message);
     }
