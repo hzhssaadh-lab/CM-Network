@@ -690,7 +690,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { error: updateError } = await supabase.from('users').update({
         balance: nextBalance,
         cm_coins: nextBalance,
-        "CM Coins": nextBalance
+        "CM Coins": nextBalance,
+        lastCmAdWatchDate: today,
+        cmAdsWatchedToday: nextWatched,
+        totalCmAdsWatched: nextTotalAdsWatched
       }).or(matchConditions.join(','));
       
       if (updateError) throw updateError;

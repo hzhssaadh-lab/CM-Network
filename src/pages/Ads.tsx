@@ -136,10 +136,13 @@ export function Ads() {
     setWithdrawing(false);
   };
 
-  const adsWatchedToday = user.adsWatchedToday || 0;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+
+  const adsWatchedToday = user.lastAdWatchDate === today ? (user.adsWatchedToday || 0) : 0;
   const remainingAdsToday = Math.max(0, 100 - adsWatchedToday);
   
-  const cmAdsWatchedToday = user.cmAdsWatchedToday || 0;
+  const cmAdsWatchedToday = user.lastCmAdWatchDate === today ? (user.cmAdsWatchedToday || 0) : 0;
   const remainingCmAdsToday = Math.max(0, 50 - cmAdsWatchedToday);
 
   return (
