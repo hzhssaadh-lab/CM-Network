@@ -630,21 +630,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     const now = new Date();
     const today = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
-    // Count dynamically to ensure accurate enforcement
-    const { count: currentWatched } = await supabase.from('ads_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('userId', user.uid)
-      .eq('adNetwork', 'Monetag (CM)')
-      .gte('timestamp', startOfDay);
-
-    const { count: totalCmAdsWatched } = await supabase.from('ads_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('userId', user.uid)
-      .eq('adNetwork', 'Monetag (CM)');
-      
-    if ((currentWatched || 0) >= 50) {
+    let currentWatched = user.cmAdsWatchedToday || 0;
+    if (user.lastCmAdWatchDate !== today) {
+      currentWatched = 0;
+    }
+    
+    if (currentWatched >= 50) {
       return { success: false, reward: 0, message: "Daily limit of 50 ads reached.", limitReached: true };
     }
     
@@ -654,8 +646,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const currentTime = Date.now();
       const timeGapSeconds = user.lastAdWatchTimestamp ? Math.floor((currentTime - user.lastAdWatchTimestamp) / 1000) : null;
 
-      const nextWatched = (currentWatched || 0) + 1;
-      const nextTotalAdsWatched = (totalCmAdsWatched || 0) + 1;
+      const nextWatched = currentWatched + 1;
+      const nextTotalAdsWatched = (user.totalCmAdsWatched || 0) + 1;
       const nextBalance = Number(((user.balance || 0) + rewardAmount).toFixed(4));
 
       const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
@@ -667,7 +659,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const logId = `adlog_cm_${user.uid}_${today}_${nextWatched}`;
 
       // Insert log & transaction first; if it's already watched/completed, it will fail to insert due to duplicate ID constraint preventing double claims
-      await supabase.from('transactions').insert([{
+      const { error: txError } = await supabase.from('transactions').insert([{
         id: txId,
         type: 'ad_reward',
         amount: rewardAmount,
@@ -677,6 +669,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         senderUid: 'system',
         description: `Watched CM ad #${nextWatched}`
       }]);
+      
+      if (txError) {
+        if (txError.code === '23505') return { success: false, reward: 0, message: "Duplicate reward claim detected." };
+        console.error("tx error:", txError);
+      }
 
       await supabase.from('ads_log').insert([{
         id: logId,
@@ -687,14 +684,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         country: user.country || 'Unknown'
       }]);
 
-      const { error: updateError } = await supabase.from('users').update({
+      let updatePayload: any = {
         balance: nextBalance,
         cm_coins: nextBalance,
         "CM Coins": nextBalance,
         lastCmAdWatchDate: today,
         cmAdsWatchedToday: nextWatched,
         totalCmAdsWatched: nextTotalAdsWatched
-      }).or(matchConditions.join(','));
+      };
+
+      let { error: updateError } = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+      
+      if (updateError) {
+        delete updatePayload.totalCmAdsWatched;
+        const retry = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+        updateError = retry.error;
+      }
       
       if (updateError) throw updateError;
       
@@ -751,7 +756,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const logId = `adlog_usdt_${user.uid}_${today}_${nextWatched}`;
 
       // Insert log & transaction first; composite ID protects against duplicates at database level
-      await supabase.from('transactions').insert([{
+      const { error: txError } = await supabase.from('transactions').insert([{
         id: txId,
         type: 'ad_reward',
         amount: rewardAmount,
@@ -761,6 +766,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         senderUid: 'system',
         description: `Watched ad #${nextWatched} for USDT`
       }]);
+      
+      if (txError) {
+        if (txError.code === '23505') return { success: false, reward: 0, message: "Duplicate reward claim detected." };
+        console.error("tx error:", txError);
+      }
 
       await supabase.from('ads_log').insert([{
         id: logId,
@@ -771,14 +781,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         country: user.country || 'Unknown'
       }]);
 
-      const { error: updateError } = await supabase.from('users').update({
+      let updatePayload: any = {
         lastAdWatchDate: today,
         adsWatchedToday: nextWatched,
         totalAdsWatched: nextTotalAdsWatched,
         usdtBalance: nextUsdtBalance,
         usdtbalance: nextUsdtBalance,
         USDT: nextUsdtBalance
-      }).or(matchConditions.join(','));
+      };
+
+      let { error: updateError } = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+      
+      if (updateError) {
+        delete updatePayload.totalAdsWatched;
+        const retry = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+        updateError = retry.error;
+      }
       
       if (updateError) throw updateError;
       
