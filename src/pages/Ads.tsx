@@ -14,7 +14,7 @@ export function Ads() {
   const [fetchingCm, setFetchingCm] = useState(false);
   const [successMsgCm, setSuccessMsgCm] = useState('');
 
-  const [activeAdTab, setActiveAdTab] = useState<'usdt' | 'cm'>('usdt');
+  const [activeAdTab, setActiveAdTab] = useState<'usdt' | 'cm'>('cm');
 
   const [withdrawMode, setWithdrawMode] = useState(false);
   const [withdrawMethod, setWithdrawMethod] = useState('Binance UID');
@@ -352,16 +352,16 @@ export function Ads() {
           {/* Ad Type Tabs */}
           <div className="flex gap-2 mb-6">
             <button 
-              onClick={() => setActiveAdTab('usdt')}
-              className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeAdTab === 'usdt' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-            >
-              USDT Ads
-            </button>
-            <button 
               onClick={() => setActiveAdTab('cm')}
               className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeAdTab === 'cm' ? 'bg-blue-500 text-black shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
             >
               CM Coins Ads
+            </button>
+            <button 
+              onClick={() => setActiveAdTab('usdt')}
+              className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeAdTab === 'usdt' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+            >
+              USDT Ads
             </button>
           </div>
 
