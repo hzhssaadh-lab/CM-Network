@@ -14,6 +14,8 @@ export function Ads() {
   const [fetchingCm, setFetchingCm] = useState(false);
   const [successMsgCm, setSuccessMsgCm] = useState('');
 
+  const [activeAdTab, setActiveAdTab] = useState<'usdt' | 'cm'>('cm');
+
   const [withdrawMode, setWithdrawMode] = useState(false);
   const [withdrawMethod, setWithdrawMethod] = useState('Binance UID');
   const [walletAddr, setWalletAddr] = useState('');
@@ -148,16 +150,32 @@ export function Ads() {
       
       {/* Wallet Heading Hero Card */}
       <div className="mb-6 p-8 bg-white/5 border border-white/10 rounded-[32px] relative overflow-hidden text-center">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500 opacity-10 blur-[80px] pointer-events-none"></div>
-        <h2 className="text-3xl font-black tracking-tight mb-2">My <span className="text-blue-500">CM</span> Dashboard</h2>
-        <p className="text-4xl font-mono text-white font-bold tracking-tight">{(user.balance || 0).toFixed(4)} <span className="text-xl text-blue-500">CM</span></p>
-        <button 
-          disabled={true}
-          className="mt-6 px-6 py-2 bg-white/10 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest transition-colors inline-flex items-center gap-2 opacity-50 cursor-not-allowed"
-          title="CM withdrawal is in Tasks section"
-        >
-          <Wallet className="w-4 h-4" /> Withdraw CM
-        </button>
+        {activeAdTab === 'usdt' ? (
+          <>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-green-500 opacity-10 blur-[80px] pointer-events-none"></div>
+            <h2 className="text-3xl font-black tracking-tight mb-2">My <span className="text-green-500">USDT</span> Dashboard</h2>
+            <p className="text-4xl font-mono text-white font-bold tracking-tight">${(user.usdtBalance || 0).toFixed(4)}</p>
+            <button 
+              onClick={() => setWithdrawMode(!withdrawMode)}
+              className="mt-6 px-6 py-2 bg-white/10 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-colors inline-flex items-center gap-2"
+            >
+              <Wallet className="w-4 h-4" /> {withdrawMode ? 'Back to Ads' : 'Withdraw USDT'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500 opacity-10 blur-[80px] pointer-events-none"></div>
+            <h2 className="text-3xl font-black tracking-tight mb-2">My <span className="text-blue-500">CM</span> Dashboard</h2>
+            <p className="text-4xl font-mono text-white font-bold tracking-tight">{(user.balance || 0).toFixed(4)} <span className="text-xl text-blue-500">CM</span></p>
+            <button 
+              disabled={true}
+              className="mt-6 px-6 py-2 bg-white/10 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest transition-colors inline-flex items-center gap-2 opacity-50 cursor-not-allowed"
+              title="CM withdrawal is in Tasks section"
+            >
+              <Wallet className="w-4 h-4" /> Withdraw CM
+            </button>
+          </>
+        )}
       </div>
 
       {/* Dynamic Real-Time Stats Grid */}
@@ -165,11 +183,11 @@ export function Ads() {
         <div className="bg-black/40 border border-white/10 p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Wallet Balance</span>
-            <Wallet className="w-4 h-4 text-blue-500" />
+            <Wallet className={`w-4 h-4 ${activeAdTab === 'usdt' ? 'text-green-500' : 'text-blue-500'}`} />
           </div>
           <div>
-            <p className="text-xl font-mono font-black text-white">{(user.balance || 0).toFixed(4)} CM</p>
-            <p className="text-[9px] font-bold uppercase mt-1 text-blue-400">Available Now</p>
+            <p className="text-xl font-mono font-black text-white">{activeAdTab === 'usdt' ? `$${(user.usdtBalance || 0).toFixed(4)}` : `${(user.balance || 0).toFixed(4)} CM`}</p>
+            <p className={`text-[9px] font-bold uppercase mt-1 ${activeAdTab === 'usdt' ? 'text-green-400' : 'text-blue-400'}`}>Available Now</p>
           </div>
         </div>
 
@@ -179,7 +197,7 @@ export function Ads() {
             <Clock className="w-4 h-4 text-orange-500" />
           </div>
           <div>
-            <p className="text-xl font-mono font-black text-white">{remainingCmAdsToday}</p>
+            <p className="text-xl font-mono font-black text-white">{activeAdTab === 'usdt' ? remainingAdsToday : remainingCmAdsToday}</p>
             <p className="text-[9px] text-gray-400 font-medium uppercase mt-1">Limit: 100 Daily</p>
           </div>
         </div>
@@ -187,22 +205,22 @@ export function Ads() {
         <div className="bg-black/40 border border-white/10 p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Ads Watched</span>
-            <PlaySquare className="w-4 h-4 text-blue-500" />
+            <PlaySquare className={`w-4 h-4 ${activeAdTab === 'usdt' ? 'text-blue-500' : 'text-blue-500'}`} />
           </div>
           <div>
-            <p className="text-xl font-mono font-black text-white">{user.totalCmAdsWatched || 0}</p>
+            <p className="text-xl font-mono font-black text-white">{activeAdTab === 'usdt' ? (user.totalAdsWatched || 0) : (user.totalCmAdsWatched || 0)}</p>
             <p className="text-[9px] text-gray-400 font-medium uppercase mt-1">All-Time Views</p>
           </div>
         </div>
 
         <div className="bg-black/40 border border-white/10 p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total CM Earned</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{activeAdTab === 'usdt' ? 'Total USDT Earned' : 'Total CM Earned'}</span>
             <Gift className="w-4 h-4 text-yellow-500" />
           </div>
           <div>
-            <p className="text-xl font-mono font-black text-white">{totalCmEarned.toFixed(4)}</p>
-            <p className="text-[9px] font-bold uppercase mt-1 text-blue-400">Direct Ad Revenue</p>
+            <p className="text-xl font-mono font-black text-white">{activeAdTab === 'usdt' ? `$${totalUsdtEarned.toFixed(4)}` : `${totalCmEarned.toFixed(4)}`}</p>
+            <p className={`text-[9px] font-bold uppercase mt-1 ${activeAdTab === 'usdt' ? 'text-green-400' : 'text-blue-400'}`}>Direct Ad Revenue</p>
           </div>
         </div>
       </div>
@@ -331,6 +349,24 @@ export function Ads() {
       {/* Ad Section - only show if not in withdraw mode */}
       {!withdrawMode && (
         <>
+          {/* Ad Type Tabs */}
+          <div className="flex gap-2 mb-6">
+            <button 
+              onClick={() => setActiveAdTab('cm')}
+              className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeAdTab === 'cm' ? 'bg-blue-500 text-black shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+            >
+              CM Coins Ads
+            </button>
+            <button 
+              onClick={() => setActiveAdTab('usdt')}
+              className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeAdTab === 'usdt' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+            >
+              USDT Ads
+            </button>
+          </div>
+
+          {activeAdTab === 'cm' && (
+            <>
           {/* CM Coins Ad Block */}
           <div className="mb-6 p-6 sm:p-8 bg-gradient-to-br from-[#0f172a] to-black border border-blue-500/30 rounded-[32px] relative overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.05)]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 opacity-20 blur-[50px] pointer-events-none"></div>
@@ -425,6 +461,107 @@ export function Ads() {
               </div>
             </div>
           </div>
+            </>
+          )}
+
+          {activeAdTab === 'usdt' && (
+            <>
+              {/* USDT Ads Block */}
+              <div className="mb-6 p-6 sm:p-8 bg-gradient-to-br from-[#052e16] to-black border border-green-500/30 rounded-[32px] relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)]">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-green-500 opacity-20 blur-[50px] pointer-events-none"></div>
+            
+            {successMsg && (
+              <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-xl text-center animate-in fade-in slide-in-from-top-2 relative z-20">
+                <p className="text-green-500 font-bold tracking-widest">{successMsg}</p>
+              </div>
+            )}
+
+            {adsWatchedToday >= 100 ? (
+              <div className="text-center relative z-10 py-6">
+                <Gift className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-xl font-black tracking-tight text-white mb-2">Daily Ad Limit Reached</h3>
+                <p className="text-gray-400 text-sm">You have watched 100 ads today. Come back tomorrow for more USDT rewards!</p>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+                <div>
+                  <h3 className="text-2xl font-black tracking-tight text-white mb-1 flex items-center gap-3">
+                    <PlaySquare className="text-green-500 w-6 h-6" /> Watch & Earn <span className="text-green-500 text-xs px-2 py-1 bg-green-500/10 rounded">USDT</span>
+                  </h3>
+                  <p className="text-green-100/70 text-sm mt-2">Watch sponsor ads. Every ad gives you real USDT!</p>
+                  <div className="mt-3 flex items-center gap-2 text-xs font-bold text-green-500">
+                    <span className="bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
+                      {remainingAdsToday} ADS REMAINING TODAY
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleWatchAd}
+                  disabled={fetching}
+                  className="w-full sm:w-auto px-8 py-4 bg-green-500 text-black font-black uppercase text-sm tracking-widest rounded-2xl hover:bg-green-400 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] shrink-0 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <PlaySquare className="w-5 h-5 animate-pulse" /> {fetching ? 'PROCESSING...' : 'WATCH NOW'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 bg-black/40 border border-white/10 rounded-3xl">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+              <Grid className="w-4 h-4 text-green-500" /> Daily Ad Tracker Progress (100 Ads)
+            </h4>
+            
+            <div className="grid grid-cols-10 gap-2">
+              {Array.from({ length: 100 }).map((_, idx) => {
+                const isCompleted = idx < adsWatchedToday;
+                const isNext = idx === adsWatchedToday;
+                
+                return (
+                  <div 
+                    key={idx}
+                    title={
+                      isCompleted ? `Ad #${idx + 1} Completed` : 
+                      isNext ? `Ad #${idx + 1} - Next Up!` : 
+                      `Ad #${idx + 1} Locked`
+                    }
+                    onClick={() => {
+                      if (isCompleted) {
+                        alert(`Ad #${idx + 1} is already completed! You cannot receive the reward again for the same ad.`);
+                      } else if (isNext) {
+                        handleWatchAd();
+                      }
+                    }}
+                    className={`aspect-square rounded-md text-[8px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer ${
+                      isCompleted 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30' 
+                        : isNext 
+                          ? 'bg-orange-500/10 text-orange-400 border border-orange-500/60 animate-pulse font-extrabold shadow-[0_0_8px_rgba(249,115,22,0.3)] hover:scale-105' 
+                          : 'bg-white/5 text-gray-600 border border-white/5 hover:bg-white/10 hover:text-gray-400'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="flex gap-4 mt-4 text-[10px] justify-center items-center">
+              <div className="flex items-center gap-1.5 text-green-400">
+                <span className="w-2.5 h-2.5 bg-green-500/20 border border-green-500/40 rounded-sm inline-block"></span>
+                <span>Completed</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-orange-400">
+                <span className="w-2.5 h-2.5 bg-orange-500/10 border border-orange-500/60 rounded-sm inline-block"></span>
+                <span>Next Up</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <span className="w-2.5 h-2.5 bg-white/5 border border-white/5 rounded-sm inline-block"></span>
+                <span>Locked</span>
+              </div>
+            </div>
+          </div>
+            </>
+          )}
 
         </>
       )}
