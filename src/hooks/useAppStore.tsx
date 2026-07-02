@@ -636,11 +636,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentWatched = 0;
     }
     
-    if (currentWatched >= 50) {
-      return { success: false, reward: 0, message: "Daily limit of 50 ads reached.", limitReached: true };
+    if (currentWatched >= 100) {
+      return { success: false, reward: 0, message: "Daily limit of 100 ads reached.", limitReached: true };
     }
     
-    const rewardAmount = 0.002;
+    const rewardAmount = 0.01;
     
     try {
       const currentTime = Date.now();
