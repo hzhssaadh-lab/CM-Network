@@ -243,26 +243,42 @@ export function Admin() {
       };
 
       if (editingTask) {
-        await supabase.from('tasks').update(taskData).eq('id', editingTask.id);
+        const { error } = await supabase.from('tasks').update(taskData).eq('id', editingTask.id);
+        if (error) throw error;
       } else {
         const id = 'task_' + Date.now();
-        await supabase.from('tasks').insert([{ id, ...taskData }]);
+        const { error } = await supabase.from('tasks').insert([{ id, ...taskData }]);
+        if (error) throw error;
       }
 
       setEditingTask(null);
       setIsCreatingTask(false);
       fetchData();
-    } catch (e) {
+      toast.success(editingTask ? 'Task updated!' : 'Task created!');
+    } catch (e: any) {
       console.error(e);
+      if (e?.code === '42501') {
+        alert("Permission denied! You need to disable RLS for the 'tasks' table in Supabase. Run: ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY;");
+      } else {
+        toast.error(`Error saving task: ${e?.message || 'Unknown error'}`);
+      }
     }
   };
 
   const handleDeleteTask = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
     try {
-      await supabase.from('tasks').delete().eq('id', id);
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (error) throw error;
       fetchData();
-    } catch (e) {
+      toast.success('Task deleted!');
+    } catch (e: any) {
       console.error(e);
+      if (e?.code === '42501') {
+        alert("Permission denied! You need to disable RLS for the 'tasks' table in Supabase. Run: ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY;");
+      } else {
+        toast.error(`Error deleting task: ${e?.message || 'Unknown error'}`);
+      }
     }
   };
 
@@ -270,14 +286,15 @@ export function Admin() {
     try {
       const { data: dbUser } = await supabase.from('users').select('balance, totalTasksCompleted').or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`).single();
       if (dbUser) {
-        await supabase.from('users').update({
+        const { error: err1 } = await supabase.from('users').update({
           balance: (dbUser.balance || 0) + Number(claim.reward),
           totalTasksCompleted: (dbUser.totalTasksCompleted || 0) + 1
         }).or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`);
+        if (err1) throw err1;
       }
       
       const txId = 'tx_' + Date.now();
-      await supabase.from('transactions').insert([{
+      const { error: err2 } = await supabase.from('transactions').insert([{
         id: txId,
         type: 'task_reward',
         amount: Number(claim.reward),
@@ -286,36 +303,53 @@ export function Admin() {
         receiverUid: claim.userId,
         description: `Admin approved task: ${claim.taskTitle}`
       }]);
+      if (err2) throw err2;
       
-      await supabase.from('completedTasks').upsert({
+      const { error: err3 } = await supabase.from('completedTasks').upsert({
         id: `${claim.userId}_${claim.taskId}`,
         userId: claim.userId,
         status: 'completed',
         taskId: claim.taskId,
         completedAt: Date.now()
       });
+      if (err3) throw err3;
       
-      await supabase.from('taskClaims').update({
+      const { error: err4 } = await supabase.from('taskClaims').update({
         status: 'approved'
       }).eq('id', claim.id);
+      if (err4) throw err4;
 
       fetchData();
+      toast.success('Task claim approved!');
     } catch (e: any) {
       console.error('Error approving task:', e);
+      if (e?.code === '42501') {
+        alert("Permission denied (RLS) on transactions, completedTasks or taskClaims. Disable RLS for those tables in Supabase.");
+      } else {
+        toast.error(`Error: ${e?.message}`);
+      }
     }
   };
 
   const handleRejectClaim = async (claim: TaskClaim) => {
     try {
-      await supabase.from('completedTasks').delete().match({ userId: claim.userId, taskId: claim.taskId });
+      const { error: err1 } = await supabase.from('completedTasks').delete().match({ userId: claim.userId, taskId: claim.taskId });
+      if (err1) throw err1;
       
-      await supabase.from('taskClaims').update({
+      const { error: err2 } = await supabase.from('taskClaims').update({
         status: 'rejected'
       }).eq('id', claim.id);
+      if (err2) throw err2;
 
       fetchData();
+      toast.success('Task claim rejected!');
     } catch (e: any) {
       console.error('Error rejecting task:', e);
+      if (e?.code === '42501') {
+        alert("Permission denied (RLS). Disable RLS for completedTasks and taskClaims tables in Supabase.");
+      } else {
+        toast.error(`Error: ${e?.message}`);
+      }
     }
   };
 
@@ -353,10 +387,11 @@ export function Admin() {
         const currentCompleted = dbUser ? (dbUser.totalTasksCompleted || 0) : 0;
         const realUid = dbUser?.uid || userId;
 
-        await supabase.from('users').update({
+        const { error: err1 } = await supabase.from('users').update({
           balance: currentBalance + update.rewardSum,
           totalTasksCompleted: currentCompleted + update.completedCount
         }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
+        if (err1) throw err1;
       }
 
       // 2. Prepare transaction insertions in bulk
@@ -376,7 +411,8 @@ export function Admin() {
       if (transactionsToInsert.length > 0) {
         for (let i = 0; i < transactionsToInsert.length; i += 100) {
           const batch = transactionsToInsert.slice(i, i + 100);
-          await supabase.from('transactions').insert(batch);
+          const { error: err2 } = await supabase.from('transactions').insert(batch);
+          if (err2) throw err2;
         }
       }
 
@@ -392,7 +428,8 @@ export function Admin() {
       if (completedTasksToUpsert.length > 0) {
         for (let i = 0; i < completedTasksToUpsert.length; i += 100) {
           const batch = completedTasksToUpsert.slice(i, i + 100);
-          await supabase.from('completedTasks').upsert(batch);
+          const { error: err3 } = await supabase.from('completedTasks').upsert(batch);
+          if (err3) throw err3;
         }
       }
 
@@ -400,14 +437,19 @@ export function Admin() {
       const claimIds = pendingClaims.map(c => c.id);
       for (let i = 0; i < claimIds.length; i += 100) {
         const batch = claimIds.slice(i, i + 100);
-        await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch);
+        const { error: err4 } = await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch);
+        if (err4) throw err4;
       }
 
       toast.success(`Successfully approved ${pendingClaims.length} tasks!`);
       fetchData();
     } catch (e: any) {
       console.error('Error batch approving tasks:', e);
-      toast.error('Failed to batch approve tasks.');
+      if (e?.code === '42501') {
+        alert("Permission denied (RLS) on transactions, completedTasks or taskClaims. Disable RLS for those tables in Supabase.");
+      } else {
+        toast.error(`Error: ${e?.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -429,7 +471,8 @@ export function Admin() {
       if (completedTaskIds.length > 0) {
         for (let i = 0; i < completedTaskIds.length; i += 100) {
           const batch = completedTaskIds.slice(i, i + 100);
-          await supabase.from('completedTasks').delete().in('id', batch);
+          const { error: err1 } = await supabase.from('completedTasks').delete().in('id', batch);
+          if (err1) throw err1;
         }
       }
 
@@ -437,14 +480,19 @@ export function Admin() {
       const claimIds = pendingClaims.map(c => c.id);
       for (let i = 0; i < claimIds.length; i += 100) {
         const batch = claimIds.slice(i, i + 100);
-        await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch);
+        const { error: err2 } = await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch);
+        if (err2) throw err2;
       }
 
       toast.success(`Successfully rejected ${pendingClaims.length} tasks!`);
       fetchData();
     } catch (e: any) {
       console.error('Error batch rejecting tasks:', e);
-      toast.error('Failed to batch reject tasks.');
+      if (e?.code === '42501') {
+        alert("Permission denied (RLS) on completedTasks or taskClaims. Disable RLS for those tables in Supabase.");
+      } else {
+        toast.error(`Error: ${e?.message}`);
+      }
     } finally {
       setLoading(false);
     }
