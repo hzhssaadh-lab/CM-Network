@@ -198,7 +198,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             
             u.cmAdsWatchedToday = cmCountToday || 0;
             u.totalCmAdsWatched = cmCountTotal || 0;
-            u.lastCmAdWatchDate = (cmCountToday || 0) > 0 ? today : undefined;
+
+            const lsDate = localStorage.getItem(`cmAds_${sUser.id}_date`);
+            if (lsDate === today) {
+              const lsCount = parseInt(localStorage.getItem(`cmAds_${sUser.id}_count`) || '0', 10);
+              if (lsCount > u.cmAdsWatchedToday) u.cmAdsWatchedToday = lsCount;
+            }
+            const lsTotal = parseInt(localStorage.getItem(`cmAds_${sUser.id}_total`) || '0', 10);
+            if (lsTotal > u.totalCmAdsWatched) u.totalCmAdsWatched = lsTotal;
+
+            u.lastCmAdWatchDate = (u.cmAdsWatchedToday > 0) ? today : undefined;
 
             setUser({ ...u, uid: sUser.id } as UserProfile);
           }
@@ -473,7 +482,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
         u.cmAdsWatchedToday = cmCountToday || 0;
         u.totalCmAdsWatched = cmCountTotal || 0;
+        
+        // Restore from localStorage if higher
+        const lsDate = localStorage.getItem(`cmAds_${supabaseUser.id}_date`);
         const todayStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+        
+        if (lsDate === todayStr) {
+          const lsCount = parseInt(localStorage.getItem(`cmAds_${supabaseUser.id}_count`) || '0', 10);
+          if (lsCount > u.cmAdsWatchedToday) {
+             u.cmAdsWatchedToday = lsCount;
+          }
+        }
+        
+        const lsTotal = parseInt(localStorage.getItem(`cmAds_${supabaseUser.id}_total`) || '0', 10);
+        if (lsTotal > u.totalCmAdsWatched) {
+           u.totalCmAdsWatched = lsTotal;
+        }
+
         u.lastCmAdWatchDate = todayStr;
         u.lastAdWatchDate = todayStr;
 
@@ -728,6 +753,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         totalCmAdsWatched: nextTotalAdsWatched,
         balance: nextBalance
       } : null);
+
+      localStorage.setItem(`cmAds_${user.uid}_date`, today);
+      localStorage.setItem(`cmAds_${user.uid}_count`, nextWatched.toString());
+      localStorage.setItem(`cmAds_${user.uid}_total`, nextTotalAdsWatched.toString());
 
       return { success: true, reward: rewardAmount, message: `You earned ${rewardAmount} CM Coins!` };
     } catch (e: any) {
