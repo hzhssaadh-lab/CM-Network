@@ -424,7 +424,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateLocalUser = (data: Partial<UserProfile>) => {
     if (!user) return;
-    setUser(prev => prev ? { ...prev, ...data } : null);
+    
+    // Ignore ad watch stats from realtime updates to prevent overwriting local progress
+    // if the columns are missing or out of sync in the DB.
+    const safeData = { ...data };
+    delete safeData.cmAdsWatchedToday;
+    delete safeData.totalCmAdsWatched;
+    delete safeData.lastCmAdWatchDate;
+    delete safeData.adsWatchedToday;
+    delete safeData.totalAdsWatched;
+    delete safeData.lastAdWatchDate;
+
+    setUser(prev => prev ? { ...prev, ...safeData } : null);
   };
 
   const refreshUser = async () => {
@@ -462,6 +473,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
         u.cmAdsWatchedToday = cmCountToday || 0;
         u.totalCmAdsWatched = cmCountTotal || 0;
+        const todayStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+        u.lastCmAdWatchDate = todayStr;
+        u.lastAdWatchDate = todayStr;
 
         setUser({ ...u, uid: supabaseUser.id } as UserProfile);
       }
@@ -675,7 +689,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.error("tx error:", txError);
       }
 
-      await supabase.from('ads_log').insert([{
+      const { error: logError } = await supabase.from('ads_log').insert([{
         id: logId,
         userId: user.uid,
         adNetwork: 'Monetag (CM)',
@@ -683,11 +697,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timestamp: currentTime,
         country: user.country || 'Unknown'
       }]);
+      
+      if (logError) {
+        console.error("ads_log error:", logError);
+      }
 
       let updatePayload: any = {
         balance: nextBalance,
-        cm_coins: nextBalance,
-        "CM Coins": nextBalance,
         lastCmAdWatchDate: today,
         cmAdsWatchedToday: nextWatched,
         totalCmAdsWatched: nextTotalAdsWatched
@@ -774,7 +790,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.error("tx error:", txError);
       }
 
-      await supabase.from('ads_log').insert([{
+      const { error: logError } = await supabase.from('ads_log').insert([{
         id: logId,
         userId: user.uid,
         adNetwork: 'Monetag (USDT)',
@@ -782,22 +798,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timestamp: currentTime,
         country: user.country || 'Unknown'
       }]);
+      
+      if (logError) {
+        console.error("ads_log error:", logError);
+      }
 
       let updatePayload: any = {
         lastAdWatchDate: today,
         adsWatchedToday: nextWatched,
         totalAdsWatched: nextTotalAdsWatched,
-        usdtBalance: nextUsdtBalance,
-        usdtbalance: nextUsdtBalance,
-        USDT: nextUsdtBalance
+        usdtBalance: nextUsdtBalance
       };
 
       let { error: updateError } = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
       
       if (updateError) {
         delete updatePayload.totalAdsWatched;
-        delete updatePayload.usdtbalance;
-        delete updatePayload.USDT;
+        delete updatePayload.adsWatchedToday;
+        delete updatePayload.lastAdWatchDate;
         const retry = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
         updateError = retry.error;
       }
