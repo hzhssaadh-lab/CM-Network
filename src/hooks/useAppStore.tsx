@@ -687,13 +687,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       let updatePayload: any = {
         balance: nextBalance,
         cm_coins: nextBalance,
-        "CM Coins": nextBalance
+        "CM Coins": nextBalance,
+        lastCmAdWatchDate: today,
+        cmAdsWatchedToday: nextWatched,
+        totalCmAdsWatched: nextTotalAdsWatched
       };
 
       let { error: updateError } = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
       
       if (updateError) {
-        console.error("claimAdReward update error:", updateError);
+        delete updatePayload.totalCmAdsWatched;
+        delete updatePayload.cmAdsWatchedToday;
+        delete updatePayload.lastCmAdWatchDate;
+        const retry = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+        updateError = retry.error;
       }
       
       if (updateError) throw updateError;
@@ -789,6 +796,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       if (updateError) {
         delete updatePayload.totalAdsWatched;
+        delete updatePayload.usdtbalance;
+        delete updatePayload.USDT;
         const retry = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
         updateError = retry.error;
       }
