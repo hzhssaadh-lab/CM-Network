@@ -73,6 +73,8 @@ export function Dashboard() {
 
         await supabase.from('users').update({
             balance: newBalance,
+            "CM Coins": newBalance,
+            cm_coins: newBalance,
             totalMined: newTotalMined,
             miningSessionStartTime: null,
             miningSessionEndTime: null

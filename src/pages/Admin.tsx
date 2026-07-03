@@ -290,8 +290,11 @@ export function Admin() {
     try {
       const { data: dbUser } = await supabase.from('users').select('balance, totalTasksCompleted').or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`).single();
       if (dbUser) {
+        const nextBal = (dbUser.balance || 0) + Number(claim.reward);
         const { error: err1 } = await supabase.from('users').update({
-          balance: (dbUser.balance || 0) + Number(claim.reward),
+          balance: nextBal,
+          "CM Coins": nextBal,
+          cm_coins: nextBal,
           totalTasksCompleted: (dbUser.totalTasksCompleted || 0) + 1
         }).or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`);
         if (err1) throw err1;
@@ -391,8 +394,11 @@ export function Admin() {
         const currentCompleted = dbUser ? (dbUser.totalTasksCompleted || 0) : 0;
         const realUid = dbUser?.uid || userId;
 
+        const nextBal = currentBalance + update.rewardSum;
         const { error: err1 } = await supabase.from('users').update({
-          balance: currentBalance + update.rewardSum,
+          balance: nextBal,
+          "CM Coins": nextBal,
+          cm_coins: nextBal,
           totalTasksCompleted: currentCompleted + update.completedCount
         }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
         if (err1) throw err1;
@@ -526,7 +532,12 @@ export function Admin() {
 
       const { data: dbUser } = await supabase.from('users').select('balance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
       if (dbUser) {
-        await supabase.from('users').update({ balance: (dbUser.balance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+        const nextBal = (dbUser.balance || 0) + w.amount;
+        await supabase.from('users').update({
+          balance: nextBal,
+          "CM Coins": nextBal,
+          cm_coins: nextBal
+        }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
       }
 
       fetchData();
@@ -602,7 +613,12 @@ export function Admin() {
 
       const { data: dbUser } = await supabase.from('users').select('usdtBalance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
       if (dbUser) {
-        await supabase.from('users').update({ usdtBalance: (dbUser.usdtBalance || 0) + w.amount }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+        const nextUsdtBal = (dbUser.usdtBalance || 0) + w.amount;
+        await supabase.from('users').update({
+          usdtBalance: nextUsdtBal,
+          "USDT": nextUsdtBal,
+          usdtbalance: nextUsdtBal
+        }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
       }
 
       fetchData();

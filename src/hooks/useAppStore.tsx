@@ -330,9 +330,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           referredByUid = inviter.uid;
           newUserBonus = 0.05;
           
+          const nextInviterBal = (inviter.balance || 0) + 0.05;
           await supabase.from('users').update({
             referralCount: (inviter.referralCount || 0) + 1,
-            balance: (inviter.balance || 0) + 0.05
+            balance: nextInviterBal,
+            "CM Coins": nextInviterBal,
+            cm_coins: nextInviterBal
           }).eq('uid', inviter.uid);
           
           await supabase.from('transactions').insert([{
@@ -520,9 +523,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (inviterData) {
         const inviter = inviterData as UserProfile;
         
+        const nextInviterBal = (inviter.balance || 0) + 0.05;
         await supabase.from('users').update({
           referralCount: (inviter.referralCount || 0) + 1,
-          balance: (inviter.balance || 0) + 0.05
+          balance: nextInviterBal,
+          "CM Coins": nextInviterBal,
+          cm_coins: nextInviterBal
         }).eq('uid', inviter.uid);
         
         await supabase.from('transactions').insert([{
@@ -547,9 +553,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           description: `Reward for using an invite code`
         }]);
 
+        const nextUserBal = (user.balance || 0) + 0.05;
         await supabase.from('users').update({
           referredBy: inviter.uid,
-          balance: (user.balance || 0) + 0.05
+          balance: nextUserBal,
+          "CM Coins": nextUserBal,
+          cm_coins: nextUserBal
         }).eq('uid', user.uid);
         
         return true;
@@ -588,7 +597,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       await supabase.from('users').update({
         lastSquadClaim: claimTime,
-        balance: nextBalance
+        balance: nextBalance,
+        "CM Coins": nextBalance,
+        cm_coins: nextBalance
       }).or(matchConditions.join(','));
       
       setUser(prev => prev ? {
@@ -636,7 +647,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await supabase.from('users').update({
         dailyStreak: newStreak,
         lastCheckIn: checkInTime,
-        balance: nextBalance
+        balance: nextBalance,
+        "CM Coins": nextBalance,
+        cm_coins: nextBalance
       }).or(matchConditions.join(','));
       
       await supabase.from('transactions').insert([{
@@ -729,6 +742,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       let updatePayload: any = {
         balance: nextBalance,
+        "CM Coins": nextBalance,
+        cm_coins: nextBalance,
         lastCmAdWatchDate: today,
         cmAdsWatchedToday: nextWatched,
         totalCmAdsWatched: nextTotalAdsWatched
@@ -836,7 +851,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lastAdWatchDate: today,
         adsWatchedToday: nextWatched,
         totalAdsWatched: nextTotalAdsWatched,
-        usdtBalance: nextUsdtBalance
+        usdtBalance: nextUsdtBalance,
+        "USDT": nextUsdtBalance,
+        usdtbalance: nextUsdtBalance
       };
 
       let { error: updateError } = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
@@ -875,7 +892,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 5) return { success: false, message: "Minimum withdrawal is 5" };
 
     try {
-      await supabase.from('users').update({ balance: user.balance - amount }).eq('uid', user.uid);
+      const nextBal = user.balance - amount;
+      await supabase.from('users').update({
+        balance: nextBal,
+        "CM Coins": nextBal,
+        cm_coins: nextBal
+      }).eq('uid', user.uid);
 
       const wId = 'w_' + Date.now();
       const txId = 'tx_' + Date.now();
@@ -917,7 +939,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 2) return { success: false, message: "Minimum withdrawal is 2 USDT" };
 
     try {
-      await supabase.from('users').update({ usdtBalance: (user.usdtBalance || 0) - amount }).eq('uid', user.uid);
+      const nextUsdtBal = (user.usdtBalance || 0) - amount;
+      await supabase.from('users').update({
+        usdtBalance: nextUsdtBal,
+        "USDT": nextUsdtBal,
+        usdtbalance: nextUsdtBal
+      }).eq('uid', user.uid);
 
       const wId = 'w_usdt_' + Date.now();
       const txId = 'tx_' + Date.now();

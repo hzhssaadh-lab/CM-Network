@@ -169,9 +169,14 @@ export function Wallet() {
         
         // 3. Update sender balance using OR matching
         const senderSelector = `uid.eq.${senderDoc.uid},UID.eq.${senderDoc.uid}`;
+        const nextSenderBal = currentSenderBalance - sendAmount;
         const { error: senderUpError } = await supabase
           .from('users')
-          .update({ balance: currentSenderBalance - sendAmount })
+          .update({
+            balance: nextSenderBal,
+            "CM Coins": nextSenderBal,
+            cm_coins: nextSenderBal
+          })
           .or(senderSelector);
 
         if (senderUpError) {
@@ -180,14 +185,23 @@ export function Wallet() {
 
         // 4. Update receiver balance using OR matching
         const receiverSelector = `uid.eq.${receiverDoc.uid},UID.eq.${receiverDoc.uid}`;
+        const nextReceiverBal = currentReceiverBalance + sendAmount;
         const { error: receiverUpError } = await supabase
           .from('users')
-          .update({ balance: currentReceiverBalance + sendAmount })
+          .update({
+            balance: nextReceiverBal,
+            "CM Coins": nextReceiverBal,
+            cm_coins: nextReceiverBal
+          })
           .or(receiverSelector);
 
         if (receiverUpError) {
           // Revert sender balance on failure
-          await supabase.from('users').update({ balance: currentSenderBalance }).or(senderSelector);
+          await supabase.from('users').update({
+            balance: currentSenderBalance,
+            "CM Coins": currentSenderBalance,
+            cm_coins: currentSenderBalance
+          }).or(senderSelector);
           throw new Error("Failed to credit receiver balance: " + receiverUpError.message);
         }
         
