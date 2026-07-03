@@ -22,7 +22,7 @@ export function Admin() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config' | 'all_data'>('users');
   const [searchQuery, setSearchQuery] = useState('');
-  const [globalStats, setGlobalStats] = useState({ totalBalance: 0, totalMined: 0 });
+  const [globalStats, setGlobalStats] = useState({ totalBalance: 0, totalMined: 0, totalUsdtBalance: 0 });
 
   // Edit User State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -58,20 +58,22 @@ export function Admin() {
       let fetched = 0;
       let totalBalance = 0;
       let totalMined = 0;
+      let totalUsdtBalance = 0;
       
       while(true) {
-        const { data, error } = await supabase.from('users').select('balance, totalMined').range(fetched, fetched + 999);
+        const { data, error } = await supabase.from('users').select('balance, totalMined, usdtBalance').range(fetched, fetched + 999);
         if (!data || data.length === 0) break;
         
         for(const d of data) {
            totalBalance += d.balance || 0;
            totalMined += d.totalMined || 0;
+           totalUsdtBalance += d.usdtBalance || 0;
         }
         
         fetched += data.length;
         if (data.length < 1000) break;
       }
-      setGlobalStats({ totalBalance, totalMined });
+      setGlobalStats({ totalBalance, totalMined, totalUsdtBalance });
     } catch (e) {
       console.error("Failed to load global stats", e);
     }
@@ -200,7 +202,9 @@ export function Admin() {
     try {
       await supabase.from('users').update({
         balance: parseFloat(editBalance) || 0,
+        "CM Coins": parseFloat(editBalance) || 0,
         usdtBalance: parseFloat(editUsdtBalance) || 0,
+        "USDT": parseFloat(editUsdtBalance) || 0,
         miningRate: parseFloat(editMiningRate) || 0,
       }).eq('uid', editingUser.uid);
       setEditingUser(null);
@@ -659,18 +663,22 @@ export function Admin() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Total Users</p>
           <p className="text-4xl font-black">{loading ? '...' : totalUsersCount}</p>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Global Liquidity</p>
+          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Global CM Liquidity</p>
           <p className="text-4xl font-mono font-black text-[#FFD700]">{loading ? '...' : formatCurrency(globalStats.totalBalance)}</p>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Total Mined</p>
+          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Total CM Mined</p>
           <p className="text-4xl font-mono font-black">{loading ? '...' : formatCurrency(globalStats.totalMined)}</p>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
+          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Global USDT Liquidity</p>
+          <p className="text-4xl font-mono font-black text-green-500">{loading ? '...' : `$${(globalStats.totalUsdtBalance || 0).toFixed(4)}`}</p>
         </div>
       </div>
 
