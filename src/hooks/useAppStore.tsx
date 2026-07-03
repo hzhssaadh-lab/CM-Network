@@ -142,16 +142,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             let updates: any = {};
             let needsUpdate = false;
             
-            if (sUser.email === 'ms888mf@gmail.com') {
+            if (sUser.email === 'ms888mf@gmail.com' || sUser.email === 'hzhssaadh@gmail.com') {
               if (u.role !== 'admin') {
                 updates.role = 'admin';
                 u.role = 'admin';
-                needsUpdate = true;
-              }
-            } else {
-              if (u.role === 'admin') {
-                updates.role = 'user';
-                u.role = 'user';
                 needsUpdate = true;
               }
             }
@@ -228,7 +222,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: (sUser.email === 'ms888mf@gmail.com') ? 'admin' : 'user',
+            role: (sUser.email === 'ms888mf@gmail.com' || sUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
@@ -379,7 +373,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: (email === 'ms888mf@gmail.com') ? 'admin' : 'user',
+            role: (email === 'ms888mf@gmail.com' || email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,

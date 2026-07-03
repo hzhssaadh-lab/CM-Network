@@ -137,17 +137,30 @@ export function Admin() {
     if (!searchQuery && users.length > 0) return;
 
     const timeoutId = setTimeout(async () => {
-      if (!searchQuery.trim()) {
+      const query = searchQuery.trim();
+      if (!query) {
         const { data: userData } = await supabase.from('users').select('*').order('joinDate', { ascending: false, nullsFirst: false }).limit(2000);
         if (userData) setUsers(userData as UserProfile[]);
         return;
       }
       
       try {
+        let orConditions = [
+          `name.ilike.%${query}%`,
+          `email.ilike.%${query}%`,
+          `referralCode.ilike.%${query}%`,
+          `country.ilike.%${query}%`
+        ];
+        
+        // If search looks like a uuid
+        if (query.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          orConditions.push(`uid.eq.${query}`);
+        }
+        
         const { data } = await supabase
           .from('users')
           .select('*')
-          .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+          .or(orConditions.join(','))
           .limit(200);
           
         if (data) {
