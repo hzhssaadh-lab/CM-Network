@@ -258,7 +258,7 @@ export function Admin() {
     } catch (e: any) {
       console.error(e);
       if (e?.code === '42501') {
-        alert("Permission denied! You need to disable RLS for the 'tasks' table in Supabase. Run: ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY;");
+        toast.error("Permission denied (RLS). Please configure policies for tasks table.");
       } else {
         toast.error(`Error saving task: ${e?.message || 'Unknown error'}`);
       }
@@ -275,7 +275,7 @@ export function Admin() {
     } catch (e: any) {
       console.error(e);
       if (e?.code === '42501') {
-        alert("Permission denied! You need to disable RLS for the 'tasks' table in Supabase. Run: ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY;");
+        toast.error("Permission denied (RLS). Please configure policies for tasks table.");
       } else {
         toast.error(`Error deleting task: ${e?.message || 'Unknown error'}`);
       }
@@ -324,7 +324,7 @@ export function Admin() {
     } catch (e: any) {
       console.error('Error approving task:', e);
       if (e?.code === '42501') {
-        alert("Permission denied (RLS) on transactions, completedTasks or taskClaims. Disable RLS for those tables in Supabase.");
+        toast.error("Permission denied (RLS). Please run the SQL commands provided by the AI to configure policies.");
       } else {
         toast.error(`Error: ${e?.message}`);
       }
@@ -346,7 +346,7 @@ export function Admin() {
     } catch (e: any) {
       console.error('Error rejecting task:', e);
       if (e?.code === '42501') {
-        alert("Permission denied (RLS). Disable RLS for completedTasks and taskClaims tables in Supabase.");
+        toast.error("Permission denied (RLS). Please run the SQL commands provided by the AI to configure policies.");
       } else {
         toast.error(`Error: ${e?.message}`);
       }
@@ -446,7 +446,7 @@ export function Admin() {
     } catch (e: any) {
       console.error('Error batch approving tasks:', e);
       if (e?.code === '42501') {
-        alert("Permission denied (RLS) on transactions, completedTasks or taskClaims. Disable RLS for those tables in Supabase.");
+        toast.error("Permission denied (RLS). Please run the SQL commands provided by the AI to configure policies.");
       } else {
         toast.error(`Error: ${e?.message}`);
       }
@@ -489,7 +489,7 @@ export function Admin() {
     } catch (e: any) {
       console.error('Error batch rejecting tasks:', e);
       if (e?.code === '42501') {
-        alert("Permission denied (RLS) on completedTasks or taskClaims. Disable RLS for those tables in Supabase.");
+        toast.error("Permission denied (RLS). Please run the SQL commands provided by the AI to configure policies.");
       } else {
         toast.error(`Error: ${e?.message}`);
       }

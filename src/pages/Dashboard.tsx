@@ -276,7 +276,6 @@ export function Dashboard() {
       </div>
 
       <div className="lg:col-span-12 mt-4">
-        <AdDisplay />
         <BannerAd slot="8492118164" />
       </div>
 
