@@ -105,7 +105,21 @@ export function Header() {
           <p className="text-[#FFD700] font-mono font-bold text-lg">$6.00 <span className="text-[10px] text-green-400 font-normal ml-1">+0.0%</span></p>
         </div>
         {user?.photoURL ? (
-          <img src={user.photoURL} alt="Profile" className="w-12 h-12 rounded-full border border-[#FFD700]/30 object-cover" />
+          user.photoURL.startsWith('emoji:') ? (
+            (() => {
+              const parts = user.photoURL.split(':');
+              const emoji = parts[1] || '🤠';
+              const grad = parts[2] || 'from-yellow-500/20 via-amber-600/10 to-transparent';
+              return (
+                <div className={`w-12 h-12 rounded-full border border-[#FFD700]/30 flex items-center justify-center bg-gradient-to-br ${grad} overflow-hidden shadow-md relative`}>
+                  <div className="absolute inset-0 bg-black/40 -z-10"></div>
+                  <span className="text-2xl drop-shadow-sm select-none">{emoji}</span>
+                </div>
+              );
+            })()
+          ) : (
+            <img src={user.photoURL} alt="Profile" className="w-12 h-12 rounded-full border border-[#FFD700]/30 object-cover" />
+          )
         ) : (
           <div className="w-12 h-12 rounded-full border border-gray-800 flex items-center justify-center bg-white/5">
             <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center border border-[#FFD700]/30">
