@@ -214,8 +214,24 @@ export function Tasks() {
     }
   };
 
+  const [openedAdTasks, setOpenedAdTasks] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('openedAdTasks');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
   const handleClaimClick = (task: AppTask) => {
-    processClaim(task);
+    if (task.type === 'ad' && !openedAdTasks[task.id]) {
+      window.open("https://omg10.com/4/11069214", "_blank");
+      const newState = { ...openedAdTasks, [task.id]: true };
+      setOpenedAdTasks(newState);
+      localStorage.setItem('openedAdTasks', JSON.stringify(newState));
+    } else {
+      processClaim(task);
+    }
   };
 
   const getTaskIcon = (type: AppTask['type']) => {
@@ -293,7 +309,7 @@ export function Tasks() {
                      : "bg-[#FFD700] text-black hover:bg-[#FFD700]/80 shadow-[0_0_15px_rgba(255,215,0,0.3)]"
                    }`}
                  >
-                   {claiming === task.id ? '...' : 'CLAIM'}
+                   {claiming === task.id ? '...' : (task.type === 'ad' && openedAdTasks[task.id]) ? 'VERIFY' : 'CLAIM'}
                  </button>
                )}
              </div>
