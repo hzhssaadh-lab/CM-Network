@@ -57,7 +57,9 @@ export function Ads() {
   if (!user) return null;
 
   const handleWatchAd = () => {
-    window.open("https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468816", "_blank");
+    const script = document.createElement('script');
+    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
+    document.body.appendChild(script);
     processAdReward();
   };
 
@@ -83,7 +85,9 @@ export function Ads() {
   };
 
   const handleWatchCmAd = () => {
-    window.open("https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468816", "_blank");
+    const script = document.createElement('script');
+    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
+    document.body.appendChild(script);
     processCmAdReward();
   };
 
