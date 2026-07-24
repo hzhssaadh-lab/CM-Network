@@ -33,9 +33,11 @@ export const SocialPopup: React.FC = () => {
             </button>
 
             <div className="text-center mb-6 mt-2">
-              <div className="w-16 h-16 bg-[#FFD700]/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#FFD700]/30">
-                <span className="text-2xl font-black text-[#FFD700]">CM</span>
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="CM Logo" 
+                className="w-16 h-16 mx-auto mb-4 object-contain drop-shadow-[0_0_15px_rgba(255,215,0,0.2)]"
+              />
               <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Welcome to<br/><span className="text-[#FFD700]">CM Network</span></h2>
               <p className="text-gray-400 text-sm mt-3">Follow us on our official channels to stay updated with the latest news!</p>
             </div>
