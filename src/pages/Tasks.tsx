@@ -225,7 +225,7 @@ export function Tasks() {
 
   const handleClaimClick = (task: AppTask) => {
     if (task.type === 'ad' && !openedAdTasks[task.id]) {
-      window.open("https://omg10.com/4/11069214", "_blank");
+      window.open("https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468520", "_blank");
       const newState = { ...openedAdTasks, [task.id]: true };
       setOpenedAdTasks(newState);
       localStorage.setItem('openedAdTasks', JSON.stringify(newState));
