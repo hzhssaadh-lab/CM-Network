@@ -57,7 +57,6 @@ export function Ads() {
   if (!user) return null;
 
   const handleWatchAd = () => {
-    window.open("https://www.effectivecpmnetwork.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f", "_blank");
     processAdReward();
   };
 
@@ -83,7 +82,6 @@ export function Ads() {
   };
 
   const handleWatchCmAd = () => {
-    window.open("https://www.effectivecpmnetwork.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f", "_blank");
     processCmAdReward();
   };
 

@@ -225,7 +225,6 @@ export function Tasks() {
 
   const handleClaimClick = (task: AppTask) => {
     if (task.type === 'ad' && !openedAdTasks[task.id]) {
-      window.open("https://www.effectivecpmnetwork.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f", "_blank");
       const newState = { ...openedAdTasks, [task.id]: true };
       setOpenedAdTasks(newState);
       localStorage.setItem('openedAdTasks', JSON.stringify(newState));
