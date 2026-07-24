@@ -23,17 +23,23 @@ function AppContent() {
   const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
 
   useEffect(() => {
+    const checkMaintenance = (dbValue: boolean) => {
+      // Hardcoded maintenance until 2026-07-24T08:10:00Z (60 mins from when requested)
+      const maintenanceEndTime = new Date("2026-07-24T08:10:00Z").getTime();
+      return Date.now() < maintenanceEndTime || dbValue;
+    };
+
     const fetchMaintenance = async () => {
       try {
         const { data, error } = await supabase.from('settings').select('*').eq('id', 'app').single();
         if (data) {
-           setMaintenanceMode(data.maintenanceMode === true);
+           setMaintenanceMode(checkMaintenance(data.maintenanceMode === true));
         } else {
-           setMaintenanceMode(false);
+           setMaintenanceMode(checkMaintenance(false));
         }
       } catch (err) {
         console.error("Maintenance check failed:", err);
-        setMaintenanceMode(false);
+        setMaintenanceMode(checkMaintenance(false));
       }
     };
     
@@ -42,13 +48,25 @@ function AppContent() {
     const channel = supabase.channel('settings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: 'id=eq.app' }, (payload: any) => {
          if (payload.new) {
-            setMaintenanceMode(payload.new.maintenanceMode === true);
+            setMaintenanceMode(checkMaintenance(payload.new.maintenanceMode === true));
          }
       })
       .subscribe();
       
+    // Re-check periodically in case time passes while user is on the page
+    const interval = setInterval(() => {
+      setMaintenanceMode((prev) => {
+        const maintenanceEndTime = new Date("2026-07-24T08:10:00Z").getTime();
+        // We don't have dbValue here easily without refetching, but if time passed, just return prev which will remain false if it was already false, 
+        // or turn false if it was true just because of the hardcoded time. We can just refetch.
+        fetchMaintenance(); 
+        return prev;
+      });
+    }, 60000); // check every minute
+      
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, []);
 
