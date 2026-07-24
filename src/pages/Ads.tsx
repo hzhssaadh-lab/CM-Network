@@ -54,12 +54,22 @@ export function Ads() {
     setLoadingHistory(false);
   };
 
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, []);
+
   if (!user) return null;
 
   const handleWatchAd = () => {
-    const script = document.createElement('script');
-    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
-    document.body.appendChild(script);
     processAdReward();
   };
 
@@ -85,9 +95,6 @@ export function Ads() {
   };
 
   const handleWatchCmAd = () => {
-    const script = document.createElement('script');
-    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
-    document.body.appendChild(script);
     processCmAdReward();
   };
 

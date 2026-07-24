@@ -224,11 +224,21 @@ export function Tasks() {
     }
   });
 
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, []);
+
   const handleClaimClick = (task: AppTask) => {
     if (task.type === 'ad' && !openedAdTasks[task.id]) {
-      const script = document.createElement('script');
-      script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
-      document.body.appendChild(script);
       const newState = { ...openedAdTasks, [task.id]: true };
       setOpenedAdTasks(newState);
       localStorage.setItem('openedAdTasks', JSON.stringify(newState));
