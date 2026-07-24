@@ -107,8 +107,8 @@ function AppContent() {
     );
   }
 
-  // If maintenance mode is ON and user is NOT an admin, block access
-  if (maintenanceMode && user?.role !== 'admin') {
+  // If maintenance mode is ON, block access for all users
+  if (maintenanceMode) {
     return <Maintenance />;
   }
 
