@@ -4,9 +4,6 @@ import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
 import { Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { BannerAd } from '../components/BannerAd';
-import { AdDisplay } from '../components/AdDisplay';
-import { InterstitialAd } from '../components/InterstitialAd';
 import toast from 'react-hot-toast';
 
 export function Dashboard() {
@@ -14,14 +11,8 @@ export function Dashboard() {
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
   const [mineState, setMineState] = useState<'IDLE' | 'MINING' | 'READY'>('IDLE');
   const [currentBalance, setCurrentBalance] = useState(user?.balance || 0);
-  const [waitingForAd, setWaitingForAd] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const claimInProgress = useRef(false);
-
-  const requestMiningStart = () => {
-    if (!user || mineState !== 'IDLE' || isClaiming) return;
-    setWaitingForAd(true);
-  };
 
   const startMining = async () => {
     if (!user || mineState !== 'IDLE' || isClaiming) return;
@@ -184,8 +175,8 @@ export function Dashboard() {
           </button>
         ) : mineState === 'IDLE' ? (
           <button 
-            onClick={requestMiningStart}
-            disabled={isClaiming || waitingForAd}
+            onClick={startMining}
+            disabled={isClaiming}
             className="w-full max-w-sm bg-gradient-to-r from-[#FFD700] to-[#B8860B] text-black font-black py-4 md:py-5 rounded-2xl shadow-[0_10px_40px_rgba(212,175,55,0.3)] text-lg md:text-xl tracking-tighter active:scale-95 transition-all outline-none"
           >
             START EXTRACTION
@@ -276,17 +267,6 @@ export function Dashboard() {
           </div>
          </section>
       </div>
-
-      <div className="lg:col-span-12 mt-4">
-        <BannerAd slot="8492118164" />
-      </div>
-
-      {waitingForAd && (
-        <InterstitialAd onClose={() => {
-          setWaitingForAd(false);
-          startMining();
-        }} />
-      )}
     </div>
   );
 }

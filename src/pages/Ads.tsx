@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { InterstitialAd } from '../components/InterstitialAd';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet, Clock, CheckCircle2, XCircle, Grid } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -58,7 +57,6 @@ export function Ads() {
   if (!user) return null;
 
   const handleWatchAd = () => {
-    window.open("https://omg10.com/4/11069214", "_blank");
     processAdReward();
   };
 
@@ -84,7 +82,6 @@ export function Ads() {
   };
 
   const handleWatchCmAd = () => {
-    window.open("https://omg10.com/4/11069214", "_blank");
     processCmAdReward();
   };
 
@@ -113,8 +110,8 @@ export function Ads() {
     setError(''); setSuccess('');
     
     const amount = parseFloat(withdrawAmount);
-    if (isNaN(amount) || amount < 2) {
-      setError("Minimum withdrawal is 2 USDT"); return;
+    if (isNaN(amount) || amount < 12) {
+      setError("Minimum withdrawal is 12 USDT"); return;
     }
     if (amount > (user.usdtBalance || 0)) {
       setError("Insufficient USDT balance"); return;
@@ -229,7 +226,7 @@ export function Ads() {
         <>
           <div className="mb-8 p-6 sm:p-8 bg-black/40 border border-white/10 rounded-[32px] relative overflow-hidden animate-in fade-in slide-in-from-top-4">
             <h3 className="text-xl font-bold font-black tracking-tight mb-2">Withdraw USDT</h3>
-            <p className="text-gray-400 text-sm mb-6">Minimum withdrawal is <span className="text-green-500 font-bold">2.00 USDT</span>.</p>
+            <p className="text-gray-400 text-sm mb-6">Minimum withdrawal is <span className="text-green-500 font-bold">12.00 USDT</span>.</p>
             
             {user.transactionsBlocked ? (
                <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center mb-6">

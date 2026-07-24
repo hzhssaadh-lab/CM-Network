@@ -930,7 +930,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const requestUsdtWithdrawal = async (amount: number, wallet: string, method?: string) => {
     if (!user) return { success: false, message: "Not logged in" };
     if ((user.usdtBalance || 0) < amount) return { success: false, message: "Insufficient USDT balance" };
-    if (amount < 2) return { success: false, message: "Minimum withdrawal is 2 USDT" };
+    if (amount < 12) return { success: false, message: "Minimum withdrawal is 12 USDT" };
 
     try {
       const nextUsdtBal = (user.usdtBalance || 0) - amount;
