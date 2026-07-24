@@ -30,8 +30,8 @@ export const AdBanner: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full flex justify-center my-4 overflow-hidden">
-      <div ref={bannerRef} className="min-h-[90px] w-full max-w-[728px] flex justify-center items-center bg-gray-900 rounded-lg"></div>
+    <div className="w-full flex justify-center overflow-hidden">
+      <div ref={bannerRef} className="min-h-[90px] w-full max-w-[728px] flex justify-center items-center bg-gray-900/50 rounded-xl border border-white/5"></div>
     </div>
   );
 };

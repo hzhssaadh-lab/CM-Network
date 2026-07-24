@@ -6,7 +6,6 @@ import { Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { AdBanner } from '../components/AdBanner';
-import { SocialBanner } from '../components/SocialBanner';
 
 export function Dashboard() {
   const { user, updateUser, updateLocalUser } = useApp();
@@ -220,10 +219,6 @@ export function Dashboard() {
         </div>
       </section>
 
-      <div className="lg:col-span-12">
-        <AdBanner />
-      </div>
-
       <div className="lg:col-span-5 flex flex-col space-y-8">
         <section className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] border border-[#FFD700]/20 p-8 flex flex-col justify-between min-h-[220px] relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
@@ -274,8 +269,13 @@ export function Dashboard() {
          </section>
       </div>
 
-      <div className="lg:col-span-12">
-        <SocialBanner />
+      <div className="lg:col-span-12 flex flex-col items-center justify-center mt-4 space-y-2">
+        <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest flex items-center gap-2">
+          <span className="w-4 h-[1px] bg-gray-700"></span>
+          External Promotion
+          <span className="w-4 h-[1px] bg-gray-700"></span>
+        </div>
+        <AdBanner />
       </div>
     </div>
   );
