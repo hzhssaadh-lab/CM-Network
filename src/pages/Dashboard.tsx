@@ -6,6 +6,7 @@ import { Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { AdBanner } from '../components/AdBanner';
+import { SocialBanner } from '../components/SocialBanner';
 
 export function Dashboard() {
   const { user, updateUser, updateLocalUser } = useApp();
@@ -271,6 +272,10 @@ export function Dashboard() {
              </motion.div>
           </div>
          </section>
+      </div>
+
+      <div className="lg:col-span-12">
+        <SocialBanner />
       </div>
     </div>
   );
