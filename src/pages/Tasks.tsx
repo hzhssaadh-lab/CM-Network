@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { AdBanner } from '../components/AdBanner';
 
 function DailyRewards() {
   const { user, claimDailyCheckIn } = useApp();
@@ -225,6 +226,7 @@ export function Tasks() {
 
   const handleClaimClick = (task: AppTask) => {
     if (task.type === 'ad' && !openedAdTasks[task.id]) {
+      window.open("https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468816", "_blank");
       const newState = { ...openedAdTasks, [task.id]: true };
       setOpenedAdTasks(newState);
       localStorage.setItem('openedAdTasks', JSON.stringify(newState));
@@ -253,6 +255,8 @@ export function Tasks() {
       </div>
 
       <DailyRewards />
+      
+      <AdBanner />
 
       <div className="space-y-4">
         {loading ? (

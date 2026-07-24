@@ -57,6 +57,7 @@ export function Ads() {
   if (!user) return null;
 
   const handleWatchAd = () => {
+    window.open("https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468816", "_blank");
     processAdReward();
   };
 
@@ -82,6 +83,7 @@ export function Ads() {
   };
 
   const handleWatchCmAd = () => {
+    window.open("https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468816", "_blank");
     processCmAdReward();
   };
 

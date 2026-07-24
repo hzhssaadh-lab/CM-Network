@@ -5,6 +5,7 @@ import { formatCurrency } from '../lib/utils';
 import { Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { AdBanner } from '../components/AdBanner';
 
 export function Dashboard() {
   const { user, updateUser, updateLocalUser } = useApp();
@@ -217,6 +218,10 @@ export function Dashboard() {
           </div>
         </div>
       </section>
+
+      <div className="lg:col-span-12">
+        <AdBanner />
+      </div>
 
       <div className="lg:col-span-5 flex flex-col space-y-8">
         <section className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] border border-[#FFD700]/20 p-8 flex flex-col justify-between min-h-[220px] relative overflow-hidden">

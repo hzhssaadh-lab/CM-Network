@@ -13,6 +13,7 @@ import { Leaderboard } from './pages/Leaderboard';
 import { Squads } from './pages/Squads';
 import { Ads } from './pages/Ads';
 import { Maintenance } from './pages/Maintenance';
+import { AdBanner } from './components/AdBanner';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
@@ -120,6 +121,7 @@ function AppContent() {
     <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto p-4 sm:p-8 relative">
       <Toaster position="top-center" toastOptions={{ style: { background: '#333', color: '#fff', borderRadius: '16px' } }} />
       {!isAdminRoute && <Header />}
+      {!isAdminRoute && <AdBanner />}
       
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
         <Routes>
@@ -135,6 +137,7 @@ function AppContent() {
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {!isAdminRoute && <AdBanner />}
       </main>
 
       {!isAdminRoute && (
