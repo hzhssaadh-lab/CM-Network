@@ -96,6 +96,18 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
               <span className="text-[9px] uppercase tracking-wider text-gray-400 mt-1 font-bold">Seconds</span>
             </div>
           </div>
+
+          <div className="mt-3 flex justify-center">
+            <button
+              onClick={() => {
+                if (onMaintenanceEnd) onMaintenanceEnd();
+                window.location.reload();
+              }}
+              className="bg-[#FFD700]/20 hover:bg-[#FFD700]/30 border border-[#FFD700]/50 text-[#FFD700] px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              🔄 Check if App is Live / Refresh
+            </button>
+          </div>
         </div>
         
         {/* Notice Card */}
