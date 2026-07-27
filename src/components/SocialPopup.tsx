@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Twitter, MessageCircle, X } from 'lucide-react';
+import cmLogo from '../assets/images/cm_simple_logo_1785173778768.jpg';
 
 export const SocialPopup: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,7 +34,7 @@ export const SocialPopup: React.FC = () => {
             </button>
 
             <div className="text-center mb-6 mt-2">
-              <img src="/cm_logo.jpg" alt="CM Network Logo" className="w-20 h-20 mx-auto mb-4 rounded-full drop-shadow-[0_0_15px_rgba(255,215,0,0.3)]" />
+              <img src={cmLogo} alt="CM Network Logo" className="w-20 h-20 mx-auto mb-4 rounded-full drop-shadow-[0_0_15px_rgba(255,215,0,0.3)]" />
               <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Welcome to<br/><span className="text-[#FFD700]">CM Network</span></h2>
               <p className="text-gray-400 text-sm mt-3">Follow us on our official channels to stay updated with the latest news!</p>
             </div>

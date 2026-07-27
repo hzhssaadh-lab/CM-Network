@@ -1,5 +1,6 @@
 import { useApp } from '../hooks/useAppStore';
 import React, { useState } from 'react';
+import cmLogo from '../assets/images/cm_simple_logo_1785173778768.jpg';
 
 export function Login() {
   const { loginWithGoogle, loading } = useApp();
@@ -28,7 +29,7 @@ export function Login() {
     <div className="flex flex-col items-center justify-center h-full w-full p-8 relative overflow-hidden bg-[#050505] text-white selection:bg-[#FFD700]/30">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#FFD700] opacity-10 blur-[150px] rounded-full pointer-events-none"></div>
       
-      <img src="/cm_logo.jpg" alt="CM Network Logo" className="w-24 h-24 mb-8 rounded-full drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] animate-bounce relative z-10" />
+      <img src={cmLogo} alt="CM Network Logo" className="w-24 h-24 mb-8 rounded-full drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] animate-bounce relative z-10" />
       
       <h1 className="text-4xl font-bold tracking-tighter mb-2 text-center text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 relative z-10">Welcome to CM Network</h1>
       <p className="text-[#FFD700] mb-12 text-center uppercase tracking-[0.2em] text-xs font-bold relative z-10">Premium Mining Protocol</p>
