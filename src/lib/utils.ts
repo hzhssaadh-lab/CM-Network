@@ -18,3 +18,7 @@ export function formatCurrency(amount: number) {
   if (amount == null) return "0.00";
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// Universal Global Maintenance End Time (Exact same time for all users worldwide)
+export const UNIVERSAL_MAINTENANCE_END_MS = new Date("2026-07-27T17:00:00Z").getTime();
+

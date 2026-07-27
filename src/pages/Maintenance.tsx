@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, Send, MessageCircle, Twitter, Clock } from 'lucide-react';
 import { AdBanner } from '../components/AdBanner';
+import { UNIVERSAL_MAINTENANCE_END_MS } from '../lib/utils';
 
 interface MaintenanceProps {
   onMaintenanceEnd?: () => void;
@@ -14,19 +15,9 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
   });
 
   useEffect(() => {
-    // Get or initialize maintenance target end time (5 hours from start)
-    let targetTime = localStorage.getItem('cm_maintenance_end_timestamp');
-    if (!targetTime) {
-      const fiveHoursFromNow = Date.now() + 5 * 60 * 60 * 1000;
-      targetTime = fiveHoursFromNow.toString();
-      localStorage.setItem('cm_maintenance_end_timestamp', targetTime);
-    }
-
-    const targetMs = parseInt(targetTime, 10);
-
     const updateTimer = () => {
       const now = Date.now();
-      const diff = targetMs - now;
+      const diff = UNIVERSAL_MAINTENANCE_END_MS - now;
 
       if (diff <= 0) {
         setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });

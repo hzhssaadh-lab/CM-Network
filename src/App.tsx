@@ -18,6 +18,7 @@ import { SocialPopup } from './components/SocialPopup';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
+import { UNIVERSAL_MAINTENANCE_END_MS } from './lib/utils';
 
 function AppContent() {
   const { user, loading, submitReferralCode } = useApp();
@@ -26,14 +27,7 @@ function AppContent() {
 
   useEffect(() => {
     const checkMaintenance = (dbValue: boolean) => {
-      let targetTime = localStorage.getItem('cm_maintenance_end_timestamp');
-      if (!targetTime) {
-        const fiveHoursFromNow = Date.now() + 5 * 60 * 60 * 1000;
-        targetTime = fiveHoursFromNow.toString();
-        localStorage.setItem('cm_maintenance_end_timestamp', targetTime);
-      }
-      const targetMs = parseInt(targetTime, 10);
-      return (Date.now() < targetMs) || dbValue;
+      return (Date.now() < UNIVERSAL_MAINTENANCE_END_MS) || dbValue;
     };
 
     const fetchMaintenance = async () => {
