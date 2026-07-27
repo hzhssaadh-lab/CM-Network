@@ -80,12 +80,7 @@ export function Header() {
       
       <header className="flex justify-between items-center mb-8 px-4 sm:px-8 pt-8 max-w-5xl mx-auto w-full flex-shrink-0">
         <div className="flex items-center space-x-3 cursor-pointer select-none" onClick={handleAdminClick}>
-          <div className="w-12 h-12 relative flex items-center justify-center">
-            <div className="absolute inset-0 bg-gradient-to-tr from-[#FFD700] via-[#cfaa47] to-[#806917] rounded-xl transform rotate-3 scale-105 shadow-[0_0_25px_rgba(212,175,55,0.5)] blur-[2px]"></div>
-            <div className="absolute inset-0 bg-gradient-to-bl from-black to-[#222] rounded-xl border border-[#FFD700]/50 z-10 flex items-center justify-center">
-              <span className="text-[#FFD700] font-black text-2xl tracking-tighter drop-shadow-[0_2px_10px_rgba(255,215,0,0.8)]">CM</span>
-            </div>
-          </div>
+          <img src="/src/assets/images/cm_logo_ultra_realistic_1785123978899.jpg" alt="CM Network Logo" className="w-12 h-12 rounded-full shadow-[0_0_25px_rgba(212,175,55,0.5)]" />
           <div>
             <h1 className="text-2xl font-black tracking-tight bg-gradient-to-br from-white via-white to-gray-500 bg-clip-text text-transparent">CM NETWORK</h1>
             <p className="text-[9px] text-[#FFD700] uppercase tracking-[0.3em] font-bold">Protocol Active</p>
@@ -122,9 +117,7 @@ export function Header() {
           )
         ) : (
           <div className="w-12 h-12 rounded-full border border-gray-800 flex items-center justify-center bg-white/5">
-            <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center border border-[#FFD700]/30">
-              <span className="text-xs font-bold text-[#FFD700]">CM</span>
-            </div>
+            <img src="/src/assets/images/cm_logo_ultra_realistic_1785123978899.jpg" alt="CM Network Logo" className="w-8 h-8 rounded-full border border-[#FFD700]/30 shadow-[0_0_10px_rgba(212,175,55,0.2)]" />
           </div>
         )}
       </div>

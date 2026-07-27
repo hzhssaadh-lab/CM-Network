@@ -58,6 +58,9 @@ export function Ads() {
     const script = document.createElement('script');
     script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
     script.async = true;
+    script.onerror = (e) => {
+      console.warn('CPM script load failed or blocked', e);
+    };
     document.head.appendChild(script);
 
     return () => {

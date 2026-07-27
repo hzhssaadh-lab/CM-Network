@@ -26,9 +26,14 @@ function AppContent() {
 
   useEffect(() => {
     const checkMaintenance = (dbValue: boolean) => {
-      // Hardcoded maintenance until 2026-07-24T08:10:00Z (60 mins from when requested)
-      const maintenanceEndTime = new Date("2026-07-24T08:10:00Z").getTime();
-      return Date.now() < maintenanceEndTime || dbValue;
+      let targetTime = localStorage.getItem('cm_maintenance_end_timestamp');
+      if (!targetTime) {
+        const fiveHoursFromNow = Date.now() + 5 * 60 * 60 * 1000;
+        targetTime = fiveHoursFromNow.toString();
+        localStorage.setItem('cm_maintenance_end_timestamp', targetTime);
+      }
+      const targetMs = parseInt(targetTime, 10);
+      return (Date.now() < targetMs) || dbValue;
     };
 
     const fetchMaintenance = async () => {
@@ -57,14 +62,8 @@ function AppContent() {
       
     // Re-check periodically in case time passes while user is on the page
     const interval = setInterval(() => {
-      setMaintenanceMode((prev) => {
-        const maintenanceEndTime = new Date("2026-07-24T08:10:00Z").getTime();
-        // We don't have dbValue here easily without refetching, but if time passed, just return prev which will remain false if it was already false, 
-        // or turn false if it was true just because of the hardcoded time. We can just refetch.
-        fetchMaintenance(); 
-        return prev;
-      });
-    }, 60000); // check every minute
+      fetchMaintenance();
+    }, 10000); // check every 10 seconds
       
     return () => {
       supabase.removeChannel(channel);
@@ -111,7 +110,7 @@ function AppContent() {
 
   // If maintenance mode is ON, block access for all users
   if (maintenanceMode) {
-    return <Maintenance />;
+    return <Maintenance onMaintenanceEnd={() => setMaintenanceMode(false)} />;
   }
 
   if (!user) {
