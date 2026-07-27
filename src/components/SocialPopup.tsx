@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Twitter, MessageCircle, X } from 'lucide-react';
+import { Twitter, MessageCircle, X, Send } from 'lucide-react';
 import cmLogo from '../assets/images/cm_simple_logo_1785173778768.jpg';
 
 export const SocialPopup: React.FC = () => {
@@ -39,12 +39,32 @@ export const SocialPopup: React.FC = () => {
               <p className="text-gray-400 text-sm mt-3">Follow us on our official channels to stay updated with the latest news!</p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
+              <a 
+                href="https://t.me/OfficialCMNetwork" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3.5 bg-gradient-to-r from-black to-[#0088cc]/20 border border-[#0088cc]/30 rounded-2xl hover:bg-[#0088cc]/30 transition-all group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-[#0088cc]/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Send className="w-5 h-5 text-[#0088cc]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-md">Telegram</h3>
+                    <p className="text-gray-400 text-[10px] uppercase tracking-widest">Join Channel</p>
+                  </div>
+                </div>
+                <div className="px-4 py-1.5 bg-[#0088cc] text-white text-xs font-black rounded-full uppercase tracking-widest shadow-[0_0_15px_rgba(0,136,204,0.5)]">
+                  Join
+                </div>
+              </a>
+
               <a 
                 href="https://whatsapp.com/channel/0029Vb92OHY6BIEm6VDrL82g" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 bg-gradient-to-r from-black to-[#25D366]/20 border border-[#25D366]/30 rounded-2xl hover:bg-[#25D366]/30 transition-all group"
+                className="flex items-center justify-between p-3.5 bg-gradient-to-r from-black to-[#25D366]/20 border border-[#25D366]/30 rounded-2xl hover:bg-[#25D366]/30 transition-all group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-[#25D366]/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -64,7 +84,7 @@ export const SocialPopup: React.FC = () => {
                 href="https://x.com/cmnetwork112" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 bg-gradient-to-r from-black to-[#1DA1F2]/20 border border-[#1DA1F2]/30 rounded-2xl hover:bg-[#1DA1F2]/30 transition-all group"
+                className="flex items-center justify-between p-3.5 bg-gradient-to-r from-black to-[#1DA1F2]/20 border border-[#1DA1F2]/30 rounded-2xl hover:bg-[#1DA1F2]/30 transition-all group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-[#1DA1F2]/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
