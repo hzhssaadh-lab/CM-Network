@@ -20,9 +20,15 @@ export function Admin() {
   const [usdtWithdrawals, setUsdtWithdrawals] = useState<any[]>([]);
   const [adLogs, setAdLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config' | 'all_data'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'usdt_holders' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config' | 'all_data'>('users');
   const [searchQuery, setSearchQuery] = useState('');
   const [globalStats, setGlobalStats] = useState({ totalBalance: 0, totalMined: 0, totalUsdtBalance: 0 });
+
+  // USDT Holders Section State
+  const [usdtHolders, setUsdtHolders] = useState<UserProfile[]>([]);
+  const [loadingUsdtHolders, setLoadingUsdtHolders] = useState(false);
+  const [usdtMinFilter, setUsdtMinFilter] = useState<'all' | 'above_5' | 'above_0'>('all');
+  const [usdtSearchQuery, setUsdtSearchQuery] = useState('');
 
   // Edit User State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -50,8 +56,40 @@ export function Admin() {
       fetchGlobalStats();
       fetchAdsSettings();
       fetchAppSettings();
+      fetchUsdtHolders();
     }
   }, [user]);
+
+  const fetchUsdtHolders = async () => {
+    setLoadingUsdtHolders(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('usdtBalance', { ascending: false, nullsFirst: false })
+        .limit(3000);
+      
+      if (data) {
+        const sorted = (data as UserProfile[]).sort((a, b) => {
+          const balA = Number(a.usdtBalance ?? (a as any).USDT ?? (a as any).usdtbalance ?? 0);
+          const balB = Number(b.usdtBalance ?? (b as any).USDT ?? (b as any).usdtbalance ?? 0);
+          return balB - balA;
+        });
+        setUsdtHolders(sorted);
+      }
+    } catch (err) {
+      console.error("Error fetching USDT holders:", err);
+      toast.error("Failed to fetch USDT holders");
+    } finally {
+      setLoadingUsdtHolders(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'usdt_holders' && usdtHolders.length === 0 && !loadingUsdtHolders) {
+      fetchUsdtHolders();
+    }
+  }, [activeTab]);
 
   const fetchGlobalStats = async () => {
     try {
@@ -229,6 +267,7 @@ export function Admin() {
       }).eq('uid', editingUser.uid);
       setEditingUser(null);
       fetchData();
+      fetchUsdtHolders();
     } catch (e) {
       console.error(e);
     }
@@ -1039,6 +1078,15 @@ export function Admin() {
           Users
         </button>
         <button 
+          onClick={() => {
+            setActiveTab('usdt_holders');
+            fetchUsdtHolders();
+          }}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'usdt_holders' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-green-400 hover:bg-white/10'}`}
+        >
+          💰 USDT Holders
+        </button>
+        <button 
           onClick={() => setActiveTab('all_data')}
           className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'all_data' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
@@ -1259,6 +1307,191 @@ export function Admin() {
             </tbody>
           </table>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'usdt_holders' && (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-8 animate-in fade-in duration-300 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 border-b border-white/10 pb-6">
+            <div>
+              <h3 className="text-xl font-black uppercase tracking-wider text-green-400 flex items-center gap-2">
+                <span>💰</span> USDT Richlist & Holders
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">
+                All platform users ranked by highest USDT balance. Emails are shown prominently for verification and priority support.
+              </p>
+            </div>
+            <button 
+              onClick={fetchUsdtHolders}
+              disabled={loadingUsdtHolders}
+              className="bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30 font-bold px-4 py-2.5 rounded-xl transition-all text-xs uppercase tracking-widest flex items-center gap-2 self-start sm:self-auto shrink-0"
+            >
+              <span>{loadingUsdtHolders ? '⏳' : '🔄'}</span>
+              <span>{loadingUsdtHolders ? 'Refreshing...' : 'Refresh List'}</span>
+            </button>
+          </div>
+
+          {/* Quick Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-black/40 border border-green-500/20 rounded-2xl p-4">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest block mb-1">Total Users Shown</span>
+              <span className="text-2xl font-black text-white font-mono">
+                {usdtHolders.filter(u => {
+                  const bal = Number(u.usdtBalance ?? (u as any).USDT ?? (u as any).usdtbalance ?? 0);
+                  if (usdtMinFilter === 'above_5' && bal <= 5) return false;
+                  if (usdtMinFilter === 'above_0' && bal <= 0) return false;
+                  return true;
+                }).length}
+              </span>
+            </div>
+            <div className="bg-black/40 border border-green-500/20 rounded-2xl p-4">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest block mb-1">Users With &gt; 5 USDT</span>
+              <span className="text-2xl font-black text-green-400 font-mono">
+                {usdtHolders.filter(u => Number(u.usdtBalance ?? (u as any).USDT ?? (u as any).usdtbalance ?? 0) > 5).length}
+              </span>
+            </div>
+            <div className="bg-black/40 border border-green-500/20 rounded-2xl p-4">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest block mb-1">Total USDT Balance (All)</span>
+              <span className="text-2xl font-black text-green-500 font-mono">
+                ${usdtHolders.reduce((sum, u) => sum + Number(u.usdtBalance ?? (u as any).USDT ?? (u as any).usdtbalance ?? 0), 0).toFixed(4)}
+              </span>
+            </div>
+          </div>
+
+          {/* Filter Pills & Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-black/30 p-4 rounded-2xl border border-white/5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mr-1">Filter:</span>
+              <button
+                onClick={() => setUsdtMinFilter('all')}
+                className={`px-3 py-1.5 rounded-lg font-bold uppercase text-[11px] tracking-wider transition-all ${usdtMinFilter === 'all' ? 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+              >
+                All Users ({usdtHolders.length})
+              </button>
+              <button
+                onClick={() => setUsdtMinFilter('above_0')}
+                className={`px-3 py-1.5 rounded-lg font-bold uppercase text-[11px] tracking-wider transition-all ${usdtMinFilter === 'above_0' ? 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+              >
+                &gt; 0 USDT ({usdtHolders.filter(u => Number(u.usdtBalance ?? (u as any).USDT ?? (u as any).usdtbalance ?? 0) > 0).length})
+              </button>
+              <button
+                onClick={() => setUsdtMinFilter('above_5')}
+                className={`px-3 py-1.5 rounded-lg font-bold uppercase text-[11px] tracking-wider transition-all ${usdtMinFilter === 'above_5' ? 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+              >
+                ⭐ &gt; 5 USDT ({usdtHolders.filter(u => Number(u.usdtBalance ?? (u as any).USDT ?? (u as any).usdtbalance ?? 0) > 5).length})
+              </button>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Search Gmail, Name, or UID..."
+              value={usdtSearchQuery}
+              onChange={(e) => setUsdtSearchQuery(e.target.value)}
+              className="bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-green-500 transition-colors w-full sm:w-64"
+            />
+          </div>
+
+          {/* Table */}
+          {loadingUsdtHolders ? (
+            <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
+              <div className="w-10 h-10 border-4 border-green-500/20 border-t-green-500 rounded-full animate-spin"></div>
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Loading USDT Richlist...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto overflow-y-auto max-h-[65vh] rounded-xl pr-2">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-white/10 text-[10px] text-gray-500 uppercase tracking-widest">
+                    <th className="p-3 w-16 text-center">Rank</th>
+                    <th className="p-3">User Email (Gmail)</th>
+                    <th className="p-3">Name</th>
+                    <th className="p-3 text-green-400">USDT Balance</th>
+                    <th className="p-3">Country</th>
+                    <th className="p-3">Joined</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usdtHolders
+                    .filter(u => {
+                      const bal = Number(u.usdtBalance ?? (u as any).USDT ?? (u as any).usdtbalance ?? 0);
+                      if (usdtMinFilter === 'above_5' && bal <= 5) return false;
+                      if (usdtMinFilter === 'above_0' && bal <= 0) return false;
+                      if (usdtSearchQuery.trim()) {
+                        const q = usdtSearchQuery.trim().toLowerCase();
+                        const name = (u.name || '').toLowerCase();
+                        const email = (u.email || '').toLowerCase();
+                        const uid = (u.uid || '').toLowerCase();
+                        if (!name.includes(q) && !email.includes(q) && !uid.includes(q)) return false;
+                      }
+                      return true;
+                    })
+                    .map((u, idx) => {
+                      const bal = Number(u.usdtBalance ?? (u as any).USDT ?? (u as any).usdtbalance ?? 0);
+                      return (
+                        <tr key={u.uid || idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                          <td className="p-3 text-center font-black text-sm">
+                            {idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-white tracking-wide">{u.email || 'No Email'}</span>
+                              {u.email && (
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(u.email);
+                                    toast.success('Email copied!');
+                                  }}
+                                  title="Copy Email"
+                                  className="text-gray-500 hover:text-white p-1 transition-colors"
+                                >
+                                  📋
+                                </button>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-mono text-gray-500 block">UID: {u.uid?.substring(0, 12)}...</span>
+                          </td>
+                          <td className="p-3 font-bold text-sm text-gray-300 truncate max-w-[150px]">
+                            {u.name || 'Anonymous'}
+                          </td>
+                          <td className="p-3">
+                            <span className="font-mono font-black text-base text-green-400 bg-green-500/10 px-2.5 py-1 rounded-lg border border-green-500/20 inline-block">
+                              ${bal.toFixed(4)} USDT
+                            </span>
+                          </td>
+                          <td className="p-3 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                            {u.country || 'N/A'}
+                          </td>
+                          <td className="p-3 text-[10px] font-mono text-gray-500">
+                            {u.joinDate ? new Date(u.joinDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => {
+                                setEditingUser(u);
+                                setEditBalance((u.balance || 0).toString());
+                                setEditUsdtBalance(bal.toString());
+                                setEditMiningRate((u.miningRate || 0).toString());
+                              }}
+                              className="text-[10px] font-bold tracking-widest uppercase bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Edit Balance
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  {usdtHolders.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-gray-500 font-bold uppercase tracking-widest text-xs">
+                        No USDT holders found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
