@@ -490,27 +490,30 @@ export function Admin() {
   const handleApproveClaim = async (claim: TaskClaim) => {
     setLoading(true);
     try {
+      const rewardNum = parseFloat(String(claim.reward || 0)) || 0;
       const { data: dbUser } = await supabase
         .from('users')
-        .select('balance, totalTasksCompleted')
+        .select('balance, totalTasksCompleted, uid, UID')
         .or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`)
         .maybeSingle();
 
       if (dbUser) {
-        const nextBal = (dbUser.balance || 0) + Number(claim.reward || 0);
+        const currentBal = Number(dbUser.balance || 0);
+        const nextBal = Math.round((currentBal + rewardNum) * 1000000) / 1000000;
+        const realUid = dbUser.uid || dbUser.UID || claim.userId;
         await supabase.from('users').update({
           balance: nextBal,
           "CM Coins": nextBal,
           cm_coins: nextBal,
           totalTasksCompleted: (dbUser.totalTasksCompleted || 0) + 1
-        }).or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`);
+        }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
       }
       
       const txId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       await supabase.from('transactions').insert([{
         id: txId,
         type: 'task_reward',
-        amount: Number(claim.reward || 0),
+        amount: rewardNum,
         timestamp: Date.now(),
         status: 'completed',
         receiverUid: claim.userId,
@@ -529,7 +532,7 @@ export function Admin() {
         status: 'approved'
       }).eq('id', claim.id);
 
-      toast.success(`Task approved! ${claim.reward} CM reward credited to user.`);
+      toast.success(`Task approved! ${rewardNum} CM reward credited to user.`);
       await fetchData();
     } catch (e: any) {
       console.error('Error approving task:', e);
@@ -574,42 +577,80 @@ export function Admin() {
       const userUpdates = new Map<string, { rewardSum: number, completedCount: number }>();
       for (const claim of pendingClaims) {
         const uId = claim.userId;
+        const reward = parseFloat(String(claim.reward || 0)) || 0;
         const current = userUpdates.get(uId) || { rewardSum: 0, completedCount: 0 };
-        current.rewardSum += Number(claim.reward || 0);
+        current.rewardSum += reward;
         current.completedCount += 1;
         userUpdates.set(uId, current);
       }
 
-      // 1. Fetch latest balance for each user and update with rewards
-      for (const [userId, update] of userUpdates.entries()) {
-        try {
-          const { data: dbUser } = await supabase
-            .from('users')
-            .select('balance, totalTasksCompleted, uid')
-            .or(`uid.eq.${userId},UID.eq.${userId}`)
-            .maybeSingle();
+      // 1. Fetch relevant users in bulk for speed
+      const userIds = Array.from(userUpdates.keys());
+      const { data: dbUsersByUid } = await supabase
+        .from('users')
+        .select('uid, UID, balance, totalTasksCompleted')
+        .in('uid', userIds);
 
-          const currentBalance = dbUser ? Number(dbUser.balance || 0) : 0;
-          const currentCompleted = dbUser ? Number(dbUser.totalTasksCompleted || 0) : 0;
-          const realUid = dbUser?.uid || userId;
+      const { data: dbUsersByUID } = await supabase
+        .from('users')
+        .select('uid, UID, balance, totalTasksCompleted')
+        .in('UID', userIds);
 
-          const nextBal = currentBalance + update.rewardSum;
-          await supabase.from('users').update({
-            balance: nextBal,
-            "CM Coins": nextBal,
-            cm_coins: nextBal,
-            totalTasksCompleted: currentCompleted + update.completedCount
-          }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
-        } catch (err) {
-          console.error(`Failed to update rewards for user ${userId}:`, err);
-        }
+      const userMap = new Map<string, any>();
+      (dbUsersByUid || []).forEach(u => {
+        if (u.uid) userMap.set(u.uid, u);
+        if (u.UID) userMap.set(u.UID, u);
+      });
+      (dbUsersByUID || []).forEach(u => {
+        if (u.uid) userMap.set(u.uid, u);
+        if (u.UID) userMap.set(u.UID, u);
+      });
+
+      // 2. Update user balances in fast parallel chunks
+      const userEntries = Array.from(userUpdates.entries());
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < userEntries.length; i += CHUNK_SIZE) {
+        const chunk = userEntries.slice(i, i + CHUNK_SIZE);
+        await Promise.all(chunk.map(async ([userId, update]) => {
+          try {
+            const userRecord = userMap.get(userId);
+            let currentBalance = userRecord ? Number(userRecord.balance || 0) : 0;
+            let currentCompleted = userRecord ? Number(userRecord.totalTasksCompleted || 0) : 0;
+            const realUid = userRecord?.uid || userRecord?.UID || userId;
+
+            // If user record wasn't in cache, single fallback fetch
+            if (!userRecord) {
+              const { data: singleUser } = await supabase
+                .from('users')
+                .select('uid, UID, balance, totalTasksCompleted')
+                .or(`uid.eq.${userId},UID.eq.${userId}`)
+                .maybeSingle();
+              if (singleUser) {
+                currentBalance = Number(singleUser.balance || 0);
+                currentCompleted = Number(singleUser.totalTasksCompleted || 0);
+              }
+            }
+
+            const rewardToAdd = Math.round(update.rewardSum * 1000000) / 1000000;
+            const nextBal = Math.round((currentBalance + rewardToAdd) * 1000000) / 1000000;
+
+            await supabase.from('users').update({
+              balance: nextBal,
+              "CM Coins": nextBal,
+              cm_coins: nextBal,
+              totalTasksCompleted: currentCompleted + update.completedCount
+            }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
+          } catch (err) {
+            console.error(`Failed to update user ${userId}:`, err);
+          }
+        }));
       }
 
-      // 2. Insert transactions in bulk
+      // 3. Insert transactions in bulk
       const transactionsToInsert = pendingClaims.map(claim => ({
         id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
         type: 'task_reward',
-        amount: Number(claim.reward || 0),
+        amount: parseFloat(String(claim.reward || 0)) || 0,
         timestamp: Date.now(),
         status: 'completed',
         receiverUid: claim.userId,
@@ -621,7 +662,7 @@ export function Admin() {
         await supabase.from('transactions').insert(batch).catch(e => console.error('Batch tx insert error:', e));
       }
 
-      // 3. Upsert completed tasks in bulk
+      // 4. Upsert completed tasks in bulk
       const completedTasksToUpsert = pendingClaims.map(claim => ({
         id: `${claim.userId}_${claim.taskId}`,
         userId: claim.userId,
@@ -635,7 +676,7 @@ export function Admin() {
         await supabase.from('completedTasks').upsert(batch).catch(e => console.error('Batch completedTasks upsert error:', e));
       }
 
-      // 4. Update taskClaims status to 'approved' in bulk
+      // 5. Update taskClaims status to 'approved' in bulk
       const claimIds = pendingClaims.map(c => c.id);
       for (let i = 0; i < claimIds.length; i += 100) {
         const batch = claimIds.slice(i, i + 100);
