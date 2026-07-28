@@ -659,7 +659,11 @@ export function Admin() {
 
       for (let i = 0; i < transactionsToInsert.length; i += 100) {
         const batch = transactionsToInsert.slice(i, i + 100);
-        await supabase.from('transactions').insert(batch).catch(e => console.error('Batch tx insert error:', e));
+        try {
+          await supabase.from('transactions').insert(batch);
+        } catch (e) {
+          console.error('Batch tx insert error:', e);
+        }
       }
 
       // 4. Upsert completed tasks in bulk
@@ -673,14 +677,22 @@ export function Admin() {
 
       for (let i = 0; i < completedTasksToUpsert.length; i += 100) {
         const batch = completedTasksToUpsert.slice(i, i + 100);
-        await supabase.from('completedTasks').upsert(batch).catch(e => console.error('Batch completedTasks upsert error:', e));
+        try {
+          await supabase.from('completedTasks').upsert(batch);
+        } catch (e) {
+          console.error('Batch completedTasks upsert error:', e);
+        }
       }
 
       // 5. Update taskClaims status to 'approved' in bulk
       const claimIds = pendingClaims.map(c => c.id);
       for (let i = 0; i < claimIds.length; i += 100) {
         const batch = claimIds.slice(i, i + 100);
-        await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch).catch(e => console.error('Batch claims update error:', e));
+        try {
+          await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch);
+        } catch (e) {
+          console.error('Batch claims update error:', e);
+        }
       }
 
       toast.dismiss(toastId);
@@ -711,13 +723,21 @@ export function Admin() {
       const completedTaskIds = pendingClaims.map(claim => `${claim.userId}_${claim.taskId}`);
       for (let i = 0; i < completedTaskIds.length; i += 100) {
         const batch = completedTaskIds.slice(i, i + 100);
-        await supabase.from('completedTasks').delete().in('id', batch).catch(e => console.error(e));
+        try {
+          await supabase.from('completedTasks').delete().in('id', batch);
+        } catch (e) {
+          console.error('Batch completedTasks delete error:', e);
+        }
       }
 
       const claimIds = pendingClaims.map(c => c.id);
       for (let i = 0; i < claimIds.length; i += 100) {
         const batch = claimIds.slice(i, i + 100);
-        await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch).catch(e => console.error(e));
+        try {
+          await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch);
+        } catch (e) {
+          console.error('Batch claims reject error:', e);
+        }
       }
 
       toast.dismiss(toastId);
