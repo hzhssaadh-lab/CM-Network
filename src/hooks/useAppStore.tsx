@@ -171,6 +171,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               } catch(e) { console.warn("Failed to fetch IP", e); }
             }
 
+            // Coin Protection & Reconcile: Ensure users never lose coin data across legacy columns
+            const bestCm = Math.max(Number(u.balance || 0), Number(u['CM Coins'] || 0), Number(u.cm_coins || 0));
+            const bestUsdt = Math.max(Number(u.usdtBalance || 0), Number(u['USDT'] || 0), Number(u.usdtbalance || 0));
+            if (bestCm > Number(u.balance || 0) || bestUsdt > Number(u.usdtBalance || 0) || Number(u['CM Coins'] || 0) !== bestCm || Number(u.cm_coins || 0) !== bestCm || Number(u['USDT'] || 0) !== bestUsdt || Number(u.usdtbalance || 0) !== bestUsdt) {
+              u.balance = bestCm;
+              u['CM Coins'] = bestCm;
+              u.cm_coins = bestCm;
+              u.usdtBalance = bestUsdt;
+              u['USDT'] = bestUsdt;
+              u.usdtbalance = bestUsdt;
+              updates.balance = bestCm;
+              updates['CM Coins'] = bestCm;
+              updates.cm_coins = bestCm;
+              updates.usdtBalance = bestUsdt;
+              updates['USDT'] = bestUsdt;
+              updates.usdtbalance = bestUsdt;
+              needsUpdate = true;
+            }
+
             if (needsUpdate) {
               await supabase.from('users').update(updates).eq('uid', sUser.id);
             }
@@ -414,9 +433,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         matchConditions.push(`email.ilike.${user.email}`);
       }
 
+      const payload: any = { ...data };
+      if (payload.balance !== undefined) {
+        payload["CM Coins"] = payload.balance;
+        payload.cm_coins = payload.balance;
+      }
+      if (payload.usdtBalance !== undefined) {
+        payload["USDT"] = payload.usdtBalance;
+        payload.usdtbalance = payload.usdtBalance;
+      }
+
       const { error } = await supabase
         .from('users')
-        .update(data)
+        .update(payload)
         .or(matchConditions.join(','));
 
       if (error) {
@@ -433,7 +462,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     // Ignore ad watch stats from realtime updates to prevent overwriting local progress
     // if the columns are missing or out of sync in the DB.
-    const safeData = { ...data };
+    const safeData: any = { ...data };
+    if (safeData.balance !== undefined) {
+      safeData["CM Coins"] = safeData.balance;
+      safeData.cm_coins = safeData.balance;
+    }
+    if (safeData.usdtBalance !== undefined) {
+      safeData["USDT"] = safeData.usdtBalance;
+      safeData.usdtbalance = safeData.usdtBalance;
+    }
     delete safeData.cmAdsWatchedToday;
     delete safeData.totalCmAdsWatched;
     delete safeData.lastCmAdWatchDate;

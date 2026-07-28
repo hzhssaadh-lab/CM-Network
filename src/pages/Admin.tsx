@@ -213,17 +213,64 @@ export function Admin() {
   const handleSaveUser = async () => {
     if (!editingUser) return;
     try {
+      const newBal = parseFloat(editBalance) || 0;
+      const newUsdt = parseFloat(editUsdtBalance) || 0;
       await supabase.from('users').update({
-        balance: parseFloat(editBalance) || 0,
-        "CM Coins": parseFloat(editBalance) || 0,
-        usdtBalance: parseFloat(editUsdtBalance) || 0,
-        "USDT": parseFloat(editUsdtBalance) || 0,
+        balance: newBal,
+        "CM Coins": newBal,
+        cm_coins: newBal,
+        usdtBalance: newUsdt,
+        "USDT": newUsdt,
+        usdtbalance: newUsdt,
         miningRate: parseFloat(editMiningRate) || 0,
       }).eq('uid', editingUser.uid);
       setEditingUser(null);
       fetchData();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleSyncAllUserCoins = async () => {
+    setLoading(true);
+    toast.loading("Scanning and protecting all user balances in database...");
+    try {
+      let offset = 0;
+      let totalSynced = 0;
+      while (true) {
+        const { data: users, error } = await supabase.from('users').select('uid, email, balance, "CM Coins", cm_coins, usdtBalance, "USDT", usdtbalance').range(offset, offset + 999);
+        if (error || !users || users.length === 0) break;
+        
+        for (const u of users) {
+          const maxCm = Math.max(Number(u.balance || 0), Number(u['CM Coins'] || 0), Number(u.cm_coins || 0));
+          const maxUsdt = Math.max(Number(u.usdtBalance || 0), Number(u['USDT'] || 0), Number(u.usdtbalance || 0));
+          
+          const cmDiff = Math.abs(maxCm - Number(u.balance || 0)) > 1e-6 || Math.abs(maxCm - Number(u['CM Coins'] || 0)) > 1e-6 || Math.abs(maxCm - Number(u.cm_coins || 0)) > 1e-6;
+          const usdtDiff = Math.abs(maxUsdt - Number(u.usdtBalance || 0)) > 1e-6 || Math.abs(maxUsdt - Number(u['USDT'] || 0)) > 1e-6 || Math.abs(maxUsdt - Number(u.usdtbalance || 0)) > 1e-6;
+          
+          if (cmDiff || usdtDiff) {
+            await supabase.from('users').update({
+              balance: maxCm,
+              'CM Coins': maxCm,
+              cm_coins: maxCm,
+              usdtBalance: maxUsdt,
+              'USDT': maxUsdt,
+              usdtbalance: maxUsdt
+            }).eq('uid', u.uid);
+            totalSynced++;
+          }
+        }
+        if (users.length < 1000) break;
+        offset += 1000;
+      }
+      toast.dismiss();
+      toast.success(`Successfully scanned database! Protected & synced coin balances for ${totalSynced} users.`);
+      fetchData();
+    } catch (err: any) {
+      toast.dismiss();
+      toast.error("Error syncing user balances: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -745,6 +792,22 @@ export function Admin() {
           </button>
       </div>
 
+      <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_30px_rgba(34,197,94,0.08)]">
+          <div>
+              <h3 className="text-lg font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-green-400" /> Protect & Sync All User Coins
+              </h3>
+              <p className="text-xs text-green-400/80 mt-1 max-w-2xl">Ensures no user loses coins due to column discrepancies. Scans the entire database and synchronizes balance, CM Coins, and cm_coins (as well as USDT balances) to each user&apos;s maximum earned amount.</p>
+          </div>
+          <button 
+            onClick={handleSyncAllUserCoins}
+            disabled={loading}
+            className="bg-green-500 text-black hover:bg-green-400 font-black px-6 py-4 rounded-xl transition-all text-xs uppercase tracking-widest shrink-0 shadow-[0_0_20px_rgba(34,197,94,0.4)] active:scale-95 disabled:opacity-50"
+          >
+            {loading ? 'Syncing...' : '🛡️ Sync & Protect Coins'}
+          </button>
+      </div>
+
       <div className="flex space-x-4 mb-6 overflow-x-auto pb-2">
         <button 
           onClick={() => setActiveTab('users')}
@@ -1024,10 +1087,20 @@ export function Admin() {
                         let needsUpdate = false;
                         
                         const newBalance = Math.max(Number(user.balance || 0), Number(row.cm_coins || row.balance || 0));
-                        if (newBalance > Number(user.balance || 0)) { updates.balance = newBalance; needsUpdate = true; }
+                        if (newBalance > Number(user.balance || 0)) { 
+                          updates.balance = newBalance; 
+                          updates['CM Coins'] = newBalance;
+                          updates.cm_coins = newBalance;
+                          needsUpdate = true; 
+                        }
                         
                         const newUsdt = Math.max(Number(user.usdtBalance || 0), Number(row.usdt || row.usdtBalance || row.usdtbalance || 0));
-                        if (newUsdt > Number(user.usdtBalance || 0)) { updates.usdtBalance = newUsdt; needsUpdate = true; }
+                        if (newUsdt > Number(user.usdtBalance || 0)) { 
+                          updates.usdtBalance = newUsdt; 
+                          updates['USDT'] = newUsdt;
+                          updates.usdtbalance = newUsdt;
+                          needsUpdate = true; 
+                        }
 
                         if (needsUpdate) {
                           await supabase.from('users').update(updates).eq('uid', user.uid);

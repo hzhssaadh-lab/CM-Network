@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { AdBanner } from '../components/AdBanner';
 
 export function Dashboard() {
-  const { user, updateUser, updateLocalUser } = useApp();
+  const { user, updateUser, updateLocalUser, refreshUser } = useApp();
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
   const [mineState, setMineState] = useState<'IDLE' | 'MINING' | 'READY'>('IDLE');
   const [currentBalance, setCurrentBalance] = useState(user?.balance || 0);
@@ -78,7 +78,9 @@ export function Dashboard() {
           amount: earned,
           timestamp: Date.now(),
           status: 'completed',
-          receiverUid: userId
+          receiverUid: userId,
+          senderUid: 'system',
+          description: 'Mining Reward'
         }]);
 
         updateLocalUser({
@@ -87,6 +89,8 @@ export function Dashboard() {
             miningSessionStartTime: null,
             miningSessionEndTime: null
         });
+
+        await refreshUser();
 
         toast.success(`Mining session completed! You earned ${formatCurrency(earned)} CM.`, {
             icon: '⛏️',
