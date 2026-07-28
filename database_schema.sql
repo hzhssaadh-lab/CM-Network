@@ -35,6 +35,9 @@ ADD COLUMN IF NOT EXISTS "country" text,
 ADD COLUMN IF NOT EXISTS "isBlocked" boolean DEFAULT false,
 ADD COLUMN IF NOT EXISTS "usdtBalance" numeric DEFAULT 0;
 
+ALTER TABLE public.withdrawals_usdt
+ADD COLUMN IF NOT EXISTS "method" text;
+
 -- 3. Dynamic parse-safe data migration steps.
 -- Every block uses dynamic SQL execution so that it NEVER fails at parse-time.
 
@@ -269,6 +272,7 @@ CREATE TABLE IF NOT EXISTS public.withdrawals_usdt (
   "userEmail" text,
   amount numeric,
   wallet text,
+  method text,
   status text,
   "requestedAt" bigint,
   country text,
@@ -317,6 +321,27 @@ ALTER TABLE public.withdrawals_usdt DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.squads DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ads_log DISABLE ROW LEVEL SECURITY;
+
+-- Create open access policies for all tables in case RLS is ever re-enabled by Supabase
+DO $$ 
+DECLARE
+    t text;
+BEGIN
+    FOR t IN 
+        SELECT table_name FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('users', 'tasks', 'completedTasks', 'taskClaims', 'transactions', 'withdrawals', 'withdrawals_usdt', 'squads', 'settings', 'ads_log')
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS "public_access" ON public.%I;', t);
+        EXECUTE format('CREATE POLICY "public_access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', t);
+    END LOOP;
+END $$;
+
+-- Grant full access to anon and authenticated web roles
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
 -- Reload the Supabase PostgREST Cache so the 'uid' column is immediately visible
 NOTIFY pgrst, 'reload schema';

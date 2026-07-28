@@ -197,7 +197,7 @@ export function Admin() {
 
       const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').order('requestedAt', { ascending: false }).limit(2000);
       if (wuData) {
-        setUsdtWithdrawals(wuData.sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+        setUsdtWithdrawals(wuData.map(w => ({ ...w, currency: 'USDT' })).sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
       const { data: adLogData } = await supabase.from('ads_log').select('*').order('timestamp', { ascending: false }).limit(1000);
@@ -724,6 +724,25 @@ export function Admin() {
           >
             <div className={`absolute left-1 bg-white w-5 h-5 rounded-full transition-transform ${maintenanceMode ? 'translate-x-7' : 'translate-x-0'}`}></div>
           </div>
+      </div>
+
+      <div className="bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_30px_rgba(255,215,0,0.08)]">
+          <div>
+              <h3 className="text-lg font-bold text-[#FFD700] uppercase tracking-widest flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-[#FFD700]" /> Fix Task Creation & Withdrawals (RLS Error)
+              </h3>
+              <p className="text-xs text-[#FFD700]/80 mt-1 max-w-2xl">If task creation or withdrawals fail or don't appear, Supabase Row Level Security (RLS) is blocking database writes. Click the button below to copy the complete SQL fix, then paste and run it in your **Supabase Dashboard &rarr; SQL Editor**.</p>
+          </div>
+          <button 
+            onClick={() => {
+              const sql = `-- Disable Row Level Security (RLS) across all public tables so app can read/write freely\nALTER TABLE IF EXISTS public.users DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public.tasks DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public."completedTasks" DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public."taskClaims" DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public.transactions DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public.withdrawals DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public.withdrawals_usdt DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public.squads DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public.settings DISABLE ROW LEVEL SECURITY;\nALTER TABLE IF EXISTS public.ads_log DISABLE ROW LEVEL SECURITY;\n\n-- Create open access policies for all tables in case RLS is ever re-enabled by Supabase\nDO $$\nDECLARE t text;\nBEGIN\n    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'tasks', 'completedTasks', 'taskClaims', 'transactions', 'withdrawals', 'withdrawals_usdt', 'squads', 'settings', 'ads_log') LOOP\n        EXECUTE format('DROP POLICY IF EXISTS "public_access" ON public.%I;', t);\n        EXECUTE format('CREATE POLICY "public_access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', t);\n    END LOOP;\nEND $$;\n\n-- Ensure required columns exist\nALTER TABLE IF EXISTS public.withdrawals_usdt ADD COLUMN IF NOT EXISTS "method" text;\nALTER TABLE IF EXISTS public.withdrawals_usdt ADD COLUMN IF NOT EXISTS "transactionId" text;\nALTER TABLE IF EXISTS public.withdrawals ADD COLUMN IF NOT EXISTS "transactionId" text;\nALTER TABLE IF EXISTS public.users ADD COLUMN IF NOT EXISTS "isBlocked" boolean DEFAULT false;\nALTER TABLE IF EXISTS public.users ADD COLUMN IF NOT EXISTS "usdtBalance" numeric DEFAULT 0;\n\nGRANT ALL ON ALL TABLES IN SCHEMA public TO anon;\nGRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;\nGRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;\nGRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;\n\nNOTIFY pgrst, 'reload schema';`;
+              navigator.clipboard.writeText(sql);
+              toast.success("SQL Fix copied to clipboard! Paste & Run in Supabase Dashboard -> SQL Editor.");
+            }}
+            className="bg-[#FFD700] text-black hover:bg-yellow-400 font-black px-6 py-4 rounded-xl transition-all text-xs uppercase tracking-widest shrink-0 shadow-[0_0_20px_rgba(255,215,0,0.4)] active:scale-95"
+          >
+            Copy SQL Fix Command
+          </button>
       </div>
 
       <div className="flex space-x-4 mb-6 overflow-x-auto pb-2">

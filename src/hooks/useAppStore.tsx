@@ -886,28 +886,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 5) return { success: false, message: "Minimum withdrawal is 5" };
 
     try {
-      const nextBal = user.balance - amount;
-      await supabase.from('users').update({
+      const nextBal = Number((user.balance - amount).toFixed(4));
+      const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
+      if (user.email && !user.email.includes('anonymous')) {
+        matchConditions.push(`email.ilike.${user.email}`);
+      }
+
+      let updatePayload: any = {
         balance: nextBal,
         "CM Coins": nextBal,
         cm_coins: nextBal
-      }).eq('uid', user.uid);
+      };
+
+      let { error: updateError } = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+      if (updateError) {
+        delete updatePayload["CM Coins"];
+        delete updatePayload.cm_coins;
+        const retry = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+        updateError = retry.error;
+      }
+      if (updateError) {
+        console.error("Failed to update user CM balance:", updateError);
+        throw updateError;
+      }
 
       const wId = 'w_' + Date.now();
       const txId = 'tx_' + Date.now();
       
-      await supabase.from('transactions').insert([{
-        id: txId,
-        type: 'withdrawal',
-        amount: -amount,
-        timestamp: Date.now(),
-        status: 'pending',
-        receiverUid: 'system',
-        senderUid: user.uid,
-        description: `Withdrawal request to ${wallet}`
-      }]);
+      try {
+        await supabase.from('transactions').insert([{
+          id: txId,
+          type: 'withdrawal',
+          amount: -amount,
+          timestamp: Date.now(),
+          status: 'pending',
+          receiverUid: 'system',
+          senderUid: user.uid,
+          description: `Withdrawal request to ${wallet}`
+        }]);
+      } catch (txErr) {
+        console.warn("Non-fatal transaction insert warning:", txErr);
+      }
 
-      await supabase.from('withdrawals').insert([{
+      const { error: wErr } = await supabase.from('withdrawals').insert([{
         id: wId,
         userId: user.uid,
         userName: user.name || 'Anonymous',
@@ -919,11 +940,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         country: user.country || 'Unknown',
         transactionId: txId
       }]);
+      if (wErr) {
+        console.error("CM withdrawal insert error:", wErr);
+        // Rollback balance deduction in database
+        const rollbackPayload: any = {
+          balance: user.balance,
+          "CM Coins": user.balance,
+          cm_coins: user.balance
+        };
+        await supabase.from('users').update(rollbackPayload).or(matchConditions.join(','));
+        if (wErr.code === '42501' || wErr.message?.includes('security policy') || wErr.message?.includes('permission')) {
+          return { success: false, message: "Database Permission Error (RLS). Please ask Admin to run the SQL permissions fix in Admin panel." };
+        }
+        throw wErr;
+      }
+
+      setUser(prev => prev ? {
+        ...prev,
+        balance: nextBal,
+        "CM Coins": nextBal,
+        cm_coins: nextBal
+      } : null);
 
       return { success: true, message: "Withdrawal requested successfully!" };
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      return { success: false, message: "Request failed. Please try again." };
+      return { success: false, message: e.message || "Request failed. Please try again." };
     }
   };
 
@@ -933,40 +975,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (amount < 12) return { success: false, message: "Minimum withdrawal is 12 USDT" };
 
     try {
-      const nextUsdtBal = (user.usdtBalance || 0) - amount;
-      await supabase.from('users').update({
+      const nextUsdtBal = Number(((user.usdtBalance || 0) - amount).toFixed(4));
+      const matchConditions = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
+      if (user.email && !user.email.includes('anonymous')) {
+        matchConditions.push(`email.ilike.${user.email}`);
+      }
+
+      let updatePayload: any = {
         usdtBalance: nextUsdtBal,
         "USDT": nextUsdtBal,
         usdtbalance: nextUsdtBal
-      }).eq('uid', user.uid);
+      };
+
+      let { error: updateError } = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+      if (updateError) {
+        delete updatePayload.USDT;
+        delete updatePayload.usdtbalance;
+        const retry = await supabase.from('users').update(updatePayload).or(matchConditions.join(','));
+        updateError = retry.error;
+      }
+      if (updateError) {
+        console.error("Failed to update user USDT balance:", updateError);
+        throw updateError;
+      }
 
       const wId = 'w_usdt_' + Date.now();
       const txId = 'tx_' + Date.now();
 
-      await supabase.from('transactions').insert([{
-        id: txId,
-        type: 'withdrawal',
-        amount: -amount,
-        timestamp: Date.now(),
-        status: 'pending',
-        receiverUid: 'system',
-        senderUid: user.uid,
-        description: `USDT Withdrawal request to ${wallet}`
-      }]);
+      try {
+        await supabase.from('transactions').insert([{
+          id: txId,
+          type: 'withdrawal',
+          amount: -amount,
+          timestamp: Date.now(),
+          status: 'pending',
+          receiverUid: 'system',
+          senderUid: user.uid,
+          description: `USDT Withdrawal request to ${wallet} [${method || 'Binance UID'}]`
+        }]);
+      } catch (txErr) {
+        console.warn("Non-fatal transaction insert warning:", txErr);
+      }
       
-      await supabase.from('withdrawals_usdt').insert([{
+      const wPayload: any = {
         id: wId,
         userId: user.uid,
         userName: user.name || 'Anonymous',
         userEmail: user.email || 'Unknown',
         amount: amount,
-        wallet: wallet,
+        wallet: `${wallet} [${method || 'Binance UID'}]`,
         method: method || 'TRC20 / Binance UID',
         status: 'pending',
         requestedAt: Date.now(),
         country: user.country || 'Unknown',
         transactionId: txId
-      }]);
+      };
+
+      let { error: wErr } = await supabase.from('withdrawals_usdt').insert([wPayload]);
+      if (wErr) {
+        delete wPayload.method;
+        const retry = await supabase.from('withdrawals_usdt').insert([wPayload]);
+        wErr = retry.error;
+      }
+      if (wErr) {
+        console.error("USDT withdrawal insert error:", wErr);
+        // Rollback USDT balance in database
+        const rollbackPayload: any = {
+          usdtBalance: user.usdtBalance || 0,
+          "USDT": user.usdtBalance || 0,
+          usdtbalance: user.usdtBalance || 0
+        };
+        await supabase.from('users').update(rollbackPayload).or(matchConditions.join(','));
+        if (wErr.code === '42501' || wErr.message?.includes('security policy') || wErr.message?.includes('permission')) {
+          return { success: false, message: "Database Permission Error (RLS). Please ask Admin to run the SQL permissions fix in Admin panel." };
+        }
+        throw wErr;
+      }
+
+      setUser(prev => prev ? {
+        ...prev,
+        usdtBalance: nextUsdtBal,
+        USDT: nextUsdtBal,
+        usdtbalance: nextUsdtBal
+      } : null);
 
       return { success: true, message: "USDT Withdrawal requested successfully!" };
     } catch (e: any) {
