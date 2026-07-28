@@ -43,6 +43,7 @@ export function Admin() {
   const [taskReward, setTaskReward] = useState('');
   const [taskType, setTaskType] = useState<AppTask['type']>('daily');
   const [taskUrl, setTaskUrl] = useState('');
+  const [taskAutoApprove, setTaskAutoApprove] = useState(false);
 
   // Ads Settings State
   const [showAds, setShowAds] = useState(false);
@@ -445,6 +446,7 @@ export function Admin() {
         type: taskType,
         url: taskUrl.trim(),
         isActive: true,
+        autoApprove: taskAutoApprove,
       };
 
       if (editingTask) {
@@ -491,26 +493,30 @@ export function Admin() {
     setLoading(true);
     try {
       const rewardNum = parseFloat(String(claim.reward || 0)) || 0;
-      const { data: dbUser } = await supabase
+      const { data: dbUser, error: fetchError } = await supabase
         .from('users')
         .select('balance, totalTasksCompleted, uid, UID')
-        .or(`uid.eq.${claim.userId},UID.eq.${claim.userId}`)
+        .or(`uid.eq."${claim.userId}",UID.eq."${claim.userId}"`)
         .maybeSingle();
+
+      if (fetchError) throw fetchError;
 
       if (dbUser) {
         const currentBal = Number(dbUser.balance || 0);
         const nextBal = Math.round((currentBal + rewardNum) * 1000000) / 1000000;
         const realUid = dbUser.uid || dbUser.UID || claim.userId;
-        await supabase.from('users').update({
+        const { error: updateError } = await supabase.from('users').update({
           balance: nextBal,
           "CM Coins": nextBal,
           cm_coins: nextBal,
           totalTasksCompleted: (dbUser.totalTasksCompleted || 0) + 1
-        }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
+        }).or(`uid.eq."${realUid}",UID.eq."${realUid}"`);
+        
+        if (updateError) throw updateError;
       }
       
       const txId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-      await supabase.from('transactions').insert([{
+      const { error: txError } = await supabase.from('transactions').insert([{
         id: txId,
         type: 'task_reward',
         amount: rewardNum,
@@ -519,18 +525,21 @@ export function Admin() {
         receiverUid: claim.userId,
         description: `Admin approved task: ${claim.taskTitle}`
       }]);
+      if (txError) throw txError;
       
-      await supabase.from('completedTasks').upsert({
+      const { error: completedError } = await supabase.from('completedTasks').upsert({
         id: `${claim.userId}_${claim.taskId}`,
         userId: claim.userId,
         status: 'completed',
         taskId: claim.taskId,
         completedAt: Date.now()
       });
+      if (completedError) throw completedError;
       
-      await supabase.from('taskClaims').update({
+      const { error: claimError } = await supabase.from('taskClaims').update({
         status: 'approved'
       }).eq('id', claim.id);
+      if (claimError) throw claimError;
 
       toast.success(`Task approved! ${rewardNum} CM reward credited to user.`);
       await fetchData();
@@ -623,7 +632,7 @@ export function Admin() {
               const { data: singleUser } = await supabase
                 .from('users')
                 .select('uid, UID, balance, totalTasksCompleted')
-                .or(`uid.eq.${userId},UID.eq.${userId}`)
+                .or(`uid.eq."${userId}",UID.eq."${userId}"`)
                 .maybeSingle();
               if (singleUser) {
                 currentBalance = Number(singleUser.balance || 0);
@@ -634,14 +643,17 @@ export function Admin() {
             const rewardToAdd = Math.round(update.rewardSum * 1000000) / 1000000;
             const nextBal = Math.round((currentBalance + rewardToAdd) * 1000000) / 1000000;
 
-            await supabase.from('users').update({
+            const { error: updateError } = await supabase.from('users').update({
               balance: nextBal,
               "CM Coins": nextBal,
               cm_coins: nextBal,
               totalTasksCompleted: currentCompleted + update.completedCount
-            }).or(`uid.eq.${realUid},UID.eq.${realUid}`);
+            }).or(`uid.eq."${realUid}",UID.eq."${realUid}"`);
+            
+            if (updateError) throw updateError;
           } catch (err) {
             console.error(`Failed to update user ${userId}:`, err);
+            throw err;
           }
         }));
       }
@@ -659,11 +671,8 @@ export function Admin() {
 
       for (let i = 0; i < transactionsToInsert.length; i += 100) {
         const batch = transactionsToInsert.slice(i, i + 100);
-        try {
-          await supabase.from('transactions').insert(batch);
-        } catch (e) {
-          console.error('Batch tx insert error:', e);
-        }
+        const { error } = await supabase.from('transactions').insert(batch);
+        if (error) throw error;
       }
 
       // 4. Upsert completed tasks in bulk
@@ -677,22 +686,16 @@ export function Admin() {
 
       for (let i = 0; i < completedTasksToUpsert.length; i += 100) {
         const batch = completedTasksToUpsert.slice(i, i + 100);
-        try {
-          await supabase.from('completedTasks').upsert(batch);
-        } catch (e) {
-          console.error('Batch completedTasks upsert error:', e);
-        }
+        const { error } = await supabase.from('completedTasks').upsert(batch);
+        if (error) throw error;
       }
 
       // 5. Update taskClaims status to 'approved' in bulk
       const claimIds = pendingClaims.map(c => c.id);
       for (let i = 0; i < claimIds.length; i += 100) {
         const batch = claimIds.slice(i, i + 100);
-        try {
-          await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch);
-        } catch (e) {
-          console.error('Batch claims update error:', e);
-        }
+        const { error } = await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch);
+        if (error) throw error;
       }
 
       toast.dismiss(toastId);
@@ -723,21 +726,15 @@ export function Admin() {
       const completedTaskIds = pendingClaims.map(claim => `${claim.userId}_${claim.taskId}`);
       for (let i = 0; i < completedTaskIds.length; i += 100) {
         const batch = completedTaskIds.slice(i, i + 100);
-        try {
-          await supabase.from('completedTasks').delete().in('id', batch);
-        } catch (e) {
-          console.error('Batch completedTasks delete error:', e);
-        }
+        const { error } = await supabase.from('completedTasks').delete().in('id', batch);
+        if (error) throw error;
       }
 
       const claimIds = pendingClaims.map(c => c.id);
       for (let i = 0; i < claimIds.length; i += 100) {
         const batch = claimIds.slice(i, i + 100);
-        try {
-          await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch);
-        } catch (e) {
-          console.error('Batch claims reject error:', e);
-        }
+        const { error } = await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch);
+        if (error) throw error;
       }
 
       toast.dismiss(toastId);
@@ -774,14 +771,14 @@ export function Admin() {
         await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      const { data: dbUser } = await supabase.from('users').select('balance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+      const { data: dbUser } = await supabase.from('users').select('balance').or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`).single();
       if (dbUser) {
         const nextBal = (dbUser.balance || 0) + w.amount;
         await supabase.from('users').update({
           balance: nextBal,
           "CM Coins": nextBal,
           cm_coins: nextBal
-        }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+        }).or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`);
       }
 
       fetchData();
@@ -843,14 +840,14 @@ export function Admin() {
           if (w.transactionId) {
             await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
           }
-          const { data: dbUser } = await supabase.from('users').select('balance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+          const { data: dbUser } = await supabase.from('users').select('balance').or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`).single();
           if (dbUser) {
             const nextBal = (dbUser.balance || 0) + (w.amount || 0);
             await supabase.from('users').update({
               balance: nextBal,
               "CM Coins": nextBal,
               cm_coins: nextBal
-            }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+            }).or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`);
           }
           count++;
         } catch (err) {
@@ -904,14 +901,14 @@ export function Admin() {
         await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
       }
 
-      const { data: dbUser } = await supabase.from('users').select('usdtBalance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+      const { data: dbUser } = await supabase.from('users').select('usdtBalance').or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`).single();
       if (dbUser) {
         const nextUsdtBal = (dbUser.usdtBalance || 0) + w.amount;
         await supabase.from('users').update({
           usdtBalance: nextUsdtBal,
           "USDT": nextUsdtBal,
           usdtbalance: nextUsdtBal
-        }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+        }).or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`);
       }
 
       fetchData();
@@ -982,7 +979,7 @@ export function Admin() {
             await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
           }
 
-          const { data: dbUser } = await supabase.from('users').select('usdtBalance, USDT, usdtbalance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+          const { data: dbUser } = await supabase.from('users').select('usdtBalance, USDT, usdtbalance').or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`).single();
           if (dbUser) {
             const currentBal = dbUser.usdtBalance ?? dbUser.USDT ?? dbUser.usdtbalance ?? 0;
             const nextUsdtBal = currentBal + (w.amount || 0);
@@ -990,7 +987,7 @@ export function Admin() {
               usdtBalance: nextUsdtBal,
               "USDT": nextUsdtBal,
               usdtbalance: nextUsdtBal
-            }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+            }).or(`uid.eq."${w.userId}",UID.eq."${w.userId}"`);
           }
           count++;
         } catch (err) {
@@ -1637,6 +1634,7 @@ export function Admin() {
                 setTaskReward('0');
                 setTaskType('daily');
                 setTaskUrl('');
+                setTaskAutoApprove(false);
               }}
               className="text-xs px-4 py-2 bg-[#FFD700] text-black font-bold uppercase tracking-widest rounded-xl hover:bg-[#e6c200] transition-colors"
             >
@@ -1660,6 +1658,7 @@ export function Admin() {
                       setTaskReward((task.reward || 0).toString());
                       setTaskType(task.type || 'daily');
                       setTaskUrl(task.url || '');
+                      setTaskAutoApprove(task.autoApprove || false);
                     }}
                     className="text-[10px] px-3 py-1.5 bg-white/10 rounded-lg hover:bg-white/20 font-bold uppercase tracking-widest"
                   >
@@ -2148,6 +2147,18 @@ export function Admin() {
                   placeholder="https://..."
                   className="w-full bg-black/50 border border-white/10 rounded-xl p-3 focus:border-[#FFD700] outline-none transition-colors"
                 />
+              </div>
+              <div className="flex items-center gap-3 mt-4">
+                <input
+                  type="checkbox"
+                  id="autoApprove"
+                  checked={taskAutoApprove}
+                  onChange={(e) => setTaskAutoApprove(e.target.checked)}
+                  className="w-5 h-5 accent-[#FFD700]"
+                />
+                <label htmlFor="autoApprove" className="text-xs uppercase tracking-widest text-gray-500 font-bold cursor-pointer">
+                  Auto Approve (Reward given immediately on claim)
+                </label>
               </div>
             </div>
             <div className="flex space-x-4 mt-8">

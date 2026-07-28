@@ -84,6 +84,7 @@ export interface Task {
   type: 'twitter' | 'tiktok' | 'instagram' | 'youtube' | 'ad' | 'daily';
   url?: string;
   isActive: boolean;
+  autoApprove?: boolean;
 }
 
 export interface UserTask {

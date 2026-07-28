@@ -114,7 +114,7 @@ function DailyRewards() {
 }
 
 export function Tasks() {
-  const { user, adSettings } = useApp();
+  const { user, adSettings, refreshUser } = useApp();
   const [tasks, setTasks] = useState<AppTask[]>([]);
   const [completedTaskMap, setCompletedTaskMap] = useState<Map<string, string>>(new Map());
   const [claiming, setClaiming] = useState<string | null>(null);
@@ -183,29 +183,97 @@ export function Tasks() {
     
     setClaiming(task.id);
     try {
-      const claimId = `claim_${Date.now()}_${user.uid}`;
-      const { error: tcError } = await supabase.from('taskClaims').insert([{
-        id: claimId,
-        userId: user.uid,
-        userEmail: user.email || '',
-        userName: user.name || 'Anonymous',
-        taskId: task.id,
-        taskTitle: task.title || '',
-        reward: task.reward || 0,
-        status: 'pending',
-        timestamp: Date.now()
-      }]);
+      if (task.autoApprove) {
+        // Handle Auto Approve Logic
+        const rewardNum = Number(task.reward || 0);
+        
+        // 1. Get current user balance (fallback to state if query fails temporarily)
+        let currentBalance = Number(user.balance || 0);
+        const { data: dbUser } = await supabase.from('users').select('balance').eq('uid', user.uid).maybeSingle();
+        if (dbUser) {
+          currentBalance = Number(dbUser.balance || 0);
+        }
+        
+        const nextBal = Math.round((currentBalance + rewardNum) * 1000000) / 1000000;
+        
+        // 2. Update user balance
+        const { error: userErr } = await supabase.from('users').update({
+          balance: nextBal,
+          "CM Coins": nextBal,
+          cm_coins: nextBal,
+          totalTasksCompleted: (user.totalTasksCompleted || 0) + 1
+        }).eq('uid', user.uid);
+        if (userErr) throw userErr;
 
-      if (tcError && tcError.code !== '23505') {
-        throw new Error(tcError.message || 'Failed to submit task claim record to database.');
+        // 3. Insert transaction
+        const txId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        await supabase.from('transactions').insert([{
+          id: txId,
+          type: 'task_reward',
+          amount: rewardNum,
+          timestamp: Date.now(),
+          status: 'completed',
+          receiverUid: user.uid,
+          description: `Auto-approved task: ${task.title}`
+        }]);
+
+        // 4. Mark as completed in completedTasks
+        await supabase.from('completedTasks').upsert({
+          id: `${user.uid}_${task.id}`,
+          userId: user.uid,
+          status: 'completed',
+          taskId: task.id,
+          completedAt: Date.now()
+        });
+
+        // 5. Optionally create an approved claim record for history
+        const claimId = `claim_${Date.now()}_${user.uid}`;
+        await supabase.from('taskClaims').insert([{
+          id: claimId,
+          userId: user.uid,
+          userEmail: user.email || '',
+          userName: user.name || 'Anonymous',
+          taskId: task.id,
+          taskTitle: task.title || '',
+          reward: rewardNum,
+          status: 'approved',
+          timestamp: Date.now()
+        }]);
+
+        setCompletedTaskMap(prev => {
+          const next = new Map(prev);
+          next.set(task.id, 'completed');
+          return next;
+        });
+        if (refreshUser) await refreshUser();
+        toast.success(`Task "${task.title}" completed! ${rewardNum} CM credited.`);
+
+      } else {
+        // Standard Manual Approval Flow
+        const claimId = `claim_${Date.now()}_${user.uid}`;
+        const { error: tcError } = await supabase.from('taskClaims').insert([{
+          id: claimId,
+          userId: user.uid,
+          userEmail: user.email || '',
+          userName: user.name || 'Anonymous',
+          taskId: task.id,
+          taskTitle: task.title || '',
+          reward: task.reward || 0,
+          status: 'pending',
+          timestamp: Date.now()
+        }]);
+
+        if (tcError && tcError.code !== '23505') {
+          throw new Error(tcError.message || 'Failed to submit task claim record to database.');
+        }
+
+        setCompletedTaskMap(prev => {
+          const next = new Map(prev);
+          next.set(task.id, 'pending');
+          return next;
+        });
+        toast.success(`Task "${task.title}" submitted for verification!`);
       }
-
-      setCompletedTaskMap(prev => {
-        const next = new Map(prev);
-        next.set(task.id, 'pending');
-        return next;
-      });
-      toast.success(`Task "${task.title}" submitted for verification!`);
     } catch (err: any) {
       console.error("Task claim failed structure error:", err);
       toast.error('Failed to claim task: ' + (err.message || err.toString() || 'Unknown error.'));
