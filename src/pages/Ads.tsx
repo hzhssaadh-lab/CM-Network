@@ -3,7 +3,6 @@ import { useApp } from '../hooks/useAppStore';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet, Clock, CheckCircle2, XCircle, Grid } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { BannerAd } from '../components/BannerAd';
 
 export function Ads() {
   const { user, claimUsdtAdReward, claimAdReward, requestUsdtWithdrawal } = useApp();
