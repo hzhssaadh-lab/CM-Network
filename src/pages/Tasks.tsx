@@ -121,20 +121,6 @@ export function Tasks() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1483467';
-    script.setAttribute('data-cfasync', 'false');
-    script.async = true;
-    document.head.appendChild(script);
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (!user) return;
 
     const fetchTasks = async () => {
@@ -236,19 +222,6 @@ export function Tasks() {
       return {};
     }
   });
-
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = "https://cabinetavidgrasp.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
-    script.async = true;
-    document.head.appendChild(script);
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
 
   const handleClaimClick = (task: AppTask) => {
     if (task.type === 'ad' && !openedAdTasks[task.id]) {

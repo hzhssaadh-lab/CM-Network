@@ -3,6 +3,7 @@ import { useApp } from '../hooks/useAppStore';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, Wallet, Clock, CheckCircle2, XCircle, Grid } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { BannerAd } from '../components/BannerAd';
 
 export function Ads() {
   const { user, claimUsdtAdReward, claimAdReward, requestUsdtWithdrawal } = useApp();
@@ -28,6 +29,19 @@ export function Ads() {
 
   const totalUsdtEarned = (user?.totalAdsWatched || 0) * 0.001;
   const totalCmEarned = (user?.totalCmAdsWatched || 0) * 0.002;
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://cabinetavidgrasp.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js';
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -348,6 +362,7 @@ export function Ads() {
       {/* Ad Section - only show if not in withdraw mode */}
       {!withdrawMode && (
         <>
+          <BannerAd />
           {/* Ad Type Tabs */}
           <div className="flex gap-2 mb-6">
             <button 
