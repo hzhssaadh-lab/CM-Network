@@ -1,36 +1,59 @@
 import { useEffect, useRef } from 'react';
 
 export function BannerAd() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!iframeRef.current) return;
 
-    containerRef.current.innerHTML = '';
-
-    const confScript = document.createElement('script');
-    confScript.type = 'text/javascript';
-    confScript.text = `
-      atOptions = {
-        'key' : '5a2a6bc252f949f047b564163010e8a5',
-        'format' : 'iframe',
-        'height' : 90,
-        'width' : 728,
-        'params' : {}
-      };
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            html, body {
+              margin: 0;
+              padding: 0;
+              width: 100%;
+              height: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background-color: transparent;
+              overflow: hidden;
+            }
+          </style>
+        </head>
+        <body>
+          <script type="text/javascript">
+            var atOptions = {
+              'key' : '5a2a6bc252f949f047b564163010e8a5',
+              'format' : 'iframe',
+              'height' : 90,
+              'width' : 728,
+              'params' : {}
+            };
+          </script>
+          <script type="text/javascript" src="https://cabinetavidgrasp.com/5a2a6bc252f949f047b564163010e8a5/invoke.js"></script>
+        </body>
+      </html>
     `;
 
-    const invokeScript = document.createElement('script');
-    invokeScript.type = 'text/javascript';
-    invokeScript.src = 'https://cabinetavidgrasp.com/5a2a6bc252f949f047b564163010e8a5/invoke.js';
-
-    containerRef.current.appendChild(confScript);
-    containerRef.current.appendChild(invokeScript);
+    iframeRef.current.srcdoc = htmlContent;
   }, []);
 
   return (
-    <div className="my-4 flex justify-center items-center overflow-hidden w-full bg-black/30 border border-white/5 rounded-2xl p-2 min-h-[100px]">
-      <div ref={containerRef} className="max-w-full overflow-x-auto flex justify-center items-center" />
+    <div className="my-4 flex justify-center items-center overflow-hidden w-full bg-black/30 border border-white/5 rounded-2xl p-2 min-h-[105px]">
+      <iframe
+        ref={iframeRef}
+        title="Banner Advertisement"
+        width="728"
+        height="90"
+        className="max-w-full border-0 overflow-hidden"
+        scrolling="no"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+      />
     </div>
   );
 }

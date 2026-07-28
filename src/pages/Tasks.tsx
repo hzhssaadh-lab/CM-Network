@@ -122,14 +122,14 @@ export function Tasks() {
 
   useEffect(() => {
     const script = document.createElement('script');
-    script.src = '//dcbbwymp1bhlf.cloudfront.net/?wbbcd=1483467';
+    script.src = 'https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1483467';
     script.setAttribute('data-cfasync', 'false');
     script.async = true;
-    document.body.appendChild(script);
+    document.head.appendChild(script);
 
     return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
       }
     };
   }, []);
