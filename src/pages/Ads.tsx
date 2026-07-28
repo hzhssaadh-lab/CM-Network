@@ -54,26 +54,10 @@ export function Ads() {
     setLoadingHistory(false);
   };
 
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
-    script.async = true;
-    script.onerror = (e) => {
-      console.warn('CPM script load failed or blocked', e);
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
-
   if (!user) return null;
 
   const handleWatchAd = () => {
-    window.open("https://www.effectivecpmnetwork.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f", "_blank");
+    window.open("https://www.cabinetavidgrasp.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f", "_blank");
     processAdReward();
   };
 
@@ -99,7 +83,7 @@ export function Ads() {
   };
 
   const handleWatchCmAd = () => {
-    window.open("https://www.effectivecpmnetwork.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f", "_blank");
+    window.open("https://www.cabinetavidgrasp.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f", "_blank");
     processCmAdReward();
   };
 

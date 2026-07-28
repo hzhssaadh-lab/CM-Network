@@ -1071,6 +1071,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       let { error: wErr } = await supabase.from('withdrawals_usdt').insert([wPayload]);
       if (wErr) {
         delete wPayload.method;
+        delete wPayload.country;
+        delete wPayload.transactionId;
         const retry = await supabase.from('withdrawals_usdt').insert([wPayload]);
         wErr = retry.error;
       }

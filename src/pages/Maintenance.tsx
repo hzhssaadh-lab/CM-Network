@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, Send, MessageCircle, Twitter, Clock } from 'lucide-react';
-import { AdBanner } from '../components/AdBanner';
 import { UNIVERSAL_MAINTENANCE_END_MS } from '../lib/utils';
 
 interface MaintenanceProps {
@@ -159,11 +158,6 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
             <Twitter className="w-4 h-4 sm:w-5 sm:h-5" />
             <span>Follow X</span>
           </a>
-        </div>
-
-        {/* Banner Ad Placement */}
-        <div className="w-full pt-3 border-t border-white/10">
-          <AdBanner />
         </div>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { formatCurrency } from '../lib/utils';
 import { Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import { AdBanner } from '../components/AdBanner';
 
 export function Dashboard() {
   const { user, updateUser, updateLocalUser, refreshUser } = useApp();
@@ -271,15 +270,6 @@ export function Dashboard() {
              </motion.div>
           </div>
          </section>
-      </div>
-
-      <div className="lg:col-span-12 flex flex-col items-center justify-center mt-4 space-y-2">
-        <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest flex items-center gap-2">
-          <span className="w-4 h-[1px] bg-gray-700"></span>
-          External Promotion
-          <span className="w-4 h-[1px] bg-gray-700"></span>
-        </div>
-        <AdBanner />
       </div>
     </div>
   );

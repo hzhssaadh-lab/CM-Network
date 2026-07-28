@@ -13,7 +13,6 @@ import { Leaderboard } from './pages/Leaderboard';
 import { Squads } from './pages/Squads';
 import { Ads } from './pages/Ads';
 import { Maintenance } from './pages/Maintenance';
-import { AdBanner } from './components/AdBanner';
 import { SocialPopup } from './components/SocialPopup';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
@@ -116,7 +115,6 @@ function AppContent() {
       <Toaster position="top-center" toastOptions={{ style: { background: '#333', color: '#fff', borderRadius: '16px' } }} />
       {!isAdminRoute && <SocialPopup />}
       {!isAdminRoute && <Header />}
-      {!isAdminRoute && <AdBanner />}
       
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
         <Routes>
@@ -132,7 +130,6 @@ function AppContent() {
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        {!isAdminRoute && <AdBanner />}
       </main>
 
       {!isAdminRoute && (

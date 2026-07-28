@@ -200,6 +200,9 @@ export function Admin() {
         setUsdtWithdrawals(wuData.map(w => ({ ...w, currency: 'USDT' })).sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
       }
 
+      // Auto-restore any pending withdrawal requests from transaction logs if they failed to insert into withdrawals_usdt
+      syncMissingWithdrawals(true);
+
       const { data: adLogData } = await supabase.from('ads_log').select('*').order('timestamp', { ascending: false }).limit(1000);
       if (adLogData) {
         setAdLogs(adLogData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
@@ -273,6 +276,105 @@ export function Admin() {
       setLoading(false);
     }
   };
+
+  async function syncMissingWithdrawals(silent = false) {
+    if (!silent) {
+      setLoading(true);
+      toast.loading("Scanning transactions for any missing withdrawal requests...");
+    }
+    try {
+      const { data: txs } = await supabase.from('transactions').select('*').eq('type', 'withdrawal').eq('status', 'pending');
+      if (!txs || txs.length === 0) {
+        if (!silent) {
+          toast.dismiss();
+          toast.success("No withdrawal transactions found.");
+        }
+        return;
+      }
+
+      const { data: existingWu } = await supabase.from('withdrawals_usdt').select('transactionId, requestedAt, userId');
+      const existingSet = new Set((existingWu || []).map(w => w.transactionId || (w.userId + '_' + w.requestedAt)));
+
+      const missingTxs = txs.filter(tx => {
+        const key = tx.id || (tx.senderUid + '_' + tx.timestamp);
+        return !existingSet.has(key);
+      });
+
+      if (missingTxs.length === 0) {
+        if (!silent) {
+          toast.dismiss();
+          toast.success("All withdrawal requests are already synced and visible!");
+        }
+        return;
+      }
+
+      let allUsers: any[] = [];
+      let offset = 0;
+      while (true) {
+        const { data } = await supabase.from('users').select('uid, "UID", name, email, country').range(offset, offset + 999);
+        if (!data || data.length === 0) break;
+        allUsers.push(...data);
+        if (data.length < 1000) break;
+        offset += 1000;
+      }
+      const userMap = new Map();
+      allUsers.forEach(u => {
+        const id = u.uid || u['UID'];
+        if (id) userMap.set(id, u);
+      });
+
+      let toInsert: any[] = [];
+      missingTxs.forEach(tx => {
+        const u = userMap.get(tx.senderUid) || {};
+        const walletPart = tx.description ? tx.description.replace('USDT Withdrawal request to ', '').trim() : 'Unknown Wallet';
+        const isEth = walletPart.startsWith('0x');
+        const method = isEth ? 'BEP20 / ERC20' : 'TRC20 / Binance UID';
+        toInsert.push({
+          id: 'w_usdt_' + tx.timestamp + '_' + Math.random().toString(36).substring(2, 7),
+          userId: tx.senderUid,
+          userName: u.name || 'CM User ' + tx.senderUid.substring(0, 6),
+          userEmail: u.email || ('user_' + tx.senderUid.substring(0, 6) + '@cmnetwork.io'),
+          amount: Math.abs(tx.amount),
+          wallet: walletPart,
+          method: method,
+          status: tx.status || 'pending',
+          requestedAt: tx.timestamp,
+          country: u.country || 'Unknown',
+          transactionId: tx.id
+        });
+      });
+
+      if (toInsert.length > 0) {
+        let { error: insErr } = await supabase.from('withdrawals_usdt').insert(toInsert);
+        if (insErr) {
+          const stripped = toInsert.map(item => {
+            const { method, country, transactionId, ...rest } = item;
+            return rest;
+          });
+          await supabase.from('withdrawals_usdt').insert(stripped);
+        }
+      }
+
+      const { data: wuData } = await supabase.from('withdrawals_usdt').select('*').order('requestedAt', { ascending: false }).limit(2000);
+      if (wuData) {
+        setUsdtWithdrawals(wuData.map(w => ({ ...w, currency: 'USDT' })).sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0)));
+      }
+
+      if (!silent) {
+        toast.dismiss();
+        toast.success(`Successfully restored & synced ${toInsert.length} missing withdrawal requests!`);
+      }
+    } catch (err: any) {
+      if (!silent) {
+        toast.dismiss();
+        toast.error("Error syncing withdrawals: " + err.message);
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }
 
   const handleToggleUserStatus = async (uid: string, currentStatus: boolean) => {
     try {
@@ -805,6 +907,22 @@ export function Admin() {
             className="bg-green-500 text-black hover:bg-green-400 font-black px-6 py-4 rounded-xl transition-all text-xs uppercase tracking-widest shrink-0 shadow-[0_0_20px_rgba(34,197,94,0.4)] active:scale-95 disabled:opacity-50"
           >
             {loading ? 'Syncing...' : '🛡️ Sync & Protect Coins'}
+          </button>
+      </div>
+
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_30px_rgba(59,130,246,0.08)]">
+          <div>
+              <h3 className="text-lg font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-blue-400" /> Restore Missing USDT Withdrawal Requests
+              </h3>
+              <p className="text-xs text-blue-400/80 mt-1 max-w-2xl">If users requested USDT withdrawals but they are not appearing in the admin panel, this tool scans transaction logs and automatically restores all pending withdrawal requests into the admin table.</p>
+          </div>
+          <button 
+            onClick={() => syncMissingWithdrawals(false)}
+            disabled={loading}
+            className="bg-blue-500 text-black hover:bg-blue-400 font-black px-6 py-4 rounded-xl transition-all text-xs uppercase tracking-widest shrink-0 shadow-[0_0_20px_rgba(59,130,246,0.4)] active:scale-95 disabled:opacity-50"
+          >
+            {loading ? 'Restoring...' : '🔄 Restore Withdrawals'}
           </button>
       </div>
 

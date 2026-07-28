@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { PlaySquare, Gift, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { AdBanner } from '../components/AdBanner';
 
 function DailyRewards() {
   const { user, claimDailyCheckIn } = useApp();
@@ -226,7 +225,7 @@ export function Tasks() {
 
   useEffect(() => {
     const script = document.createElement('script');
-    script.src = "https://pl30511134.effectivecpmnetwork.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
+    script.src = "https://cabinetavidgrasp.com/8b/76/c2/8b76c28ad224d30bcb96430b60e2dcfb.js";
     script.async = true;
     document.head.appendChild(script);
 
@@ -267,8 +266,6 @@ export function Tasks() {
       </div>
 
       <DailyRewards />
-      
-      <AdBanner />
 
       <div className="space-y-4">
         {loading ? (
