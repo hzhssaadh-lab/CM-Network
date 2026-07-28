@@ -709,32 +709,81 @@ export function Admin() {
   };
 
   const handleApproveAllWithdrawals = async () => {
-    if (!window.confirm('Are you sure you want to approve ALL pending CM withdrawals?')) return;
+    const pending = withdrawals.filter(w => w.status === 'pending');
+    if (pending.length === 0) {
+      toast.error('No pending CM withdrawals to approve.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to approve ALL (${pending.length}) pending CM withdrawals?`)) return;
+
+    setLoading(true);
+    toast.loading(`Approving ${pending.length} CM withdrawals...`);
     try {
-      const pending = withdrawals.filter(w => w.status === 'pending');
-      if (pending.length === 0) return;
-      
+      let count = 0;
       for (const w of pending) {
-        await handleApproveWithdrawal(w);
+        try {
+          await supabase.from('withdrawals').update({ status: 'approved' }).eq('id', w.id);
+          if (w.transactionId) {
+            await supabase.from('transactions').update({ status: 'approved' }).eq('id', w.transactionId);
+          }
+          count++;
+        } catch (err) {
+          console.error(`Error approving CM withdrawal ${w.id}:`, err);
+        }
       }
-      fetchData();
+      toast.dismiss();
+      toast.success(`Successfully approved ${count} CM withdrawals!`);
+      await fetchData();
     } catch (e: any) {
       console.error('Error batch approving CM withdrawals:', e);
+      toast.dismiss();
+      toast.error('Error approving CM withdrawals: ' + e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRejectAllWithdrawals = async () => {
-    if (!window.confirm('Are you sure you want to reject ALL pending CM withdrawals?')) return;
+    const pending = withdrawals.filter(w => w.status === 'pending');
+    if (pending.length === 0) {
+      toast.error('No pending CM withdrawals to reject.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to REJECT and refund ALL (${pending.length}) pending CM withdrawals?`)) return;
+
+    setLoading(true);
+    toast.loading(`Rejecting ${pending.length} CM withdrawals and refunding balances...`);
     try {
-      const pending = withdrawals.filter(w => w.status === 'pending');
-      if (pending.length === 0) return;
-      
+      let count = 0;
       for (const w of pending) {
-        await handleRejectWithdrawal(w);
+        try {
+          await supabase.from('withdrawals').update({ status: 'rejected' }).eq('id', w.id);
+          if (w.transactionId) {
+            await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
+          }
+          const { data: dbUser } = await supabase.from('users').select('balance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+          if (dbUser) {
+            const nextBal = (dbUser.balance || 0) + (w.amount || 0);
+            await supabase.from('users').update({
+              balance: nextBal,
+              "CM Coins": nextBal,
+              cm_coins: nextBal
+            }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+          }
+          count++;
+        } catch (err) {
+          console.error(`Error rejecting CM withdrawal ${w.id}:`, err);
+        }
       }
-      fetchData();
+      toast.dismiss();
+      toast.success(`Successfully rejected ${count} CM withdrawals and refunded user balances!`);
+      await fetchData();
     } catch (e: any) {
       console.error('Error batch rejecting CM withdrawals:', e);
+      toast.dismiss();
+      toast.error('Error rejecting CM withdrawals: ' + e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -790,35 +839,91 @@ export function Admin() {
   };
 
   const handleApproveAllUsdtWithdrawals = async () => {
-    if (!window.confirm('Are you sure you want to approve ALL pending USDT withdrawals?')) return;
+    const pending = usdtWithdrawals.filter(w => w.status === 'pending');
+    if (pending.length === 0) {
+      toast.error('No pending USDT withdrawals to approve.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to APPROVE all (${pending.length}) pending USDT withdrawals?`)) return;
+
+    setLoading(true);
+    toast.loading(`Approving ${pending.length} USDT withdrawals...`);
     try {
-      const pending = usdtWithdrawals.filter(w => w.status === 'pending');
-      if (pending.length === 0) return;
-      
+      let count = 0;
       for (const w of pending) {
-        await supabase.from('withdrawals_usdt').update({ status: 'approved' }).eq('id', w.id);
-        if (w.transactionId) {
-          await supabase.from('transactions').update({ status: 'approved' }).eq('id', w.transactionId);
+        try {
+          await supabase.from('withdrawals_usdt').update({ 
+            status: 'approved',
+            approvedAt: Date.now()
+          }).eq('id', w.id);
+          if (w.transactionId) {
+            await supabase.from('transactions').update({ status: 'approved' }).eq('id', w.transactionId);
+          }
+          count++;
+        } catch (err) {
+          console.error(`Error approving USDT withdrawal ${w.id}:`, err);
         }
       }
-      fetchData();
+      toast.dismiss();
+      toast.success(`Successfully approved ${count} USDT withdrawals!`);
+      await fetchData();
     } catch (e: any) {
       console.error('Error batch approving USDT withdrawals:', e);
+      toast.dismiss();
+      toast.error('Error approving USDT withdrawals: ' + e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRejectAllUsdtWithdrawals = async () => {
-    if (!window.confirm('Are you sure you want to reject ALL pending USDT withdrawals?')) return;
+    const pending = usdtWithdrawals.filter(w => w.status === 'pending');
+    if (pending.length === 0) {
+      toast.error('No pending USDT withdrawals to reject.');
+      return;
+    }
+    const reason = window.prompt(`You are about to REJECT and refund ALL (${pending.length}) pending USDT withdrawals.\n\nEnter rejection reason for all (or leave blank for default):`, "Admin Batch Rejection");
+    if (reason === null) return; // user cancelled
+
+    setLoading(true);
+    toast.loading(`Rejecting ${pending.length} USDT withdrawals and refunding balances...`);
     try {
-      const pending = usdtWithdrawals.filter(w => w.status === 'pending');
-      if (pending.length === 0) return;
-      
+      let count = 0;
       for (const w of pending) {
-        await handleRejectUsdtWithdrawal(w);
+        try {
+          await supabase.from('withdrawals_usdt').update({ 
+            status: 'rejected',
+            rejectionReason: reason.trim() || 'Admin Batch Rejection'
+          }).eq('id', w.id);
+
+          if (w.transactionId) {
+            await supabase.from('transactions').update({ status: 'rejected' }).eq('id', w.transactionId);
+          }
+
+          const { data: dbUser } = await supabase.from('users').select('usdtBalance, USDT, usdtbalance').or(`uid.eq.${w.userId},UID.eq.${w.userId}`).single();
+          if (dbUser) {
+            const currentBal = dbUser.usdtBalance ?? dbUser.USDT ?? dbUser.usdtbalance ?? 0;
+            const nextUsdtBal = currentBal + (w.amount || 0);
+            await supabase.from('users').update({
+              usdtBalance: nextUsdtBal,
+              "USDT": nextUsdtBal,
+              usdtbalance: nextUsdtBal
+            }).or(`uid.eq.${w.userId},UID.eq.${w.userId}`);
+          }
+          count++;
+        } catch (err) {
+          console.error(`Error rejecting USDT withdrawal ${w.id}:`, err);
+        }
       }
-      fetchData();
+      toast.dismiss();
+      toast.success(`Successfully rejected ${count} USDT withdrawals and refunded user balances!`);
+      await fetchData();
     } catch (e: any) {
       console.error('Error batch rejecting USDT withdrawals:', e);
+      toast.dismiss();
+      toast.error('Error rejecting USDT withdrawals: ' + e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
