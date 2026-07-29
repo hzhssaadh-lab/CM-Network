@@ -12,11 +12,6 @@ export function Ads() {
     if (isClaiming) return;
     setIsClaiming(true);
 
-    const AD_URL = "https://cabinetavidgrasp.com/b9gv8i3egz?key=a6284cca79326b8b45f522cad8bae99f";
-    
-    // Open ad URL in a new tab
-    window.open(AD_URL, '_blank');
-
     // Automatically give the reward after a short delay to simulate watching
     setTimeout(async () => {
       try {
