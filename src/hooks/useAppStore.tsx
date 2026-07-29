@@ -168,7 +168,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     needsUpdate = true;
                   }
                 }
-              } catch(e) { console.warn("Failed to fetch IP", e); }
+              } catch(e) { console.warn("Failed to fetch IP"); }
             }
 
             // Coin Protection & Reconcile: Ensure users never lose coin data across legacy columns
