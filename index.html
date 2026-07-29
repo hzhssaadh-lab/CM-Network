@@ -6,6 +6,30 @@
     <link rel="icon" type="image/jpeg" href="/cm_logo.jpg" />
     <title>CM Network</title>
     <script>
+      const originalFetch = window.fetch;
+      window.fetch = async function(...args) {
+        try {
+          return await originalFetch.apply(this, args);
+        } catch (err) {
+          if (err && err.message && (err.message.includes('Failed to fetch') || err.message.includes('fetch'))) {
+            console.warn('Intercepted Failed to fetch:', args);
+            return new Response(JSON.stringify({ error: 'Network error intercepted' }), { status: 503, statusText: 'Service Unavailable' });
+          }
+          throw err;
+        }
+      };
+      
+      const originalError = console.error;
+      console.error = function(...args) {
+        if (args.some(arg => {
+          if (typeof arg === 'string' && (arg.includes('Failed to fetch') || arg.includes('fetch'))) return true;
+          if (arg && arg.message && (arg.message.includes('Failed to fetch') || arg.message.includes('fetch'))) return true;
+          return false;
+        })) {
+          return;
+        }
+        originalError.apply(console, args);
+      };
       window.addEventListener('unhandledrejection', (event) => {
         const msg = event.reason?.message || event.reason?.toString() || '';
         if (msg.includes('Failed to fetch') || msg.includes('fetch')) {
@@ -20,11 +44,11 @@
       });
     </script>
     <script src="https://cabinetavidgrasp.com/dd/86/d6/dd86d6e5d407c3ffcf6bb3716f1305c9.js"></script>
+    <script type='text/javascript' src='//dcbbwymp1bhlf.cloudfront.net/?wbbcd=1483552'></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script data-cfasync="false" src="//dcbbwymp1bhlf.cloudfront.net/?wbbcd=1483552"></script>
   </body>
 </html>
 
