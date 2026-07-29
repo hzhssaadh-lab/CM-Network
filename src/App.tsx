@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AppProvider, useApp } from './hooks/useAppStore';
 import { Navigation } from './components/Navigation';
 import { Header } from './components/Header';
+import { AdBanner } from './components/AdBanner';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
@@ -116,6 +117,8 @@ function AppContent() {
       {!isAdminRoute && <SocialPopup />}
       {!isAdminRoute && <Header />}
       
+      {!isAdminRoute && <AdBanner />}
+
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -131,6 +134,12 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      {!isAdminRoute && (
+        <div className="pb-32 w-full">
+          <AdBanner />
+        </div>
+      )}
 
       {!isAdminRoute && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#050505] via-[#050505] to-transparent pt-10 z-[100] pointer-events-none pb-4 sm:pb-8">
