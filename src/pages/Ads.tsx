@@ -15,12 +15,14 @@ export function Ads() {
   useEffect(() => {
     const script = document.createElement('script');
     script.dataset.cfasync = 'false';
-    script.src = '//dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468520';
+    script.src = 'https://dcbbwymp1bhlf.cloudfront.net/?wbbcd=1468520';
     script.async = true;
     document.body.appendChild(script);
 
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
   }, []);
 
@@ -136,7 +138,7 @@ export function Ads() {
           </div>
 
           <button 
-            onClick={() => watchAd('CM')}
+            onClickCapture={() => watchAd('CM')}
             disabled={isClaiming}
             className="w-full bg-gradient-to-r from-[#FFD700] to-[#B8860B] text-black font-black py-4 rounded-2xl shadow-[0_10px_40px_rgba(212,175,55,0.3)] text-lg tracking-tighter active:scale-95 transition-all outline-none flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -162,7 +164,7 @@ export function Ads() {
           </div>
 
           <button 
-            onClick={() => watchAd('USDT')}
+            onClickCapture={() => watchAd('USDT')}
             disabled={isClaiming}
             className="w-full bg-gradient-to-r from-green-400 to-green-600 text-black font-black py-4 rounded-2xl shadow-[0_10px_40px_rgba(34,197,94,0.3)] text-lg tracking-tighter active:scale-95 transition-all outline-none flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
