@@ -130,7 +130,12 @@ export function Ads() {
           </div>
           
           <h2 className="text-2xl font-black text-white tracking-tighter mb-1">Earn CM Coins</h2>
-          <p className="text-sm text-gray-400 mb-6 text-center">Watch a short ad and earn CM Coins directly to your balance.</p>
+          <p className="text-sm text-gray-400 mb-4 text-center">Watch a short ad and earn CM Coins directly to your balance.</p>
+          
+          <div className="w-full flex justify-between items-center mb-6 bg-black/40 rounded-2xl p-4 border border-white/5">
+            <span className="text-gray-400 font-bold uppercase tracking-widest text-xs">Today's Progress</span>
+            <span className="text-white font-black font-mono">{user?.cmAdsWatchedToday || 0} / 40</span>
+          </div>
           
           <div className="w-full flex justify-between items-center mb-6 bg-black/40 rounded-2xl p-4 border border-white/5">
             <span className="text-gray-400 font-bold uppercase tracking-widest text-xs">Reward</span>
@@ -156,7 +161,12 @@ export function Ads() {
           </div>
           
           <h2 className="text-2xl font-black text-white tracking-tighter mb-1">Earn USDT</h2>
-          <p className="text-sm text-gray-400 mb-6 text-center">Watch a short ad and earn USDT directly to your balance.</p>
+          <p className="text-sm text-gray-400 mb-4 text-center">Watch a short ad and earn USDT directly to your balance.</p>
+          
+          <div className="w-full flex justify-between items-center mb-6 bg-black/40 rounded-2xl p-4 border border-white/5">
+            <span className="text-gray-400 font-bold uppercase tracking-widest text-xs">Today's Progress</span>
+            <span className="text-white font-black font-mono">{user?.adsWatchedToday || 0} / 40</span>
+          </div>
           
           <div className="w-full flex justify-between items-center mb-6 bg-black/40 rounded-2xl p-4 border border-white/5">
             <span className="text-gray-400 font-bold uppercase tracking-widest text-xs">Reward</span>

@@ -719,8 +719,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentWatched = 0;
     }
     
-    if (currentWatched >= 100) {
-      return { success: false, reward: 0, message: "Daily limit of 100 ads reached.", limitReached: true };
+    if (currentWatched >= 40) {
+      return { success: false, reward: 0, message: "Daily limit of 40 ads reached.", limitReached: true };
     }
     
     const rewardAmount = 0.01;
@@ -825,8 +825,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentWatched = 0;
     }
     
-    if (currentWatched >= 100) {
-      return { success: false, reward: 0, message: "Daily limit of 100 ads reached.", limitReached: true };
+    if (currentWatched >= 40) {
+      return { success: false, reward: 0, message: "Daily limit of 40 ads reached.", limitReached: true };
     }
     
     const nextWatched = currentWatched + 1;
