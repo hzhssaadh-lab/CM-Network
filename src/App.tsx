@@ -20,26 +20,21 @@ import { supabase } from './lib/supabase';
 import { UNIVERSAL_MAINTENANCE_END_MS } from './lib/utils';
 
 function AppContent() {
+  console.log("AppContent rendered!");
   const { user, loading, submitReferralCode } = useApp();
   const location = useLocation();
-  const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
+
+  const [maintenanceMode, setMaintenanceMode] = useState<boolean>(true); // Default to true for safety
 
   useEffect(() => {
-    const checkMaintenance = (dbValue: boolean) => {
-      return (Date.now() < UNIVERSAL_MAINTENANCE_END_MS) || dbValue;
-    };
-
     const fetchMaintenance = async () => {
       try {
-        const { data, error } = await supabase.from('settings').select('*').eq('id', 'app').single();
+        const { data } = await supabase.from('settings').select('*').eq('id', 'app').single();
         if (data) {
-           setMaintenanceMode(checkMaintenance(data.maintenanceMode === true));
-        } else {
-           setMaintenanceMode(checkMaintenance(false));
+           setMaintenanceMode(data.maintenanceMode === true);
         }
       } catch (err) {
         console.error("Maintenance check failed:", err);
-        setMaintenanceMode(checkMaintenance(false));
       }
     };
     
@@ -48,15 +43,12 @@ function AppContent() {
     const channel = supabase.channel('settings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: 'id=eq.app' }, (payload: any) => {
          if (payload.new) {
-            setMaintenanceMode(checkMaintenance(payload.new.maintenanceMode === true));
+            setMaintenanceMode(payload.new.maintenanceMode === true);
          }
       })
       .subscribe();
       
-    // Re-check periodically in case time passes while user is on the page
-    const interval = setInterval(() => {
-      fetchMaintenance();
-    }, 10000); // check every 10 seconds
+    const interval = setInterval(fetchMaintenance, 15000);
       
     return () => {
       supabase.removeChannel(channel);
@@ -64,51 +56,16 @@ function AppContent() {
     };
   }, []);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    if (ref) {
-      localStorage.setItem('cm_invite_code', ref);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
-
-  useEffect(() => {
-    const applyPendingRef = async () => {
-      if (user && !user.referredBy) {
-        const code = localStorage.getItem('cm_invite_code');
-        if (code) {
-          try {
-             await submitReferralCode(code);
-          } catch(e) {
-             console.error("Failed to apply pending referral code", e);
-          } finally {
-             localStorage.removeItem('cm_invite_code');
-          }
-        }
-      }
-    };
-    applyPendingRef();
-  }, [user, submitReferralCode]);
-
   const isAdminRoute = location.pathname.startsWith('/admin');
-
-  if (loading || maintenanceMode === null) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-[#050505]">
-        <div className="w-16 h-16 border-4 border-[#FFD700]/30 border-t-[#FFD700] rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  // If maintenance mode is ON, block access for all users
-  if (maintenanceMode) {
-    return <Maintenance onMaintenanceEnd={() => setMaintenanceMode(false)} />;
-  }
 
   if (!user) {
     return <Login />;
   }
+
+  if (maintenanceMode && !isAdminRoute) {
+    return <Maintenance onMaintenanceEnd={() => setMaintenanceMode(false)} />;
+  }
+
 
   return (
     <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto p-4 sm:p-8 relative">

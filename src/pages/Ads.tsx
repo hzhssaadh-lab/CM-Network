@@ -53,7 +53,7 @@ export function Ads() {
     }, 5000); // 5 seconds delay before claiming
   };
 
-  const handleWithdraw = async (e: React.FormEvent) => {
+  const handleWithdraw = async (e: any) => {
     e.preventDefault();
     if (isWithdrawing) return;
 
