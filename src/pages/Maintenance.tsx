@@ -112,7 +112,7 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
                     <div className="bg-[#111] border border-white/5 rounded-2xl p-4 flex flex-col justify-center transition-all hover:border-white/20">
                       <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Referrals</span>
                       <div className="text-white font-black text-lg sm:text-xl flex items-baseline gap-1">
-                        {user?.referrals || 0} <span className="text-gray-400 text-sm font-medium">Friends</span>
+                        {user?.referralCount || 0} <span className="text-gray-400 text-sm font-medium">Friends</span>
                       </div>
                     </div>
                   </div>
