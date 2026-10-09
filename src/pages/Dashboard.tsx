@@ -16,10 +16,8 @@ import {
   Zap, 
   TrendingUp, 
   Sparkles,
-  Share2,
-  ShieldCheck
+  Share2
 } from 'lucide-react';
-import { SocialChannels } from '../components/SocialChannels';
 import toast from 'react-hot-toast';
 
 export function Dashboard() {
@@ -88,73 +86,6 @@ export function Dashboard() {
       {/* =========================================================================
           PHASE 2 ACTIVE STATS: ONLY ALL COIN, USDT, AND REFERRALS (AS REQUESTED)
          ========================================================================= */}
-      {/* =========================================================================
-          BIG LUXURY GOLD BALANCE HERO CARD (MATCHING SCREENSHOT)
-         ========================================================================= */}
-      <div className="w-full relative rounded-3xl p-[1.5px] bg-gradient-to-b from-[#FFD700]/60 via-[#FFD700]/20 to-white/10 shadow-[0_8px_35px_rgba(255,215,0,0.12)]">
-        <div className="w-full bg-gradient-to-b from-[#141416] via-[#0E0E10] to-[#08080A] rounded-[23px] p-5 sm:p-7 relative overflow-hidden text-center sm:text-left">
-          
-          {/* Ambient gold glow in top right */}
-          <div className="absolute top-0 right-0 w-48 h-48 bg-[#FFD700]/10 rounded-full blur-3xl pointer-events-none" />
-          
-          {/* Card Header */}
-          <div className="flex items-center justify-between mb-3 relative z-10">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#FFD700]/20 border border-[#FFD700]/40 flex items-center justify-center text-[#FFD700]">
-                <Coins className="w-4 h-4" />
-              </div>
-              <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">
-                Total CM Assets
-              </span>
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Preserved & Live
-            </span>
-          </div>
-
-          {/* Large Prominent Balance Display */}
-          <div className="relative z-10 my-3">
-            <div className="flex items-baseline justify-center sm:justify-start gap-2">
-              <span className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-gray-200 tracking-tight">
-                {formatCurrency(currentBalance)}
-              </span>
-              <span className="text-xl sm:text-2xl font-black text-[#FFD700] drop-shadow-[0_0_12px_rgba(255,215,0,0.5)]">
-                CM
-              </span>
-            </div>
-            <div className="mt-1 flex items-center justify-center sm:justify-start gap-2 text-xs font-mono text-gray-400">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              <span>≈ ${(currentBalance * 6.00).toLocaleString('en-US', { minimumFractionDigits: 2 })} USDT</span>
-              <span className="text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px]">
-                +100% Phase 1 Preserved
-              </span>
-            </div>
-          </div>
-
-          {/* Quick Action Buttons inside Card */}
-          <div className="mt-5 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center gap-3 relative z-10">
-            <button
-              onClick={handleCopyLink}
-              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#FFD700] to-amber-500 text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:brightness-110 active:scale-95 transition-all"
-            >
-              <Share2 className="w-4 h-4" />
-              <span>Invite Friends</span>
-            </button>
-
-            <button
-              onClick={handleCopyCode}
-              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all"
-            >
-              {copiedCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-gray-400" />}
-              <span>{copiedCode ? 'Code Copied' : `Copy Code (${referralCode})`}</span>
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-      {/* 3 Active Stats Cards: All Coins, USDT, and Total Referrals */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
         {/* 1. All Coins (CM Coins) */}
@@ -381,29 +312,6 @@ export function Dashboard() {
             </div>
           </div>
         </section>
-
-        {/* Official Smart Contract Banner */}
-        <div className="w-full bg-[#111] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-5 h-5 text-[#FFD700]" />
-            </div>
-            <div>
-              <span className="text-white text-xs sm:text-sm font-bold block">Official CM Smart Contract</span>
-              <span className="text-gray-400 text-[11px]">On-chain verification and audited deployment</span>
-            </div>
-          </div>
-          <div className="bg-black/60 border border-white/5 rounded-xl px-3 py-1.5 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
-            <span className="text-[#FFD700] font-mono text-xs font-bold uppercase tracking-wider">Phase 2 Announcement Coming Soon</span>
-          </div>
-        </div>
-
-        {/* Official Community Channels: WhatsApp, X, Telegram (at the last / bottom) */}
-        <SocialChannels 
-          title="Official Community & Channels"
-          subtitle="Join WhatsApp, X, and Telegram for Phase 2 smart contract updates, liquidity pool & token launch"
-        />
 
       </div>
 
