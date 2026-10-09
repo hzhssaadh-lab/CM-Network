@@ -1,472 +1,244 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
-import { supabase } from '../lib/supabase';
-import { Transaction } from '../types';
+import { 
+  CheckCircle2, 
+  Rocket, 
+  Coins, 
+  Wallet as WalletIcon, 
+  Users, 
+  Lock, 
+  ArrowRightLeft, 
+  History as HistoryIcon, 
+  Send, 
+  QrCode, 
+  Sparkles,
+  TrendingUp,
+  Share2
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export function Wallet() {
-  const { user, requestWithdrawal, refreshUser } = useApp();
-  const [activeTab, setActiveTab ] = useState<'send'|'receive'|'history'|'tasks'>('send');
-  const [receiverUid, setReceiverUid] = useState('');
-  const [amount, setAmount] = useState('');
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [history, setHistory] = useState<Transaction[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-
-  const [historyFilter, setHistoryFilter] = useState<'all' | 'mining' | 'task' | 'referral' | 'transfer'>('all');
-  const [completedTasksHistory, setCompletedTasksHistory] = useState<any[]>([]);
-  const [tasksMetaMap, setTasksMetaMap] = useState<Map<string, any>>(new Map());
-  const [loadingTasksHistory, setLoadingTasksHistory] = useState(false);
-
-  useEffect(() => {
-    if (user && activeTab === 'history') {
-      fetchHistory();
-    } else if (user && activeTab === 'tasks') {
-      fetchTasksHistory();
-    }
-  }, [user, activeTab]);
-
-  const fetchTasksHistory = async () => {
-    if (!user) return;
-    setLoadingTasksHistory(true);
-    try {
-      const { data: tp } = await supabase.from('tasks').select('*');
-      const tMap = new Map();
-      if (tp) {
-        tp.forEach(d => tMap.set(d.id, d));
-      }
-      setTasksMetaMap(tMap);
-
-      const { data: ct } = await supabase
-        .from('completedTasks')
-        .select('*')
-        .eq('userId', user.uid)
-        .order('completedAt', { ascending: false })
-        .limit(100);
-        
-      if (ct) {
-        setCompletedTasksHistory(ct);
-      }
-    } catch (e) {
-      console.error('Failed to fetch task history', e);
-    }
-    setLoadingTasksHistory(false);
-  };
-
-  const fetchHistory = async () => {
-    if (!user) return;
-    setLoadingHistory(true);
-    try {
-      const { data: sent } = await supabase.from('transactions').select('*').eq('senderUid', user.uid).limit(100);
-      const { data: received } = await supabase.from('transactions').select('*').eq('receiverUid', user.uid).limit(100);
-      
-      let txs: any[] = [];
-      if (sent) txs.push(...sent);
-      if (received) txs.push(...received);
-      
-      const unique = txs.filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i);
-      unique.sort((a,b) => b.timestamp - a.timestamp);
-      setHistory(unique);
-    } catch (e) {
-      console.error(e);
-    }
-    setLoadingHistory(false);
-  };
-
-  const handleWithdraw = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); setSuccess('');
-    
-    if (!user) return;
-    if (user.transactionsBlocked) {
-      setError("Transactions are currently blocked for this account.");
-      return;
-    }
-    const withdrawAmount = parseFloat(amount);
-    if (!receiverUid) {
-      setError("Invalid wallet address"); return;
-    }
-    if (isNaN(withdrawAmount) || withdrawAmount < 5) {
-      setError("Minimum withdrawal is 5 CM"); return;
-    }
-    if (withdrawAmount > user.balance) {
-      setError("Insufficient balance"); return;
-    }
-
-    setSending(true);
-    const res = await requestWithdrawal(withdrawAmount, receiverUid);
-    if (res.success) {
-      setSuccess(res.message);
-      setAmount('');
-      setReceiverUid('');
-    } else {
-      setError(res.message);
-    }
-    setSending(false);
-  };
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); setSuccess('');
-    
-    if (!user) return;
-    if (user.transactionsBlocked) {
-      setError("Transactions are currently blocked for this account.");
-      return;
-    }
-    const sendAmount = parseFloat(amount);
-    const trimmedReceiverUid = receiverUid.trim();
-
-    if (!trimmedReceiverUid || trimmedReceiverUid === user.uid.trim()) {
-      setError("Invalid receiver UID"); return;
-    }
-    if (isNaN(sendAmount) || sendAmount <= 0) {
-      setError("Invalid amount"); return;
-    }
-    if (sendAmount > user.balance) {
-      setError("Insufficient balance"); return;
-    }
-
-    setSending(true);
-    try {
-        const trimmedSenderUid = user.uid.trim();
-
-        // 1. Fetch sender profile safely supporting uid or UID matches
-        const { data: senderQuery, error: senderError } = await supabase
-          .from('users')
-          .select('*')
-          .or(`uid.eq.${trimmedSenderUid},UID.eq.${trimmedSenderUid}`)
-          .limit(1);
-        const senderDoc = senderQuery && senderQuery.length > 0 ? senderQuery[0] : null;
-
-        if (!senderDoc || senderError) {
-          throw new Error("Sender account data not found in database.");
-        }
-
-        // 2. Fetch receiver profile supporting uid or UID matching
-        const { data: receiverQuery, error: receiverError } = await supabase
-          .from('users')
-          .select('*')
-          .or(`uid.eq.${trimmedReceiverUid},UID.eq.${trimmedReceiverUid}`)
-          .limit(1);
-        const receiverDoc = receiverQuery && receiverQuery.length > 0 ? receiverQuery[0] : null;
-        
-        if (!receiverDoc || receiverError) {
-          throw new Error("Receiver does not exist or UID is invalid.");
-        }
-        
-        const currentSenderBalance = senderDoc.balance || 0;
-        if (currentSenderBalance < sendAmount) {
-          throw new Error("Insufficient balance during transaction verification.");
-        }
-        
-        if (receiverDoc.transactionsBlocked) {
-          throw new Error("Receiver's account is currently blocked from receiving transactions.");
-        }
-        const currentReceiverBalance = receiverDoc.balance || 0;
-        
-        // 3. Update sender balance using OR matching
-        const senderSelector = `uid.eq.${senderDoc.uid},UID.eq.${senderDoc.uid}`;
-        const nextSenderBal = currentSenderBalance - sendAmount;
-        const { error: senderUpError } = await supabase
-          .from('users')
-          .update({
-            balance: nextSenderBal,
-            "CM Coins": nextSenderBal,
-            cm_coins: nextSenderBal
-          })
-          .or(senderSelector);
-
-        if (senderUpError) {
-          throw new Error("Failed to deduct balance: " + senderUpError.message);
-        }
-
-        // 4. Update receiver balance using OR matching
-        const receiverSelector = `uid.eq.${receiverDoc.uid},UID.eq.${receiverDoc.uid}`;
-        const nextReceiverBal = currentReceiverBalance + sendAmount;
-        const { error: receiverUpError } = await supabase
-          .from('users')
-          .update({
-            balance: nextReceiverBal,
-            "CM Coins": nextReceiverBal,
-            cm_coins: nextReceiverBal
-          })
-          .or(receiverSelector);
-
-        if (receiverUpError) {
-          // Revert sender balance on failure
-          await supabase.from('users').update({
-            balance: currentSenderBalance,
-            "CM Coins": currentSenderBalance,
-            cm_coins: currentSenderBalance
-          }).or(senderSelector);
-          throw new Error("Failed to credit receiver balance: " + receiverUpError.message);
-        }
-        
-        // 5. Insert transaction
-        await supabase.from('transactions').insert([{
-          id: 'tx_send_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
-          type: 'transfer_sent',
-          amount: sendAmount,
-          timestamp: Date.now(),
-          status: 'completed',
-          senderUid: senderDoc.uid,
-          receiverUid: receiverDoc.uid,
-          description: `Transfer to ${receiverDoc.name || receiverDoc.email || receiverDoc.uid}`
-        }]);
-        
-      setSuccess(`Successfully sent ${sendAmount} CM!`);
-      setAmount('');
-      setReceiverUid('');
-      await refreshUser();
-    } catch (err: any) {
-      setError(err.message || 'Transaction failed');
-    }
-    setSending(false);
-  };
+  const { user } = useApp();
+  const [activeTab, setActiveTab] = useState<'wallet' | 'swap' | 'history' | 'send'>('wallet');
 
   if (!user) return null;
 
+  const currentBalance = user.balance || 0;
+  const usdtBalance = user.usdtBalance || 0;
+  const referralCount = user.referralCount || 0;
+  const referralCode = user.referralCode || user.uid?.substring(0, 8).toUpperCase() || 'CMNETWORK';
+
   return (
-    <div className="w-full max-w-4xl mx-auto animate-in fade-in duration-500 pb-10">
-       <section className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] border border-[#FFD700]/20 p-8 mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-5 blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/4"></div>
-          <div className="relative z-10">
-            <p className="text-xs text-[#FFD700] font-bold uppercase tracking-widest mb-4">Total Liquid Assets</p>
-            <h3 className="text-5xl md:text-6xl font-black tracking-tighter font-mono">{formatCurrency(user.balance)} <span className="text-2xl text-[#FFD700] font-sans">CM</span></h3>
-            <p className="text-gray-500 font-mono text-xl mt-2">≈ ${(user.balance * 6.00).toLocaleString('en-US', {minimumFractionDigits: 2})}</p>
+    <div className="w-full max-w-4xl mx-auto animate-in fade-in duration-500 pb-12 space-y-6">
+      
+      {/* Phase 1 Complete / Phase 2 Started Banner */}
+      <div className="bg-gradient-to-r from-[#141414] via-[#1A1A1A] to-[#141414] border border-[#FFD700]/30 rounded-3xl p-6 relative overflow-hidden shadow-[0_4px_30px_rgba(255,215,0,0.05)]">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Phase 1 Completed ✅
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-xs font-black uppercase tracking-widest animate-pulse">
+                <Rocket className="w-3.5 h-3.5" /> Phase 2 Active 🚀
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              CM Asset Custody & Portfolio
+            </h1>
+            <p className="text-gray-400 text-xs sm:text-sm mt-1">
+              Your Phase 1 balances and referral network are secured. Web3 wallet transfers, DEX swap, and history are coming soon in Phase 2.
+            </p>
           </div>
-       </section>
+        </div>
+      </div>
 
-       <div className="flex bg-white/5 p-1 rounded-2xl mb-8 overflow-x-auto custom-scrollbar">
-         <button onClick={() => setActiveTab('send')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'send' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Send</button>
-         <button onClick={() => setActiveTab('receive')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'receive' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Receive</button>
-         <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'history' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tx History</button>
-         <button onClick={() => setActiveTab('tasks')} className={`flex-1 py-3 px-4 min-w-max text-[10px] font-bold tracking-widest uppercase rounded-xl transition-all ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}>Tasks</button>
-       </div>
+      {/* =========================================================================
+          PHASE 2 ACTIVE STATS: ONLY ALL COIN, USDT, AND REFERRAL (AS REQUESTED)
+         ========================================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        {/* All Coins (CM Coins) */}
+        <div className="bg-[#111] border border-[#FFD700]/30 rounded-3xl p-6 relative overflow-hidden group hover:border-[#FFD700]/60 transition-all">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Coins className="w-4 h-4 text-[#FFD700]" /> Total CM Coins
+            </span>
+            <span className="px-2 py-0.5 bg-[#FFD700]/10 text-[#FFD700] text-[10px] font-black rounded border border-[#FFD700]/20">
+              ALL COIN
+            </span>
+          </div>
+          <div>
+            <h3 className="text-3xl font-black text-white font-mono tracking-tight">
+              {formatCurrency(currentBalance)} <span className="text-base text-[#FFD700] font-sans">CM</span>
+            </h3>
+            <p className="text-gray-500 font-mono text-xs mt-1 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3 text-emerald-400" />
+              ≈ ${(currentBalance * 6.00).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+            <span>Status</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Preserved
+            </span>
+          </div>
+        </div>
 
-       {activeTab === 'send' && (
-         <div className="bg-white/5 rounded-[32px] border border-white/10 p-8">
-           <h3 className="text-xl font-bold mb-6">Send CM Coins</h3>
-           {user.transactionsBlocked ? (
-             <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center">
-               <p className="text-red-500 font-bold text-lg mb-2">Transactions Blocked</p>
-               <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support at cmnetwork122@gmail.com.</p>
-             </div>
-           ) : (
-             <>
-               {error && <p className="text-red-400 text-sm mb-4 bg-red-400/10 p-4 rounded-xl border border-red-400/20 font-medium">{error}</p>}
-               {success && <p className="text-green-400 text-sm mb-4 bg-green-400/10 p-4 rounded-xl border border-green-400/20 font-medium">{success}</p>}
-               <form onSubmit={handleSend} className="space-y-6">
-                 <div>
-                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Recipient UID</label>
-                   <input 
-                     type="text" 
-                     value={receiverUid}
-                     onChange={(e) => setReceiverUid(e.target.value)}
-                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#FFD700]/50 transition-colors placeholder:text-gray-600 focus:ring-1 focus:ring-[#FFD700]/50 font-mono" 
-                     placeholder="Enter Recipient UID"
-                     required
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Amount (CM)</label>
-                   <div className="relative">
-                     <input 
-                       type="number" 
-                       value={amount}
-                       onChange={(e) => setAmount(e.target.value)}
-                       step="0.01"
-                       min="0.01"
-                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white pl-4 pr-20 focus:outline-none focus:border-[#FFD700]/50 transition-colors font-mono focus:ring-1 focus:ring-[#FFD700]/50" 
-                       placeholder="0.00"
-                       required
-                     />
-                     <button type="button" onClick={() => setAmount(user.balance.toString())} className="absolute right-4 text-xs top-1/2 -translate-y-1/2 font-bold text-[#FFD700] hover:text-white transition-colors bg-[#FFD700]/10 px-3 py-1 rounded-md">MAX</button>
-                   </div>
-                 </div>
-                 <button disabled={sending} className="w-full bg-[#FFD700] text-black font-black py-4 rounded-xl shadow-[0_5px_20px_rgba(212,175,55,0.2)] active:scale-95 transition-all outline-none tracking-widest mt-4">
-                   {sending ? 'PROCESSING...' : 'CONFIRM TRANSFER'}
-                 </button>
-               </form>
-             </>
-           )}
-         </div>
-       )}
+        {/* USDT Balance */}
+        <div className="bg-[#111] border border-emerald-500/30 rounded-3xl p-6 relative overflow-hidden group hover:border-emerald-500/60 transition-all">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <WalletIcon className="w-4 h-4 text-emerald-400" /> USDT Balance
+            </span>
+            <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-black rounded border border-emerald-500/20">
+              STABLE
+            </span>
+          </div>
+          <div>
+            <h3 className="text-3xl font-black text-emerald-400 font-mono tracking-tight">
+              ${formatCurrency(usdtBalance)} <span className="text-xs font-bold text-gray-400 font-sans">USDT</span>
+            </h3>
+            <p className="text-gray-500 text-xs mt-1">
+              Tether USD Balance
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+            <span>Status</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Ready
+            </span>
+          </div>
+        </div>
 
-       {activeTab === 'receive' && (
-         <div className="bg-white/5 rounded-[32px] border border-white/10 p-8 flex flex-col items-center justify-center min-h-[400px]">
-           {user.transactionsBlocked ? (
-             <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center">
-               <p className="text-red-500 font-bold text-lg mb-2">Transactions Blocked</p>
-               <p className="text-red-400 text-sm">Your account has been restricted from sending or receiving coins. Please contact support at cmnetwork122@gmail.com.</p>
-             </div>
-           ) : (
-             <>
-               <p className="text-gray-400 mb-8 text-center max-w-sm text-sm">Share your unique UID with other users to receive CM coins instantly. Transactions are processed securely.</p>
-               
-               <div className="bg-white p-6 rounded-3xl mb-8">
-                 <div className="w-48 h-48 bg-black/5 flex flex-col items-center justify-center border-4 border-dashed border-[#FFD700] rounded-xl">
-                   <span className="text-2xl mb-2">📷</span>
-                   <span className="text-black font-bold text-sm text-center">QR Code<br/>Coming Soon</span>
-                 </div>
-               </div>
+        {/* Total Referrals */}
+        <div className="bg-[#111] border border-blue-500/30 rounded-3xl p-6 relative overflow-hidden group hover:border-blue-500/60 transition-all">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-blue-400" /> Total Referrals
+            </span>
+            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-black rounded border border-blue-500/20">
+              NETWORK
+            </span>
+          </div>
+          <div>
+            <h3 className="text-3xl font-black text-white font-mono tracking-tight">
+              {referralCount} <span className="text-base text-blue-400 font-sans">Friends</span>
+            </h3>
+            <p className="text-gray-500 text-xs mt-1">
+              Code: <span className="font-mono text-gray-300 font-bold">{referralCode}</span>
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+            <span>Network</span>
+            <span className="text-blue-400 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Active
+            </span>
+          </div>
+        </div>
 
-               <div className="bg-black/60 border border-white/10 rounded-2xl p-6 w-full max-w-md flex flex-col items-center">
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Your Unique UID</p>
-                  <p className="font-mono text-xl md:text-2xl font-black tracking-tight text-[#FFD700] break-all text-center selection:bg-[#FFD700]/30">{user.uid}</p>
-                  <button 
-                    onClick={() => { navigator.clipboard.writeText(user.uid); alert('Copied to clipboard'); }}
-                    className="mt-6 border border-[#FFD700]/50 text-[#FFD700] px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#FFD700]/10 transition-colors"
-                   >
-                    Copy UID
-                  </button>
-               </div>
-             </>
-           )}
-         </div>
-       )}
+      </div>
 
-       {activeTab === 'history' && (
-         <div className="space-y-4">
-           {/* Filters */}
-           <div className="flex flex-wrap gap-2 mb-6">
-             {(['all', 'mining', 'task', 'referral', 'transfer'] as const).map(f => (
-               <button 
-                 key={f}
-                 onClick={() => setHistoryFilter(f)}
-                 className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${historyFilter === f ? 'bg-[#FFD700] text-black shadow-sm' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
-               >
-                 {f}
-               </button>
-             ))}
-           </div>
+      {/* Tabs navigation */}
+      <div className="flex bg-white/5 p-1 rounded-2xl overflow-x-auto custom-scrollbar">
+        <button 
+          onClick={() => setActiveTab('wallet')} 
+          className={`flex-1 py-3 px-4 min-w-max text-xs font-bold tracking-wider uppercase rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'wallet' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}
+        >
+          <WalletIcon className="w-4 h-4" />
+          <span>Web3 Wallet</span>
+          <span className="text-[9px] bg-black/20 px-1.5 py-0.2 rounded font-black">Soon</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('swap')} 
+          className={`flex-1 py-3 px-4 min-w-max text-xs font-bold tracking-wider uppercase rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'swap' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}
+        >
+          <ArrowRightLeft className="w-4 h-4" />
+          <span>CM Swap</span>
+          <span className="text-[9px] bg-black/20 px-1.5 py-0.2 rounded font-black">Soon</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('send')} 
+          className={`flex-1 py-3 px-4 min-w-max text-xs font-bold tracking-wider uppercase rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'send' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}
+        >
+          <Send className="w-4 h-4" />
+          <span>Send / Receive</span>
+          <span className="text-[9px] bg-black/20 px-1.5 py-0.2 rounded font-black">Soon</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('history')} 
+          className={`flex-1 py-3 px-4 min-w-max text-xs font-bold tracking-wider uppercase rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'history' ? 'bg-[#FFD700] text-black shadow-md' : 'text-gray-400 hover:text-white'}`}
+        >
+          <HistoryIcon className="w-4 h-4" />
+          <span>History</span>
+          <span className="text-[9px] bg-black/20 px-1.5 py-0.2 rounded font-black">Soon</span>
+        </button>
+      </div>
 
-           {loadingHistory ? (
-             <div className="flex justify-center py-12">
-               <div className="w-8 h-8 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin"></div>
-             </div>
-           ) : history.filter(tx => {
-             if (historyFilter === 'all') return true;
-             if (historyFilter === 'mining') return tx.type === 'mining_reward';
-             if (historyFilter === 'task') return tx.type === 'task_reward';
-             if (historyFilter === 'referral') return tx.type === 'referral_bonus' || tx.type.toString() === 'referral_bonus_received';
-             if (historyFilter === 'transfer') return tx.type === 'transfer_sent' || tx.type === 'transfer_received';
-             return true;
-           }).length === 0 ? (
-             <div className="text-center bg-white/5 rounded-[32px] border border-white/10 p-12">
-               <span className="text-4xl mb-4 block opacity-50">📝</span>
-               <p className="text-gray-500 font-medium tracking-wide">No transactions found for this filter.</p>
-             </div>
-           ) : (
-             history.filter(tx => {
-               if (historyFilter === 'all') return true;
-               if (historyFilter === 'mining') return tx.type === 'mining_reward';
-               if (historyFilter === 'task') return tx.type === 'task_reward';
-               if (historyFilter === 'referral') return tx.type === 'referral_bonus' || tx.type.toString() === 'referral_bonus_received';
-               if (historyFilter === 'transfer') return tx.type === 'transfer_sent' || tx.type === 'transfer_received';
-               return true;
-             }).map((tx) => {
-               const isMining = tx.type === 'mining_reward';
-               const isTask = tx.type === 'task_reward';
-               const isReferral = tx.type === 'referral_bonus';
-               const isReceived = tx.receiverUid === user.uid || isMining || isTask || isReferral;
-               
-               let title = 'Transaction';
-               let detail = '';
+      {/* =========================================================================
+          COMING SOON DISPLAY IN WALLET (AS REQUESTED: WALLET, SWAP, HISTORY COMING SOON)
+         ========================================================================= */}
+      <div className="bg-[#111] rounded-[32px] border border-white/10 p-8 sm:p-12 text-center relative overflow-hidden">
+        <div className="absolute top-0 right-1/2 translate-x-1/2 w-80 h-80 bg-[#FFD700]/5 rounded-full blur-3xl pointer-events-none" />
 
-               if (isMining) title = 'Mining Reward';
-               else if (isTask) title = 'Task Reward';
-               else if (isReferral) title = 'Referral Bonus';
-               else if (isReceived) {
-                 title = 'Received CM';
-                 if (tx.senderUid) detail = `From: ${tx.senderUid}`;
-               } else {
-                 title = 'Sent CM';
-                 if (tx.receiverUid) detail = `To: ${tx.receiverUid}`;
-               }
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/5 border border-[#FFD700]/30 mx-auto mb-6 flex items-center justify-center text-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]">
+          {activeTab === 'swap' ? (
+            <ArrowRightLeft className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400" />
+          ) : activeTab === 'history' ? (
+            <HistoryIcon className="w-8 h-8 sm:w-10 sm:h-10 text-purple-400" />
+          ) : (
+            <WalletIcon className="w-8 h-8 sm:w-10 sm:h-10 text-[#FFD700]" />
+          )}
+        </div>
 
-               const sign = isReceived ? '+' : '';
-               const displayAmount = isReceived ? tx.amount : Math.abs(tx.amount);
-               const colorClass = isReceived ? 'text-green-400' : 'text-white';
-               const icon = (isMining || isTask || isReferral) ? '⛏️' : (isReceived ? '↓' : '↑');
-               
-               return (
-                 <div key={tx.id} className="flex items-center justify-between p-5 bg-black/40 rounded-2xl border border-white/5">
-                   <div className="flex items-center space-x-4">
-                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg ${isReceived ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white'}`}>
-                       {icon}
-                     </div>
-                     <div>
-                       <p className="font-bold text-sm sm:text-base flex items-center gap-2">
-                         {title}
-                         {tx.status && (
-                           <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-widest ${
-                             tx.status === 'approved' || tx.status === 'completed' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 
-                             tx.status === 'rejected' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                             'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                           }`}>
-                             {tx.status}
-                           </span>
-                         )}
-                       </p>
-                       {detail && <p className="text-[10px] text-gray-400 font-mono mt-0.5 break-all">UID: {detail.replace('From: ', '').replace('To: ', '')}</p>}
-                       <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase tracking-wider">{new Date(tx.timestamp).toLocaleString()}</p>
-                     </div>
-                   </div>
-                   <p className={`font-mono font-bold sm:text-lg ${colorClass}`}>
-                     {sign}{isReceived ? formatCurrency(displayAmount) : `-${formatCurrency(displayAmount)}`}
-                   </p>
-                 </div>
-               );
-             })
-           )}
-         </div>
-       )}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">
+          <Lock className="w-3.5 h-3.5" /> Coming Soon in Phase 2 ⏳
+        </div>
 
-       {activeTab === 'tasks' && (
-         <div className="space-y-4">
-           {loadingTasksHistory ? (
-             <div className="flex justify-center py-12">
-               <div className="w-8 h-8 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin"></div>
-             </div>
-           ) : completedTasksHistory.length === 0 ? (
-             <div className="text-center bg-white/5 rounded-[32px] border border-white/10 p-12">
-               <span className="text-4xl mb-4 block opacity-50">✅</span>
-               <p className="text-gray-500 font-medium tracking-wide">No completed tasks yet.</p>
-             </div>
-           ) : (
-             completedTasksHistory.map((ct, idx) => {
-               const meta = tasksMetaMap.get(ct.taskId);
-               const taskName = meta ? meta.title : 'Unknown Task';
-               const taskReward = meta ? meta.reward : 0;
-               return (
-                 <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-black/40 rounded-2xl border border-white/5 gap-4">
-                   <div className="flex items-center space-x-4">
-                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg bg-green-500/20 text-green-400`}>
-                       ✓
-                     </div>
-                     <div>
-                       <p className="font-bold text-sm sm:text-base text-white">{taskName}</p>
-                       <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-1 uppercase tracking-wider">{new Date(ct.completedAt).toLocaleString()}</p>
-                     </div>
-                   </div>
-                   <div className="flex flex-col sm:items-end">
-                     <p className={`font-mono font-bold sm:text-lg text-[#FFD700]`}>
-                       +{formatCurrency(taskReward)}
-                     </p>
-                     <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${ct.status === 'completed' ? 'text-green-400' : ct.status === 'pending' ? 'text-yellow-400' : 'text-red-400'}`}>
-                       {ct.status}
-                     </p>
-                   </div>
-                 </div>
-               );
-             })
-           )}
-         </div>
-       )}
+        <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2">
+          {activeTab === 'swap' 
+            ? 'CM ⇄ USDT Swap Engine' 
+            : activeTab === 'history' 
+            ? 'Transaction & Earning Ledger' 
+            : activeTab === 'send'
+            ? 'On-Chain Transfers & Withdrawals'
+            : 'Non-Custodial Web3 Wallet'}
+        </h3>
+
+        <p className="text-gray-400 text-sm max-w-lg mx-auto leading-relaxed mb-8">
+          {activeTab === 'swap'
+            ? 'Instant decentralized swap from CM Coins to USDT is scheduled for Phase 2. All your Phase 1 coins are safely recorded.'
+            : activeTab === 'history'
+            ? 'Full verifiable on-chain audit records, mining yield history, and referral activity are being indexed for Phase 2.'
+            : 'Transfer, send, receive, and withdrawal functions will unlock during the official Phase 2 rollout.'}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
+          <div className="bg-black/50 border border-white/5 rounded-2xl p-4">
+            <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider block mb-1">CM Coins Status</span>
+            <span className="text-white font-mono font-bold text-sm">{formatCurrency(currentBalance)} CM Secured</span>
+          </div>
+          <div className="bg-black/50 border border-white/5 rounded-2xl p-4">
+            <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider block mb-1">USDT Status</span>
+            <span className="text-emerald-400 font-mono font-bold text-sm">${formatCurrency(usdtBalance)} Ready</span>
+          </div>
+          <div className="bg-black/50 border border-white/5 rounded-2xl p-4">
+            <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider block mb-1">Referral Status</span>
+            <span className="text-blue-400 font-mono font-bold text-sm">{referralCount} Connected</span>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <button
+            onClick={() => toast('Feature will unlock with Phase 2 release!', { icon: '⏳' })}
+            className="px-6 py-3 bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all"
+          >
+            Notify Me on Launch
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 }

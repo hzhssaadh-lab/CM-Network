@@ -1,7 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { Send, MessageCircle, Twitter, Trophy, RefreshCcw, Rocket, Wallet, Users, Copy, CheckCircle2, ShieldCheck, ArrowRight, Activity, Award, Star, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  Send, 
+  MessageCircle, 
+  Twitter, 
+  Rocket, 
+  Wallet, 
+  Users, 
+  Copy, 
+  CheckCircle2, 
+  ShieldCheck, 
+  Activity, 
+  Star, 
+  Zap, 
+  ArrowRightLeft, 
+  History, 
+  Clock, 
+  Lock, 
+  Share2, 
+  Coins, 
+  Flame, 
+  Check,
+  TrendingUp,
+  Sparkles
+} from 'lucide-react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
+import toast from 'react-hot-toast';
 
 interface MaintenanceProps {
   onMaintenanceEnd?: () => void;
@@ -9,256 +33,441 @@ interface MaintenanceProps {
 
 export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
   const { user } = useApp();
-  const [copied, setCopied] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setIsFlipped(prev => !prev);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText("0xCM...Network...Address");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const referralCode = user?.referralCode || user?.uid?.substring(0, 8).toUpperCase() || 'CMNETWORK';
+  const referralLink = `${window.location.origin}/?ref=${referralCode}`;
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(referralCode);
+    setCopiedCode(true);
+    toast.success('Referral Code copied!', { icon: '📋' });
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(referralLink);
+    setCopiedLink(true);
+    toast.success('Referral Link copied to clipboard!', { icon: '🔗' });
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'CM Network Phase 2',
+        text: `Join CM Network Phase 2 with my referral code ${referralCode}!`,
+        url: referralLink,
+      }).catch(() => handleCopyLink());
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  const comingSoonFeatures = [
+    {
+      id: 'mining',
+      icon: Flame,
+      title: 'Phase 2 Mining Engine',
+      category: 'MINING',
+      description: 'Upgraded cloud & node extraction protocol with dynamic hashrates, boosted yields, and auto-staking.',
+      badge: 'Coming Soon',
+      color: 'from-amber-500/20 to-yellow-500/10',
+      borderColor: 'border-yellow-500/30',
+      iconColor: 'text-[#FFD700]',
+    },
+    {
+      id: 'wallet',
+      icon: Wallet,
+      title: 'CM Web3 Wallet',
+      category: 'WALLET',
+      description: 'Non-custodial on-chain wallet for direct deposit, secure holding, and multi-network transfers.',
+      badge: 'Coming Soon',
+      color: 'from-blue-500/20 to-cyan-500/10',
+      borderColor: 'border-blue-500/30',
+      iconColor: 'text-blue-400',
+    },
+    {
+      id: 'swap',
+      icon: ArrowRightLeft,
+      title: 'CM ⇄ USDT Instant Swap',
+      category: 'SWAP',
+      description: 'Decentralized automated liquidity pool to swap accumulated CM Coins into USDT with zero slippage.',
+      badge: 'Coming Soon',
+      color: 'from-emerald-500/20 to-green-500/10',
+      borderColor: 'border-emerald-500/30',
+      iconColor: 'text-[#00FF66]',
+    },
+    {
+      id: 'history',
+      icon: History,
+      title: 'Ledger & Transaction History',
+      category: 'HISTORY',
+      description: 'Comprehensive verifiable transaction audit log for Phase 1 migrations, rewards, and transfers.',
+      badge: 'Coming Soon',
+      color: 'from-purple-500/20 to-pink-500/10',
+      borderColor: 'border-purple-500/30',
+      iconColor: 'text-purple-400',
+    },
+    {
+      id: 'tasks',
+      icon: Zap,
+      title: 'Phase 2 Quests & Rewards',
+      category: 'TASKS & ADS',
+      description: 'Verified sponsor missions, daily streak challenges, and interactive video rewards system.',
+      badge: 'Coming Soon',
+      color: 'from-orange-500/20 to-red-500/10',
+      borderColor: 'border-orange-500/30',
+      iconColor: 'text-orange-400',
+    },
+    {
+      id: 'p2p',
+      icon: Users,
+      title: 'P2P Trading & Leaderboard',
+      category: 'TRADING & RANKS',
+      description: 'Peer-to-peer escrow marketplace and global community leaderboards with seasonal prize pools.',
+      badge: 'Coming Soon',
+      color: 'from-indigo-500/20 to-blue-500/10',
+      borderColor: 'border-indigo-500/30',
+      iconColor: 'text-indigo-400',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#030303] flex flex-col items-center p-4 sm:p-6 text-center z-[9999] fixed inset-0 overflow-y-auto overflow-x-hidden selection:bg-[#FFD700]/30 font-sans">
+    <div className="min-h-screen bg-[#030303] flex flex-col items-center p-3 sm:p-6 text-center z-[9999] fixed inset-0 overflow-y-auto overflow-x-hidden selection:bg-[#FFD700]/30 font-sans">
       
-      {/* Animated Particles & Glow Background */}
+      {/* Background Lighting Gradients */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#FFD700]/5 rounded-full blur-[120px] opacity-60 mix-blend-screen" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-[#00FF66]/5 rounded-full blur-[100px] opacity-40 mix-blend-screen" />
-        <div className="absolute top-[30%] right-[-10%] w-[400px] h-[400px] bg-[#FFD700]/5 rounded-full blur-[100px] opacity-30 mix-blend-screen" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#FFD700]/5 rounded-full blur-[140px] opacity-70 mix-blend-screen" />
+        <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-[#00FF66]/5 rounded-full blur-[120px] opacity-40 mix-blend-screen" />
+        <div className="absolute top-[40%] right-[-10%] w-[450px] h-[450px] bg-blue-500/5 rounded-full blur-[120px] opacity-30 mix-blend-screen" />
         
         {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+CjxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgZmlsbD0ibm9uZSIvPgo8cGF0aCBkPSJNMCA0MEwwIDBINDBMMCA0MFoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMiIvPgo8L3N2Zz4=')] opacity-20" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+CjxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgZmlsbD0ibm9uZSIvPgo8cGF0aCBkPSJNMCA0MEwwIDBINDBMMCA0MFoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMiIvPgo8L3N2Zz4=')] opacity-25" />
       </div>
 
-      <div className="max-w-2xl w-full py-6 sm:py-10 px-2 sm:px-4 flex flex-col items-center relative z-10 space-y-6 sm:space-y-8">
+      <div className="max-w-3xl w-full py-6 sm:py-10 px-2 sm:px-4 flex flex-col items-center relative z-10 space-y-6 sm:space-y-8">
         
-        {/* Top Hero Section */}
+        {/* Phase Status Badges */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wider uppercase backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>Phase 1 Completed ✅</span>
+          </div>
+
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#FFD700]/20 to-amber-500/20 border border-[#FFD700]/40 text-[#FFD700] text-xs font-black tracking-widest uppercase backdrop-blur-md shadow-[0_0_20px_rgba(255,215,0,0.2)] animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-ping" />
+            <Rocket className="w-3.5 h-3.5 text-[#FFD700]" />
+            <span>Phase 2 Started 🚀</span>
+          </div>
+        </div>
+
+        {/* Hero Title */}
         <div className="flex flex-col items-center w-full">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 mb-6 relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700] to-[#FF8C00] rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-700 animate-pulse" />
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-[#1A1A1A] to-[#050505] border border-[#FFD700]/40 flex items-center justify-center relative shadow-[0_0_40px_rgba(255,215,0,0.2)]">
-              <div className="absolute inset-1 rounded-full border border-[#FFD700]/20 border-dashed animate-[spin_10s_linear_infinite]" />
-              <Rocket className="w-12 h-12 sm:w-16 sm:h-16 text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]" />
+          <div className="w-20 h-20 sm:w-28 sm:h-28 mb-4 relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700] via-amber-400 to-[#00FF66] rounded-full blur-2xl opacity-40 group-hover:opacity-60 transition-opacity duration-700 animate-pulse" />
+            <div className="w-full h-full rounded-full bg-gradient-to-br from-[#1A1A1A] to-[#050505] border-2 border-[#FFD700]/50 flex items-center justify-center relative shadow-[0_0_50px_rgba(255,215,0,0.25)]">
+              <div className="absolute inset-1 rounded-full border border-[#FFD700]/30 border-dashed animate-[spin_12s_linear_infinite]" />
+              <Rocket className="w-10 h-10 sm:w-14 sm:h-14 text-[#FFD700] drop-shadow-[0_0_20px_rgba(255,215,0,0.6)]" />
             </div>
           </div>
           
-          <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-[#FFD700] to-white tracking-tight mb-3 text-center leading-tight">
-            PHASE 1 COMPLETED <span className="inline-block animate-bounce">🚀</span>
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-[#FFD700] to-white tracking-tight mb-2 text-center leading-tight">
+            CM NETWORK PHASE 2 IS LIVE
           </h1>
-          <p className="text-gray-400 text-sm sm:text-base font-medium tracking-wide max-w-md">
-            Your CM Network journey has reached a new milestone
+          <p className="text-gray-400 text-xs sm:text-sm md:text-base font-medium tracking-wide max-w-lg leading-relaxed">
+            Phase 1 is officially completed ✅. Phase 2 initialization has started. All your coins, USDT balances, and referral networks are secure and active below.
           </p>
         </div>
 
-        {/* Flip Card Section */}
-        <div 
-          className="w-full relative cursor-pointer" 
-          style={{ perspective: '1000px' }}
-          onClick={() => setIsFlipped(!isFlipped)}
-        >
-          <div 
-            className="w-full transition-all duration-700 ease-in-out grid"
-            style={{ 
-              transformStyle: 'preserve-3d', 
-              transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-            }}
-          >
-            {/* Front - Phase 1 */}
-            <div 
-              className="col-start-1 row-start-1 w-full"
-              style={{ backfaceVisibility: 'hidden' }}
-            >
-              <div className="w-full h-full bg-[#0A0A0A]/60 border border-[#FFD700]/20 rounded-3xl p-5 sm:p-7 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden flex flex-col justify-between">
-                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#FFD700]/50 to-transparent opacity-50" />
-                
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#FFD700]/10 flex items-center justify-center border border-[#FFD700]/20">
-                        <Activity className="w-5 h-5 text-[#FFD700]" />
-                      </div>
-                      <h3 className="text-white font-bold text-lg sm:text-xl tracking-tight">Your Progress</h3>
-                    </div>
-                    <span className="text-[#FFD700] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1 bg-[#FFD700]/10 px-2 py-1 rounded-lg border border-[#FFD700]/20"><RefreshCcw className="w-3 h-3 animate-spin" /> Auto</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <div className="bg-[#111] border border-white/5 rounded-2xl p-4 flex flex-col justify-center transition-all hover:border-[#FFD700]/30 hover:bg-[#151515]">
-                      <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">CM Balance</span>
-                      <div className="text-white font-black text-xl sm:text-2xl flex items-baseline gap-1">
-                        {formatCurrency(user?.balance || 0)} <span className="text-[#FFD700] text-sm font-bold">CM</span>
-                      </div>
-                    </div>
-                    <div className="bg-[#111] border border-white/5 rounded-2xl p-4 flex flex-col justify-center transition-all hover:border-[#00FF66]/30 hover:bg-[#151515]">
-                      <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">USDT Balance</span>
-                      <div className="text-[#00FF66] font-black text-xl sm:text-2xl flex items-baseline gap-1">
-                        ${formatCurrency(user?.usdtBalance || 0)} <span className="text-xs">USDT</span>
-                      </div>
-                    </div>
-                    <div className="bg-[#111] border border-white/5 rounded-2xl p-4 flex flex-col justify-center transition-all hover:border-white/20">
-                      <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Active Mining</span>
-                      <div className="text-white font-black text-lg sm:text-xl">
-                        {user?.dailyStreak || 0} <span className="text-gray-400 text-sm font-medium">Days</span>
-                      </div>
-                    </div>
-                    <div className="bg-[#111] border border-white/5 rounded-2xl p-4 flex flex-col justify-center transition-all hover:border-white/20">
-                      <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Referrals</span>
-                      <div className="text-white font-black text-lg sm:text-xl flex items-baseline gap-1">
-                        {user?.referralCount || 0} <span className="text-gray-400 text-sm font-medium">Friends</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Back - Phase 2 */}
-            <div 
-              className="col-start-1 row-start-1 w-full"
-              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-            >
-              <div className="w-full h-full bg-[#0A0A0A]/60 border border-white/10 rounded-3xl p-5 sm:p-7 backdrop-blur-xl shadow-2xl relative flex flex-col justify-between">
-                <div className="absolute top-0 right-10 w-32 h-32 bg-[#FFD700]/5 rounded-full blur-3xl pointer-events-none" />
-                
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-white font-bold text-lg sm:text-xl tracking-tight flex items-center gap-2">
-                      <Star className="w-5 h-5 text-[#FFD700] fill-[#FFD700]/20" />
-                      What's Coming in Phase 2
-                    </h3>
-                    <span className="text-[#FFD700] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1 bg-[#FFD700]/10 px-2 py-1 rounded-lg border border-[#FFD700]/20"><RefreshCcw className="w-3 h-3 animate-spin" /> Auto</span>
-                  </div>
-
-                  <div className="space-y-4 relative">
-                    <div className="absolute left-[19px] top-6 bottom-6 w-[2px] bg-gradient-to-b from-[#FFD700] via-[#00FF66] to-blue-500 opacity-20 rounded-full" />
-                    
-                    <div className="flex gap-4 relative z-10">
-                      <div className="w-10 h-10 rounded-full bg-[#111] border border-[#FFD700]/30 flex-shrink-0 flex items-center justify-center shadow-[0_0_15px_rgba(255,215,0,0.1)]">
-                        <span className="text-lg">🔥</span>
-                      </div>
-                      <div className="bg-[#111]/80 border border-white/5 rounded-2xl p-4 flex-1 hover:border-[#FFD700]/20 transition-colors text-left relative overflow-hidden">
-                        <div className="absolute top-0 right-0 bg-gradient-to-l from-[#FFD700]/20 to-transparent px-3 py-1 rounded-bl-xl text-[#FFD700] text-[9px] uppercase font-bold tracking-widest">Coming Soon</div>
-                        <h4 className="text-white font-bold text-sm sm:text-base mb-2 mt-1">New Reward System</h4>
-                        <ul className="space-y-1.5 opacity-60">
-                          <li className="text-gray-400 text-xs sm:text-sm flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#FFD700]" /> Daily reward upgrades</li>
-                          <li className="text-gray-400 text-xs sm:text-sm flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#FFD700]" /> More earning opportunities</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4 relative z-10">
-                      <div className="w-10 h-10 rounded-full bg-[#111] border border-[#00FF66]/30 flex-shrink-0 flex items-center justify-center shadow-[0_0_15px_rgba(0,255,102,0.1)]">
-                        <RefreshCcw className="w-4 h-4 text-[#00FF66]" />
-                      </div>
-                      <div className="bg-[#111]/80 border border-white/5 rounded-2xl p-4 flex-1 hover:border-[#00FF66]/20 transition-colors text-left relative overflow-hidden">
-                        <div className="absolute top-0 right-0 bg-gradient-to-l from-[#00FF66]/20 to-transparent px-3 py-1 rounded-bl-xl text-[#00FF66] text-[9px] uppercase font-bold tracking-widest">Coming Soon</div>
-                        <h4 className="text-white font-bold text-sm sm:text-base mb-2 mt-1">CM P2P Trading</h4>
-                        <ul className="space-y-1.5 opacity-60">
-                          <li className="text-gray-400 text-xs sm:text-sm flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#00FF66]" /> Secure peer-to-peer trading</li>
-                          <li className="text-gray-400 text-xs sm:text-sm flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#00FF66]" /> Escrow protection system</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4 relative z-10">
-                      <div className="w-10 h-10 rounded-full bg-[#111] border border-blue-500/30 flex-shrink-0 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-                        <Wallet className="w-4 h-4 text-blue-400" />
-                      </div>
-                      <div className="bg-[#111]/80 border border-white/5 rounded-2xl p-4 flex-1 hover:border-blue-500/20 transition-colors text-left relative overflow-hidden">
-                        <div className="absolute top-0 right-0 bg-gradient-to-l from-blue-500/20 to-transparent px-3 py-1 rounded-bl-xl text-blue-400 text-[9px] uppercase font-bold tracking-widest">Coming Soon</div>
-                        <h4 className="text-white font-bold text-sm sm:text-base mb-2 mt-1">CM Web3 Wallet</h4>
-                        <ul className="space-y-1.5 opacity-60">
-                          <li className="text-gray-400 text-xs sm:text-sm flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Store CM & crypto assets</li>
-                          <li className="text-gray-400 text-xs sm:text-sm flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Non-custodial security</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Contract & Stats Grid */}
+        {/* =========================================================================
+            PHASE 2 ACTIVE STATS: ONLY ALL COIN, USDT, AND REFERRAL (AS REQUESTED)
+           ========================================================================= */}
         <div className="w-full">
-          {/* Contract Address */}
-          <div className="bg-[#111] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between group w-full">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#FFD700]" />
-                <span className="text-gray-300 text-sm font-bold">Official Contract</span>
+          <div className="flex items-center justify-between px-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#FFD700]" />
+              <h2 className="text-white text-sm sm:text-base font-bold tracking-tight uppercase">
+                Active Portfolio & Network
+              </h2>
+            </div>
+            <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live & Synced
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+            
+            {/* 1. All Coins (CM Balance) */}
+            <div className="bg-gradient-to-b from-[#141414] to-[#0A0A0A] border border-[#FFD700]/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between text-left relative overflow-hidden group hover:border-[#FFD700]/60 transition-all shadow-[0_4px_24px_rgba(255,215,0,0.06)]">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFD700]/5 rounded-full blur-2xl group-hover:bg-[#FFD700]/10 transition-all pointer-events-none" />
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-[#FFD700]" /> Total CM Coins
+                </span>
+                <span className="text-[10px] font-black text-[#FFD700] bg-[#FFD700]/10 px-2 py-0.5 rounded border border-[#FFD700]/20">
+                  ALL COINS
+                </span>
               </div>
-              <span className="bg-[#FFD700]/10 text-[#FFD700] text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-[#FFD700]/20 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-[#FFD700] rounded-full animate-pulse" /> Coming Soon
-              </span>
+              <div>
+                <div className="text-white font-black text-2xl sm:text-3xl tracking-tight flex items-baseline gap-1.5">
+                  {formatCurrency(user?.balance || 0)} <span className="text-[#FFD700] text-sm sm:text-base font-bold">CM</span>
+                </div>
+                <div className="text-gray-500 text-xs font-mono mt-1 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-emerald-400" />
+                  <span>≈ ${( (user?.balance || 0) * 6.00 ).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-400">
+                <span>Phase 1 Holdings</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Preserved
+                </span>
+              </div>
             </div>
-            <div className="bg-black/50 border border-white/5 rounded-xl p-3 flex items-center justify-center">
-              <span className="text-gray-500 font-mono text-xs sm:text-sm tracking-widest font-bold uppercase">To Be Announced</span>
+
+            {/* 2. USDT Balance */}
+            <div className="bg-gradient-to-b from-[#141414] to-[#0A0A0A] border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between text-left relative overflow-hidden group hover:border-emerald-500/60 transition-all shadow-[0_4px_24px_rgba(16,185,129,0.06)]">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all pointer-events-none" />
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <Wallet className="w-4 h-4 text-emerald-400" /> USDT Balance
+                </span>
+                <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  STABLE
+                </span>
+              </div>
+              <div>
+                <div className="text-emerald-400 font-black text-2xl sm:text-3xl tracking-tight flex items-baseline gap-1.5">
+                  ${formatCurrency(user?.usdtBalance || 0)} <span className="text-xs sm:text-sm font-bold text-gray-400">USDT</span>
+                </div>
+                <div className="text-gray-500 text-xs font-mono mt-1">
+                  Tether USD Asset
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-400">
+                <span>Phase 2 Ready</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Ready
+                </span>
+              </div>
+            </div>
+
+            {/* 3. Total Referrals */}
+            <div className="bg-gradient-to-b from-[#141414] to-[#0A0A0A] border border-blue-500/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between text-left relative overflow-hidden group hover:border-blue-500/60 transition-all shadow-[0_4px_24px_rgba(59,130,246,0.06)]">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-all pointer-events-none" />
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-blue-400" /> Total Referrals
+                </span>
+                <span className="text-[10px] font-black text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                  NETWORK
+                </span>
+              </div>
+              <div>
+                <div className="text-white font-black text-2xl sm:text-3xl tracking-tight flex items-baseline gap-1.5">
+                  {user?.referralCount || 0} <span className="text-blue-400 text-sm sm:text-base font-bold">Friends</span>
+                </div>
+                <div className="text-gray-500 text-xs font-mono mt-1">
+                  Active Referral Team
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-400">
+                <span>Network Bonus</span>
+                <span className="text-blue-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Connected
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Referral Link & Share Box (Users can invite friends in Phase 2) */}
+          <div className="mt-3 bg-[#0F0F0F] border border-white/10 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 text-blue-400">
+                <Share2 className="w-5 h-5" />
+              </div>
+              <div className="overflow-hidden">
+                <span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block">Your Referral Code</span>
+                <span className="text-white font-mono font-black text-sm tracking-wider">{referralCode}</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                onClick={handleCopyCode}
+                className="flex-1 sm:flex-none px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-200 transition-all flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-gray-400" />}
+                <span>{copiedCode ? 'Copied Code' : 'Copy Code'}</span>
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-[#FFD700] to-amber-500 text-black rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(255,215,0,0.2)] active:scale-95"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Invite Friends</span>
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Global Progress Bar */}
-        <div className="w-full bg-[#111] border border-white/10 rounded-2xl p-5">
-          <div className="flex justify-between items-end mb-2">
-            <span className="text-gray-300 text-sm font-bold">Phase 2 Launch Prep</span>
-            <span className="text-[#00FF66] text-sm font-black">95%</span>
+        {/* =========================================================================
+            COMING SOON SECTION: MINING, WALLET, SWAP, HISTORY, AND OTHERS
+           ========================================================================= */}
+        <div className="w-full">
+          <div className="flex items-center justify-between px-2 mb-3.5">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-400" />
+              <h2 className="text-white text-sm sm:text-base font-bold tracking-tight uppercase">
+                Phase 2 Modules
+              </h2>
+            </div>
+            <span className="text-[10px] uppercase font-bold tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <Lock className="w-3 h-3" /> Coming Soon
+            </span>
           </div>
-          <div className="w-full h-2.5 bg-black rounded-full overflow-hidden border border-white/5">
-            <div className="h-full bg-gradient-to-r from-[#FFD700] to-[#00FF66] w-[95%] relative">
-              <div className="absolute top-0 right-0 bottom-0 left-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cGF0aCBkPSJNMCA4TDggMEg4TDAgOFoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4yIi8+Cjwvc3ZnPg==')] animate-[slide_1s_linear_infinite]" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+            {comingSoonFeatures.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div 
+                  key={item.id}
+                  className={`bg-[#0D0D0D] border ${item.borderColor} rounded-2xl p-4 sm:p-5 flex flex-col justify-between text-left relative overflow-hidden group hover:scale-[1.01] transition-all`}
+                >
+                  <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${item.color} rounded-full blur-xl pointer-events-none opacity-40`} />
+                  
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center">
+                        <Icon className={`w-4 h-4 ${item.iconColor}`} />
+                      </div>
+                      <span className="text-[9px] uppercase font-black tracking-widest px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-amber-300/90 flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" />
+                        {item.badge}
+                      </span>
+                    </div>
+
+                    <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-0.5">
+                      {item.category}
+                    </span>
+                    <h3 className="text-white font-bold text-sm sm:text-base tracking-tight mb-1.5">
+                      {item.title}
+                    </h3>
+                    <p className="text-gray-400 text-xs leading-relaxed line-clamp-3">
+                      {item.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-gray-500">Phase 2 Deployment</span>
+                    <button 
+                      onClick={() => toast('This module will unlock during Phase 2 feature release!', { icon: '⏳' })}
+                      className="text-[10px] font-bold text-gray-300 hover:text-[#FFD700] transition-colors flex items-center gap-1 bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg"
+                    >
+                      <span>Details</span>
+                      <Star className="w-2.5 h-2.5 text-[#FFD700]" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Phase Transition Progress Bar */}
+        <div className="w-full bg-[#111] border border-white/10 rounded-2xl p-4 sm:p-5 text-left">
+          <div className="flex justify-between items-center mb-2">
+            <div>
+              <span className="text-white text-xs sm:text-sm font-bold block">Phase 2 Initialization Progress</span>
+              <span className="text-gray-400 text-[11px]">Phase 1 Complete ✅ | Deploying Phase 2 ecosystem</span>
+            </div>
+            <span className="text-[#00FF66] font-mono font-black text-sm sm:text-base">LIVE</span>
+          </div>
+          <div className="w-full h-2.5 bg-black rounded-full overflow-hidden border border-white/5 mt-2">
+            <div className="h-full bg-gradient-to-r from-emerald-400 via-[#FFD700] to-emerald-400 w-full relative">
+              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cGF0aCBkPSJNMCA4TDggMEg4TDAgOFoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4yIi8+Cjwvc3ZnPg==')] animate-[slide_1s_linear_infinite]" />
             </div>
           </div>
         </div>
 
-        {/* Bottom Socials */}
-        <div className="w-full pt-4">
-          <div className="flex items-center justify-center gap-4 mb-5 opacity-50">
+        {/* Official Contract Address Banner */}
+        <div className="w-full bg-[#111] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20 flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-5 h-5 text-[#FFD700]" />
+            </div>
+            <div>
+              <span className="text-white text-xs sm:text-sm font-bold block">Official CM Smart Contract</span>
+              <span className="text-gray-400 text-[11px]">On-chain verification and contract deployment</span>
+            </div>
+          </div>
+          <div className="bg-black/60 border border-white/5 rounded-xl px-3 py-1.5 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
+            <span className="text-[#FFD700] font-mono text-xs font-bold uppercase tracking-wider">Phase 2 Announcement Coming Soon</span>
+          </div>
+        </div>
+
+        {/* Community & Socials */}
+        <div className="w-full pt-2">
+          <div className="flex items-center justify-center gap-4 mb-4 opacity-40">
             <div className="h-px bg-gradient-to-r from-transparent to-white/20 w-full" />
-            <p className="text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold whitespace-nowrap">
-              Join The Movement
+            <p className="text-gray-400 text-[10px] uppercase tracking-[0.25em] font-bold whitespace-nowrap">
+              Official Community Hubs
             </p>
             <div className="h-px bg-gradient-to-l from-transparent to-white/20 w-full" />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
-            <a href="https://t.me/OfficialCMNetwork" target="_blank" rel="noopener noreferrer"
-              className="bg-[#111] border border-white/5 hover:border-[#0088cc]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:bg-[#0088cc]/5 group">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 w-full">
+            <a 
+              href="https://t.me/OfficialCMNetwork" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-[#111] border border-white/5 hover:border-[#0088cc]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-[#0088cc]/5 group"
+            >
               <Send className="w-5 h-5 text-[#0088cc] group-hover:scale-110 transition-transform" />
               <span className="text-gray-400 text-[10px] font-bold tracking-wider uppercase">Telegram</span>
             </a>
-            <a href="https://whatsapp.com/channel/0029Vb92OHY6BIEm6VDrL82g" target="_blank" rel="noopener noreferrer"
-              className="bg-[#111] border border-white/5 hover:border-[#25D366]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:bg-[#25D366]/5 group">
+            <a 
+              href="https://whatsapp.com/channel/0029Vb92OHY6BIEm6VDrL82g" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-[#111] border border-white/5 hover:border-[#25D366]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-[#25D366]/5 group"
+            >
               <MessageCircle className="w-5 h-5 text-[#25D366] group-hover:scale-110 transition-transform" />
               <span className="text-gray-400 text-[10px] font-bold tracking-wider uppercase">WhatsApp</span>
             </a>
-            <a href="https://x.com/cmnetwork112" target="_blank" rel="noopener noreferrer"
-              className="bg-[#111] border border-white/5 hover:border-white/30 py-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:bg-white/5 group">
+            <a 
+              href="https://x.com/cmnetwork112" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-[#111] border border-white/5 hover:border-white/30 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-white/5 group"
+            >
               <Twitter className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
               <span className="text-gray-400 text-[10px] font-bold tracking-wider uppercase">X (Twitter)</span>
             </a>
             <button
-              className="bg-[#111] border border-[#FFD700]/20 hover:border-[#FFD700]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:bg-[#FFD700]/5 group relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-[#FFD700] text-black px-1.5 py-0.5 rounded-bl-lg text-[7px] font-black uppercase tracking-widest">Soon</div>
-              <Wallet className="w-5 h-5 text-[#FFD700] group-hover:scale-110 transition-transform mt-2" />
-              <span className="text-[#FFD700] text-[10px] font-bold tracking-wider uppercase">CM Wallet</span>
+              onClick={() => toast('CM Web3 Wallet will launch in Phase 2!', { icon: '💼' })}
+              className="bg-[#111] border border-[#FFD700]/20 hover:border-[#FFD700]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-[#FFD700]/5 group relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 bg-[#FFD700] text-black px-1.5 py-0.5 rounded-bl-lg text-[7px] font-black uppercase tracking-widest">Phase 2</div>
+              <Wallet className="w-5 h-5 text-[#FFD700] group-hover:scale-110 transition-transform mt-1" />
+              <span className="text-[#FFD700] text-[10px] font-bold tracking-wider uppercase">Web3 Wallet</span>
             </button>
           </div>
         </div>
         
-        {/* Glow CTA at bottom */}
-        <div className="pb-8 pt-4">
-          <p className="text-[#FFD700] text-xs font-bold uppercase tracking-[0.3em] animate-pulse flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5" /> Enter Phase 2 Soon <Zap className="w-3.5 h-3.5" />
+        {/* Footer status notice */}
+        <div className="pb-8 pt-2">
+          <p className="text-gray-500 text-[11px] font-semibold tracking-wider flex items-center justify-center gap-2">
+            <span>CM Network Phase 2 Core Engine</span>
+            <span className="w-1 h-1 rounded-full bg-[#FFD700]" />
+            <span className="text-[#FFD700]">All assets secured</span>
           </p>
         </div>
 

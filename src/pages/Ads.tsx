@@ -98,8 +98,16 @@ export function Ads() {
   return (
     <div className="w-full max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="text-center mb-8 relative">
+        <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+          <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
+            Phase 1 Completed ✅
+          </span>
+          <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-black uppercase tracking-wider">
+            Phase 2 Rewards: Coming Soon ⏳
+          </span>
+        </div>
         <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-500 tracking-tighter mb-2">EARN</h1>
-        <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">Watch ads & Withdraw</p>
+        <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">Phase 2 Ad Engine Upgrades</p>
       </div>
 
       {/* Balances */}

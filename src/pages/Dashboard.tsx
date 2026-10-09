@@ -1,276 +1,320 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
+import { useState } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
-import { Info } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { 
+  CheckCircle2, 
+  Rocket, 
+  Coins, 
+  Wallet, 
+  Users, 
+  Copy, 
+  Check, 
+  Flame, 
+  Lock, 
+  ArrowRightLeft, 
+  History, 
+  Zap, 
+  TrendingUp, 
+  Sparkles,
+  Share2
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export function Dashboard() {
-  const { user, updateUser, updateLocalUser, refreshUser } = useApp();
-  const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
-  const [mineState, setMineState] = useState<'IDLE' | 'MINING' | 'READY'>('IDLE');
-  const [currentBalance, setCurrentBalance] = useState(user?.balance || 0);
-  const [isClaiming, setIsClaiming] = useState(false);
-  const claimInProgress = useRef(false);
-
-  const startMining = async () => {
-    if (!user || mineState !== 'IDLE' || isClaiming) return;
-    const startTime = Date.now();
-    const endTime = startTime + 24 * 60 * 60 * 1000; // 24 hours
-    await updateUser({
-      miningSessionStartTime: startTime,
-      miningSessionEndTime: endTime
-    });
-  };
-
-  useEffect(() => {
-    if (user && mineState === 'IDLE' && !isClaiming) {
-      setCurrentBalance(user.balance);
-    }
-  }, [user?.balance, mineState, isClaiming]);
-
-  const initiateClaim = () => {
-    if (!user || mineState !== 'READY' || isClaiming) return;
-    const totalEarned = user.miningRate * 24;
-    handleClaim(user.uid, totalEarned);
-  };
-
-  const handleClaim = async (userId: string, earned: number) => {
-    if (claimInProgress.current) return;
-    claimInProgress.current = true;
-    setIsClaiming(true);
-    
-    try {
-        const { data: dbData, error } = await supabase.from('users').select('*').eq('uid', userId).single();
-        if (error || !dbData) throw new Error("Could not fetch user");
-
-        if (!dbData.miningSessionStartTime) {
-             updateLocalUser({
-                miningSessionStartTime: null,
-                miningSessionEndTime: null
-            });
-            return;
-        }
-        if (dbData.miningSessionEndTime > Date.now()) return; // A new session already started
-
-        const newBalance = (dbData.balance || 0) + earned;
-        const newTotalMined = (dbData.totalMined || 0) + earned;
-
-        const matchConditions = [`uid.eq.${userId}`, `UID.eq.${userId}`];
-        if (dbData.email) {
-          matchConditions.push(`email.ilike.${dbData.email}`);
-        }
-
-        await supabase.from('users').update({
-            balance: newBalance,
-            "CM Coins": newBalance,
-            cm_coins: newBalance,
-            totalMined: newTotalMined,
-            miningSessionStartTime: null,
-            miningSessionEndTime: null
-        }).or(matchConditions.join(','));
-        
-        await supabase.from('transactions').insert([{
-          id: 'tx_mine_' + Date.now(),
-          type: 'mining_reward',
-          amount: earned,
-          timestamp: Date.now(),
-          status: 'completed',
-          receiverUid: userId,
-          senderUid: 'system',
-          description: 'Mining Reward'
-        }]);
-
-        updateLocalUser({
-            balance: newBalance,
-            totalMined: newTotalMined,
-            miningSessionStartTime: null,
-            miningSessionEndTime: null
-        });
-
-        await refreshUser();
-
-        toast.success(`Mining session completed! You earned ${formatCurrency(earned)} CM.`, {
-            icon: '⛏️',
-            duration: 6000,
-        });
-    } catch(e) { 
-        console.error('claim error', e)
-        toast.error('Error claiming reward. Please try again.');
-    } finally {
-        claimInProgress.current = false;
-        setIsClaiming(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!user) return;
-
-    let interval: ReturnType<typeof setInterval>;
-
-    const updateMiningState = () => {
-      const startTime = user.miningSessionStartTime ? Number(user.miningSessionStartTime) : null;
-      const endTime = user.miningSessionEndTime ? Number(user.miningSessionEndTime) : null;
-
-      if (endTime && startTime) {
-        const now = Date.now();
-        if (now < endTime) {
-          setMineState('MINING');
-          const remaining = endTime - now;
-          const h = Math.floor((remaining / (1000 * 60 * 60)) % 24);
-          const m = Math.floor((remaining / 1000 / 60) % 60);
-          const s = Math.floor((remaining / 1000) % 60);
-          setTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-
-          const elapsed = now - startTime;
-          const minedNow = (user.miningRate / 3600000) * elapsed;
-          setCurrentBalance(user.balance + minedNow);
-        } else {
-          setMineState('READY');
-          setTimeLeft("00:00:00");
-          setCurrentBalance(user.balance + (user.miningRate * 24));
-        }
-      } else {
-        setMineState('IDLE');
-        setTimeLeft("24:00:00");
-        setCurrentBalance(user.balance);
-      }
-    };
-
-    updateMiningState();
-    interval = setInterval(updateMiningState, 1000);
-
-    return () => clearInterval(interval);
-  }, [user?.miningSessionStartTime, user?.miningSessionEndTime, user?.balance, user?.uid, user?.miningRate]);
+  const { user } = useApp();
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   if (!user) return null;
 
+  const currentBalance = user.balance || 0;
+  const usdtBalance = user.usdtBalance || 0;
+  const referralCount = user.referralCount || 0;
+  const referralCode = user.referralCode || user.uid?.substring(0, 8).toUpperCase() || 'CMNETWORK';
+  const referralLink = `${window.location.origin}/?ref=${referralCode}`;
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(referralCode);
+    setCopiedCode(true);
+    toast.success('Referral Code copied!', { icon: '📋' });
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(referralLink);
+    setCopiedLink(true);
+    toast.success('Referral link copied!', { icon: '🔗' });
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-500">
-      <section className="lg:col-span-7 bg-white/5 rounded-[32px] border border-white/10 p-8 sm:p-10 flex flex-col items-center justify-center relative overflow-hidden min-h-[440px]">
-        <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#FFD700] opacity-10 blur-[100px] pointer-events-none"></div>
-        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-[#FFD700] opacity-5 blur-[100px] pointer-events-none"></div>
-        
-        <div className="relative w-56 h-56 md:w-64 md:h-64 mb-8">
-          {/* Radiating Aura Effect */}
-          <div className={`absolute inset-0 rounded-full bg-[#FFD700] transition-all duration-1000 ${mineState === 'MINING' ? 'opacity-10 blur-2xl animate-pulse' : 'opacity-0'}`}></div>
-          <div className={`absolute inset-0 rounded-full border border-[#FFD700]/50 transition-all duration-1000 ${mineState === 'MINING' ? 'animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]' : 'opacity-0'}`}></div>
-          
-          {/* Existing Rings */}
-          <div className={`absolute inset-0 rounded-full border-2 border-dashed border-[#FFD700]/30 transition-all duration-1000 ${mineState === 'MINING' ? 'animate-[spin_10s_linear_infinite]' : ''}`}></div>
-          <div className={`absolute inset-4 rounded-full border border-[#FFD700]/50 transition-all duration-700 ${mineState === 'MINING' ? 'bg-[#FFD700]/5 shadow-[0_0_40px_rgba(212,175,55,0.15)] animate-pulse' : ''}`}></div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-xs md:text-sm text-gray-400 font-medium mb-1">{mineState === 'MINING' ? "EXTRACTION SESSION" : "READY TO EXTRACT"}</p>
-            <h2 className="text-4xl md:text-5xl font-black text-[#FFD700] my-2 font-mono tracking-tighter">
-              {mineState === 'MINING' ? timeLeft : "24:00:00"}
-            </h2>
-            <p className="text-[10px] md:text-xs text-[#FFD700]/60 tracking-widest uppercase">{mineState === 'MINING' ? "Active Engine" : "Engine Standby"}</p>
-          </div>
-        </div>
-
-        {mineState === 'READY' ? (
-          <button 
-            onClick={initiateClaim}
-            disabled={isClaiming}
-            className="w-full max-w-sm bg-gradient-to-r from-green-400 to-green-600 text-black font-black py-4 md:py-5 rounded-2xl shadow-[0_10px_40px_rgba(34,197,94,0.3)] text-lg md:text-xl tracking-tighter active:scale-95 transition-all outline-none"
-          >
-            {isClaiming ? "CLAIMING..." : "CLAIM REWARD"}
-          </button>
-        ) : mineState === 'IDLE' ? (
-          <button 
-            onClick={startMining}
-            disabled={isClaiming}
-            className="w-full max-w-sm bg-gradient-to-r from-[#FFD700] to-[#B8860B] text-black font-black py-4 md:py-5 rounded-2xl shadow-[0_10px_40px_rgba(212,175,55,0.3)] text-lg md:text-xl tracking-tighter active:scale-95 transition-all outline-none"
-          >
-            START EXTRACTION
-          </button>
-        ) : (
-          <button 
-            disabled
-            className="w-full max-w-sm bg-white/10 text-white/50 font-black py-4 md:py-5 rounded-2xl text-lg md:text-xl tracking-tighter cursor-not-allowed border border-white/5"
-          >
-            EXTRACTING...
-          </button>
-        )}
-        
-        <div className="mt-8 flex space-x-6 sm:space-x-12 w-full justify-center">
-          <div className="text-center relative group cursor-help">
-            <div className="flex items-center justify-center space-x-1 text-gray-500 text-[10px] uppercase font-bold mb-1 tracking-widest">
-              <span>Rate / hr</span>
-              <Info className="w-3 h-3 text-gray-400" />
-            </div>
-            <p className="text-lg md:text-xl font-bold">{(user?.miningRate || 0).toFixed(4)} CM</p>
-
-            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 opacity-0 transition-opacity group-hover:opacity-100 z-20">
-              <div className="bg-gray-900 border border-white/10 rounded-xl p-4 shadow-2xl text-left">
-                <p className="text-xs text-white font-bold mb-1">Mining Rate Formula</p>
-                <p className="text-[10px] text-gray-400 mb-2">Base node extraction rate is currently 0.05 CM every 24 hours.</p>
-                <p className="text-[10px] text-[#FFD700] mb-1 font-bold">Acceleration Methods:</p>
-                <ul className="text-[10px] text-gray-400 list-disc pl-3 space-y-1">
-                  <li>Recruit associates to earn +10% of their active yield.</li>
-                  <li>Complete auxiliary contracts in the Tasks sector.</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          <div className="h-10 w-px bg-white/10"></div>
-          <div className="text-center">
-            <p className="text-gray-500 text-[10px] uppercase font-bold mb-1 tracking-widest">Daily Yield</p>
-            <p className="text-lg md:text-xl font-bold text-[#FFD700]">{(user?.miningRate || 0) * 24} CM</p>
-          </div>
-        </div>
-      </section>
-
-      <div className="lg:col-span-5 flex flex-col space-y-8">
-        <section className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] border border-[#FFD700]/20 p-8 flex flex-col justify-between min-h-[220px] relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-            <div className="w-32 h-32 border-4 border-[#FFD700] rounded-full translate-x-16 -translate-y-16"></div>
-          </div>
-          
+    <div className="flex flex-col space-y-6 animate-in fade-in duration-500 w-full max-w-7xl mx-auto pb-10">
+      
+      {/* Phase 1 Completed / Phase 2 Started Hero Banner */}
+      <div className="bg-gradient-to-r from-[#141414] via-[#1A1A1A] to-[#141414] border border-[#FFD700]/30 rounded-3xl p-5 sm:p-7 relative overflow-hidden shadow-[0_4px_30px_rgba(255,215,0,0.05)]">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <p className="text-xs text-[#FFD700] font-bold uppercase tracking-widest">Main Asset Balance</p>
-              <span className="px-3 py-1 bg-[#FFD700]/10 text-[#FFD700] rounded-full text-[10px] font-bold border border-[#FFD700]/20 tracking-widest">LIVE</span>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Phase 1 Completed ✅
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-xs font-black uppercase tracking-widest animate-pulse">
+                <Rocket className="w-3.5 h-3.5" /> Phase 2 Started 🚀
+              </span>
             </div>
-            <div className="space-y-1">
-              <h3 className="text-4xl md:text-5xl font-black tracking-tighter font-mono">{formatCurrency(currentBalance)} <span className="text-xl md:text-2xl text-[#FFD700] font-sans">CM</span></h3>
-              <p className="text-gray-500 font-mono text-lg md:text-xl mt-2">≈ ${(currentBalance * 6.00).toLocaleString('en-US', {minimumFractionDigits: 2})}</p>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              CM Network Phase 2 Hub
+            </h1>
+            <p className="text-gray-400 text-xs sm:text-sm mt-1 max-w-xl">
+              Phase 1 is complete! In Phase 2, your total coins, USDT balance, and referrals are actively displayed. Mining, Wallet, Swap, and History are coming soon!
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleCopyLink}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-gradient-to-r from-[#FFD700] to-amber-500 text-black font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,215,0,0.2)] active:scale-95 transition-all"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Invite Friends</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          PHASE 2 ACTIVE STATS: ONLY ALL COIN, USDT, AND REFERRALS (AS REQUESTED)
+         ========================================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        {/* 1. All Coins (CM Coins) */}
+        <div className="bg-[#111] border border-[#FFD700]/30 rounded-3xl p-6 relative overflow-hidden group hover:border-[#FFD700]/60 transition-all">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700]/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Coins className="w-4 h-4 text-[#FFD700]" /> Total CM Coins
+            </span>
+            <span className="px-2.5 py-0.5 bg-[#FFD700]/10 text-[#FFD700] text-[10px] font-black rounded-md border border-[#FFD700]/20 tracking-wider">
+              ALL COIN
+            </span>
+          </div>
+          <div>
+            <h3 className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+              {formatCurrency(currentBalance)} <span className="text-lg text-[#FFD700] font-sans">CM</span>
+            </h3>
+            <p className="text-gray-500 font-mono text-sm mt-1 flex items-center gap-1">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              ≈ ${(currentBalance * 6.00).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+            <span>Phase 1 Balance</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Preserved
+            </span>
+          </div>
+        </div>
+
+        {/* 2. USDT Balance */}
+        <div className="bg-[#111] border border-emerald-500/30 rounded-3xl p-6 relative overflow-hidden group hover:border-emerald-500/60 transition-all">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Wallet className="w-4 h-4 text-emerald-400" /> USDT Balance
+            </span>
+            <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-black rounded-md border border-emerald-500/20 tracking-wider">
+              STABLE
+            </span>
+          </div>
+          <div>
+            <h3 className="text-3xl sm:text-4xl font-black text-emerald-400 font-mono tracking-tight">
+              ${formatCurrency(usdtBalance)} <span className="text-sm font-bold text-gray-400 font-sans">USDT</span>
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Tether USD Balance
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+            <span>Phase 2 Ready</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Active
+            </span>
+          </div>
+        </div>
+
+        {/* 3. Total Referrals */}
+        <div className="bg-[#111] border border-blue-500/30 rounded-3xl p-6 relative overflow-hidden group hover:border-blue-500/60 transition-all">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-blue-400" /> Total Referrals
+            </span>
+            <span className="px-2.5 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-black rounded-md border border-blue-500/20 tracking-wider">
+              REFERRAL
+            </span>
+          </div>
+          <div>
+            <h3 className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+              {referralCount} <span className="text-lg text-blue-400 font-sans">Friends</span>
+            </h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-gray-500 text-xs">Code:</span>
+              <button 
+                onClick={handleCopyCode}
+                className="text-white text-xs font-mono font-bold bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded border border-white/10 flex items-center gap-1"
+              >
+                <span>{referralCode}</span>
+                {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-gray-400" />}
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+            <span>Invite Network</span>
+            <span className="text-blue-400 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Synced
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* =========================================================================
+          COMING SOON SECTORS: MINING, WALLET, SWAP, HISTORY, AND OTHERS
+         ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Mining Sector - Coming Soon */}
+        <section className="lg:col-span-7 bg-white/5 rounded-[32px] border border-white/10 p-8 flex flex-col items-center justify-center relative overflow-hidden min-h-[420px] text-center">
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#FFD700] opacity-10 blur-[100px] pointer-events-none"></div>
+          
+          <div className="relative w-48 h-48 md:w-56 md:h-56 mb-6">
+            <div className="absolute inset-0 rounded-full border border-yellow-500/20"></div>
+            <div className="absolute inset-3 rounded-full border-2 border-dashed border-[#FFD700]/30 animate-[spin_20s_linear_infinite]"></div>
+            <div className="absolute inset-6 rounded-full bg-gradient-to-br from-[#1A1A1A] to-[#0A0A0A] border border-[#FFD700]/30 flex flex-col items-center justify-center shadow-[0_0_30px_rgba(255,215,0,0.1)]">
+              <Flame className="w-10 h-10 text-[#FFD700] mb-2" />
+              <span className="text-[10px] font-black text-[#FFD700] tracking-widest uppercase">PHASE 2</span>
+              <span className="text-xs font-bold text-gray-400">MINING ENGINE</span>
+            </div>
+          </div>
+
+          <div className="max-w-md">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">
+              <Lock className="w-3 h-3" /> Mining Coming Soon ⏳
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
+              Phase 2 Mining Engine Upgrade
+            </h3>
+            <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mb-6">
+              Old Phase 1 extraction has completed. Phase 2 cloud mining is being deployed with boosted multipliers, node staking, and zero battery drain.
+            </p>
+          </div>
+
+          <button
+            onClick={() => toast('Mining will be unlocked during Phase 2 feature release!', { icon: '⛏️' })}
+            className="w-full max-w-sm bg-white/10 hover:bg-white/15 border border-white/10 text-gray-300 font-bold py-4 rounded-2xl text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2"
+          >
+            <Lock className="w-4 h-4 text-amber-400" />
+            <span>Mining — Coming Soon ⏳</span>
+          </button>
+        </section>
+
+        {/* Other Modules - Coming Soon */}
+        <section className="lg:col-span-5 flex flex-col space-y-4">
+          <div className="bg-white/5 rounded-[32px] border border-white/10 p-6 flex flex-col flex-1">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-xs text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#FFD700]" /> Phase 2 Ecosystem
+              </h4>
+              <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                Coming Soon
+              </span>
+            </div>
+
+            <div className="space-y-3 flex-1 flex flex-col justify-around">
+              
+              {/* Wallet Card */}
+              <div 
+                onClick={() => toast('Web3 Wallet is coming soon in Phase 2!', { icon: '💼' })}
+                className="bg-black/40 hover:bg-black/60 border border-white/5 hover:border-blue-500/30 rounded-2xl p-4 transition-all cursor-pointer flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-white font-bold text-sm">CM Web3 Wallet</h5>
+                    <p className="text-gray-500 text-xs">Send, receive & hold assets</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> Soon
+                </span>
+              </div>
+
+              {/* Swap Card */}
+              <div 
+                onClick={() => toast('CM ⇄ USDT Swap is coming soon in Phase 2!', { icon: '🔄' })}
+                className="bg-black/40 hover:bg-black/60 border border-white/5 hover:border-emerald-500/30 rounded-2xl p-4 transition-all cursor-pointer flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <ArrowRightLeft className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-white font-bold text-sm">CM ⇄ USDT Swap</h5>
+                    <p className="text-gray-500 text-xs">Instant DEX token exchange</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> Soon
+                </span>
+              </div>
+
+              {/* History Card */}
+              <div 
+                onClick={() => toast('Transaction & Earning history is coming soon in Phase 2!', { icon: '📜' })}
+                className="bg-black/40 hover:bg-black/60 border border-white/5 hover:border-purple-500/30 rounded-2xl p-4 transition-all cursor-pointer flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-white font-bold text-sm">Ledger & History</h5>
+                    <p className="text-gray-500 text-xs">On-chain transaction logs</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> Soon
+                </span>
+              </div>
+
+              {/* Tasks & Other Card */}
+              <div 
+                onClick={() => toast('Tasks, Ads & Other features are coming soon in Phase 2!', { icon: '⚡' })}
+                className="bg-black/40 hover:bg-black/60 border border-white/5 hover:border-orange-500/30 rounded-2xl p-4 transition-all cursor-pointer flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-white font-bold text-sm">Tasks & Earn</h5>
+                    <p className="text-gray-500 text-xs">Sponsored quests & rewards</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> Soon
+                </span>
+              </div>
+
             </div>
           </div>
         </section>
 
-         <section className="flex-1 bg-white/5 rounded-[32px] border border-white/10 p-8 flex flex-col min-h-[200px]">
-          <h4 className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">Network Stats</h4>
-          <div className="grid grid-cols-2 gap-4 h-full">
-             <div className="bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4 text-center">
-                <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase mb-2">Total Mined</span>
-                <span className="text-xl font-bold text-white">{formatCurrency(user.totalMined)} <span className="text-xs text-gray-400">CM</span></span>
-             </div>
-             <div className="bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-4 text-center">
-                <span className="text-gray-500 text-[10px] font-bold tracking-widest uppercase mb-2">Current Price</span>
-                <span className="text-xl font-bold text-[#FFD700]">$6.00</span>
-             </div>
-             <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                whileHover={{ scale: 1.02 }}
-                className="col-span-2 bg-gradient-to-br from-black/60 via-[#FFD700]/10 to-black/60 rounded-2xl border border-[#FFD700]/30 shadow-[0_0_20px_rgba(255,215,0,0.1)] flex flex-col items-center justify-center p-6 text-center relative overflow-hidden group"
-             >
-                <motion.div 
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FFD700]/10 to-transparent"
-                  animate={{ x: ['-100%', '100%'] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-                />
-                <span className="text-[#FFD700] text-[10px] font-bold tracking-widest uppercase mb-1 drop-shadow-md z-10">Maximum Supply</span>
-                <span className="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-[0_0_15px_rgba(255,215,0,0.3)] z-10 block py-1">
-                  10M <span className="text-xl md:text-2xl text-[#FFD700] ml-1">CM</span>
-                </span>
-             </motion.div>
-          </div>
-         </section>
       </div>
+
     </div>
   );
 }

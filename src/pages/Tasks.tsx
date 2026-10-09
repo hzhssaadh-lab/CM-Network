@@ -316,8 +316,16 @@ export function Tasks() {
     <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
       <div className="mb-8 p-8 bg-white/5 border border-white/10 rounded-[32px] relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-5 blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
-        <h2 className="text-3xl font-black tracking-tight mb-2">Earn Extra <span className="text-[#FFD700]">CM</span></h2>
-        <p className="text-gray-400 text-sm">Complete simple tasks to boost your balance and earn immediate rewards.</p>
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+            Phase 1 Completed ✅
+          </span>
+          <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black uppercase tracking-wider">
+            Phase 2 Quests: Coming Soon ⏳
+          </span>
+        </div>
+        <h2 className="text-3xl font-black tracking-tight mb-2">Phase 2 Tasks & Rewards</h2>
+        <p className="text-gray-400 text-sm">New sponsored quests and daily bonuses are preparing for Phase 2 launch. Stay tuned!</p>
       </div>
 
       <DailyRewards />
