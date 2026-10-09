@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
 import { 
-  Send, 
-  MessageCircle, 
-  Twitter, 
   Rocket, 
   Wallet, 
   Users, 
   Copy, 
   CheckCircle2, 
   ShieldCheck, 
-  Activity, 
   Star, 
   Zap, 
   ArrowRightLeft, 
@@ -21,10 +17,13 @@ import {
   Flame, 
   Check,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  User as UserIcon,
+  LogOut
 } from 'lucide-react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
+import { SocialChannels } from '../components/SocialChannels';
 import toast from 'react-hot-toast';
 
 interface MaintenanceProps {
@@ -32,7 +31,7 @@ interface MaintenanceProps {
 }
 
 export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
-  const { user } = useApp();
+  const { user, logout } = useApp();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -180,6 +179,51 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
           <p className="text-gray-400 text-xs sm:text-sm md:text-base font-medium tracking-wide max-w-lg leading-relaxed">
             Phase 1 is officially completed ✅. Phase 2 initialization has started. All your coins, USDT balances, and referral networks are secure and active below.
           </p>
+        </div>
+
+        {/* Logged-in Pioneer User Account Card */}
+        <div className="w-full bg-[#0D0D0D] border border-white/10 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-left shadow-lg">
+          <div className="flex items-center gap-3.5 w-full sm:w-auto">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#FFD700] to-amber-600 p-0.5 relative flex-shrink-0">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="User" className="w-full h-full rounded-[14px] object-cover" />
+              ) : (
+                <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center text-[#FFD700] font-black text-lg">
+                  {(user?.displayName || user?.email || 'CM')[0].toUpperCase()}
+                </div>
+              )}
+              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-black rounded-full" />
+            </div>
+
+            <div className="overflow-hidden">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-white font-extrabold text-sm sm:text-base truncate">
+                  {user?.displayName || user?.email?.split('@')[0] || 'CM Pioneer'}
+                </h3>
+                <span className="bg-[#FFD700]/15 text-[#FFD700] text-[9px] font-black px-2 py-0.5 rounded-full border border-[#FFD700]/30 tracking-wider">
+                  PHASE 1 PIONEER
+                </span>
+              </div>
+              <p className="text-gray-400 text-xs truncate mt-0.5">
+                {user?.email || 'cm.network.user@node'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div className="bg-black/60 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
+              <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">UID:</span>
+              <span className="text-white font-mono text-xs font-bold">{referralCode}</span>
+            </div>
+            <button
+              onClick={() => logout()}
+              className="px-3 py-1.5 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/10 hover:border-red-500/20 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
 
         {/* =========================================================================
@@ -413,54 +457,11 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
           </div>
         </div>
 
-        {/* Community & Socials */}
-        <div className="w-full pt-2">
-          <div className="flex items-center justify-center gap-4 mb-4 opacity-40">
-            <div className="h-px bg-gradient-to-r from-transparent to-white/20 w-full" />
-            <p className="text-gray-400 text-[10px] uppercase tracking-[0.25em] font-bold whitespace-nowrap">
-              Official Community Hubs
-            </p>
-            <div className="h-px bg-gradient-to-l from-transparent to-white/20 w-full" />
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 w-full">
-            <a 
-              href="https://t.me/OfficialCMNetwork" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="bg-[#111] border border-white/5 hover:border-[#0088cc]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-[#0088cc]/5 group"
-            >
-              <Send className="w-5 h-5 text-[#0088cc] group-hover:scale-110 transition-transform" />
-              <span className="text-gray-400 text-[10px] font-bold tracking-wider uppercase">Telegram</span>
-            </a>
-            <a 
-              href="https://whatsapp.com/channel/0029Vb92OHY6BIEm6VDrL82g" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="bg-[#111] border border-white/5 hover:border-[#25D366]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-[#25D366]/5 group"
-            >
-              <MessageCircle className="w-5 h-5 text-[#25D366] group-hover:scale-110 transition-transform" />
-              <span className="text-gray-400 text-[10px] font-bold tracking-wider uppercase">WhatsApp</span>
-            </a>
-            <a 
-              href="https://x.com/cmnetwork112" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="bg-[#111] border border-white/5 hover:border-white/30 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-white/5 group"
-            >
-              <Twitter className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
-              <span className="text-gray-400 text-[10px] font-bold tracking-wider uppercase">X (Twitter)</span>
-            </a>
-            <button
-              onClick={() => toast('CM Web3 Wallet will launch in Phase 2!', { icon: '💼' })}
-              className="bg-[#111] border border-[#FFD700]/20 hover:border-[#FFD700]/50 py-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-[#FFD700]/5 group relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 bg-[#FFD700] text-black px-1.5 py-0.5 rounded-bl-lg text-[7px] font-black uppercase tracking-widest">Phase 2</div>
-              <Wallet className="w-5 h-5 text-[#FFD700] group-hover:scale-110 transition-transform mt-1" />
-              <span className="text-[#FFD700] text-[10px] font-bold tracking-wider uppercase">Web3 Wallet</span>
-            </button>
-          </div>
-        </div>
+        {/* Official Community Channels: WhatsApp, X, Telegram (Placed at the bottom / last as requested) */}
+        <SocialChannels 
+          title="Official Community & Channels"
+          subtitle="Join our official channels for Phase 2 updates, contract announcements & rewards"
+        />
         
         {/* Footer status notice */}
         <div className="pb-8 pt-2">

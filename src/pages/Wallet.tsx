@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Share2
 } from 'lucide-react';
+import { SocialChannels } from '../components/SocialChannels';
 import toast from 'react-hot-toast';
 
 export function Wallet() {
@@ -238,6 +239,12 @@ export function Wallet() {
           </button>
         </div>
       </div>
+
+      {/* Official Community Channels: WhatsApp, X, Telegram */}
+      <SocialChannels 
+        title="Official Community & Channels"
+        subtitle="Follow WhatsApp, X, and Telegram for Phase 2 wallet activation & swap pool alerts"
+      />
 
     </div>
   );

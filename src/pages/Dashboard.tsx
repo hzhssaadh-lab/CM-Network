@@ -16,8 +16,10 @@ import {
   Zap, 
   TrendingUp, 
   Sparkles,
-  Share2
+  Share2,
+  ShieldCheck
 } from 'lucide-react';
+import { SocialChannels } from '../components/SocialChannels';
 import toast from 'react-hot-toast';
 
 export function Dashboard() {
@@ -312,6 +314,29 @@ export function Dashboard() {
             </div>
           </div>
         </section>
+
+        {/* Official Smart Contract Banner */}
+        <div className="w-full bg-[#111] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20 flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-5 h-5 text-[#FFD700]" />
+            </div>
+            <div>
+              <span className="text-white text-xs sm:text-sm font-bold block">Official CM Smart Contract</span>
+              <span className="text-gray-400 text-[11px]">On-chain verification and audited deployment</span>
+            </div>
+          </div>
+          <div className="bg-black/60 border border-white/5 rounded-xl px-3 py-1.5 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
+            <span className="text-[#FFD700] font-mono text-xs font-bold uppercase tracking-wider">Phase 2 Announcement Coming Soon</span>
+          </div>
+        </div>
+
+        {/* Official Community Channels: WhatsApp, X, Telegram (at the last / bottom) */}
+        <SocialChannels 
+          title="Official Community & Channels"
+          subtitle="Join WhatsApp, X, and Telegram for Phase 2 smart contract updates, liquidity pool & token launch"
+        />
 
       </div>
 
