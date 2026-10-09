@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
 import { 
@@ -16,7 +16,8 @@ import {
   Zap, 
   TrendingUp, 
   Sparkles,
-  Share2
+  Share2,
+  Timer
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,6 +25,42 @@ export function Dashboard() {
   const { user } = useApp();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  const [countdown, setCountdown] = useState({
+    days: '25',
+    hours: '00',
+    minutes: '00',
+    seconds: '00',
+  });
+
+  useEffect(() => {
+    const key = 'cm_phase2_launch_target_ts';
+    let target = Number(localStorage.getItem(key));
+    const now = Date.now();
+    if (!target || isNaN(target) || target <= now) {
+      target = now + 25 * 24 * 60 * 60 * 1000;
+      localStorage.setItem(key, target.toString());
+    }
+
+    const updateTimer = () => {
+      const diff = Math.max(0, target - Date.now());
+      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((diff / (1000 * 60)) % 60);
+      const s = Math.floor((diff / 1000) % 60);
+
+      setCountdown({
+        days: d.toString().padStart(2, '0'),
+        hours: h.toString().padStart(2, '0'),
+        minutes: m.toString().padStart(2, '0'),
+        seconds: s.toString().padStart(2, '0'),
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (!user) return null;
 
@@ -50,7 +87,7 @@ export function Dashboard() {
   return (
     <div className="flex flex-col space-y-6 animate-in fade-in duration-500 w-full max-w-7xl mx-auto pb-10">
       
-      {/* Phase 1 Completed / Phase 2 Started Hero Banner */}
+      {/* Phase 1 Completed / Phase 2 Countdown Hero Banner */}
       <div className="bg-gradient-to-r from-[#141414] via-[#1A1A1A] to-[#141414] border border-[#FFD700]/30 rounded-3xl p-5 sm:p-7 relative overflow-hidden shadow-[0_4px_30px_rgba(255,215,0,0.05)]">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
@@ -60,14 +97,14 @@ export function Dashboard() {
                 <CheckCircle2 className="w-3.5 h-3.5" /> Phase 1 Completed ✅
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-xs font-black uppercase tracking-widest animate-pulse">
-                <Rocket className="w-3.5 h-3.5" /> Phase 2 Started 🚀
+                <Timer className="w-3.5 h-3.5" /> Phase 2 Countdown: {countdown.days}d {countdown.hours}h {countdown.minutes}m {countdown.seconds}s ⏳
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              CM Network Phase 2 Hub
+              Phase 2 Launch In 25 Days
             </h1>
             <p className="text-gray-400 text-xs sm:text-sm mt-1 max-w-xl">
-              Phase 1 is complete! In Phase 2, your total coins, USDT balance, and referrals are actively displayed. Mining, Wallet, Swap, and History are coming soon!
+              Phase 1 is complete! Phase 2 unlocks in {countdown.days} days. Total coins, USDT balance, and referrals are actively displayed below.
             </p>
           </div>
 

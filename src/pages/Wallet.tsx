@@ -41,7 +41,7 @@ export function Wallet() {
                 <CheckCircle2 className="w-3.5 h-3.5" /> Phase 1 Completed ✅
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-xs font-black uppercase tracking-widest animate-pulse">
-                <Rocket className="w-3.5 h-3.5" /> Phase 2 Active 🚀
+                <Rocket className="w-3.5 h-3.5" /> Phase 2 Countdown: 25 Days ⏳
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">

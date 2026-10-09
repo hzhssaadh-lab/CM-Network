@@ -14,6 +14,7 @@ import { Squads } from './pages/Squads';
 import { Ads } from './pages/Ads';
 import { Maintenance } from './pages/Maintenance';
 import { SocialPopup } from './components/SocialPopup';
+import { OFFICIAL_SOCIALS } from './components/SocialChannels';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
@@ -87,6 +88,41 @@ function AppContent() {
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {/* Global Footer with Direct Clickable Icons for WhatsApp, X (Twitter), and Telegram */}
+        {!isAdminRoute && (
+          <footer className="w-full max-w-5xl mx-auto mt-12 mb-6 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left text-xs">
+            <div>
+              <p className="font-extrabold text-white tracking-wider text-xs">CM NETWORK COMMUNITY</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">Direct official channels: WhatsApp, X, and Telegram</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {OFFICIAL_SOCIALS.map((social) => (
+                <a
+                  key={social.id}
+                  href={social.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${social.name}`}
+                  title={`${social.name}: ${social.actionText}`}
+                  className={`w-10 h-10 rounded-xl bg-black/60 border ${social.borderColor} ${social.shadowColor} flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group`}
+                >
+                  <div className={`w-5 h-5 flex items-center justify-center transition-transform group-hover:scale-110`} style={{ color: social.brandColor }}>
+                    {social.icon}
+                  </div>
+                </a>
+              ))}
+              <a
+                href="mailto:cmnetwork122@gmail.com"
+                aria-label="Email Support"
+                title="Email Support: cmnetwork122@gmail.com"
+                className="w-10 h-10 rounded-xl bg-black/60 border border-white/10 hover:border-[#FFD700]/60 flex items-center justify-center text-[#FFD700] hover:scale-110 active:scale-95 transition-all group"
+              >
+                <span className="text-xs font-bold">✉</span>
+              </a>
+            </div>
+          </footer>
+        )}
       </main>
 
       {!isAdminRoute && (

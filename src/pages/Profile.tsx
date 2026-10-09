@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { Edit2, X, Check, Coins, Camera } from 'lucide-react';
+import { Edit2, X, Check, Coins, Camera, Mail, ShieldCheck, ExternalLink, Headphones } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatCurrency } from '../lib/utils';
+import { SocialChannels, OFFICIAL_SOCIALS } from '../components/SocialChannels';
 
 const AVATARS = [
   { id: 'default_cap', type: 'image', url: 'https://i.pinimg.com/474x/61/4d/9a/614d9a5679cf070455092347cb4ec5e3.jpg', label: 'Yellow Cap' },
@@ -271,9 +272,76 @@ export function Profile() {
            <span className="font-bold text-sm">Contact Support</span>
            <span className="text-gray-500 group-hover:text-white transition-colors">→</span>
         </a>
+      </div>
+
+      {/* Contact Us & Official Social Channels Section with Direct Clickable Icons */}
+      <div className="mt-6 bg-[#0D0D0D] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[#FFD700]" />
+              <h3 className="text-white font-extrabold text-base sm:text-lg">Contact Us & Social Channels</h3>
+            </div>
+            <p className="text-gray-400 text-xs mt-0.5">Direct official communication lines for CM Network</p>
+          </div>
+          <span className="text-[10px] uppercase font-bold tracking-widest text-[#FFD700] bg-[#FFD700]/10 border border-[#FFD700]/20 px-3 py-1 rounded-full self-start sm:self-auto flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FFD700] animate-pulse"></span>
+            Official 24/7
+          </span>
+        </div>
+
+        {/* Direct Clickable Quick Icons: WhatsApp, X (Twitter), Telegram */}
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          {OFFICIAL_SOCIALS.map((social) => (
+            <a
+              key={social.id}
+              href={social.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open ${social.name}`}
+              className={`group flex flex-col items-center justify-center p-3.5 rounded-2xl bg-gradient-to-b ${social.bgGradient} bg-black/40 border ${social.borderColor} ${social.shadowColor} transition-all duration-300 hover:scale-105 active:scale-95 text-center`}
+            >
+              <div className={`w-11 h-11 rounded-xl ${social.iconBg} border border-white/10 flex items-center justify-center mb-2 shadow-inner group-hover:scale-110 transition-transform`}>
+                {social.icon}
+              </div>
+              <span className="text-xs font-black text-white group-hover:text-[#FFD700] transition-colors">{social.name}</span>
+              <span className="text-[10px] text-gray-400 font-medium tracking-tight mt-0.5">{social.actionText}</span>
+            </a>
+          ))}
+        </div>
+
+        {/* Direct Email Support card */}
+        <a 
+          href="mailto:cmnetwork122@gmail.com" 
+          className="w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#FFD700]/30 transition-all p-3.5 rounded-2xl flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20 flex items-center justify-center">
+              <Mail className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <p className="text-white text-xs font-bold">Email Support</p>
+              <p className="text-gray-400 text-[11px] font-mono">cmnetwork122@gmail.com</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-[#FFD700] group-hover:translate-x-1 transition-transform flex items-center gap-1">
+            Write Us <ExternalLink className="w-3 h-3" />
+          </span>
+        </a>
+
+        {/* Detailed Channel Cards */}
+        <div className="mt-4">
+          <SocialChannels 
+            title="Official Communities" 
+            subtitle="Follow all official social handles to stay updated on Phase 2 contract & mining"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
         <button 
            onClick={handleLogout}
-           className="w-full bg-white/5 hover:bg-white/10 hover:border-red-500/50 text-gray-400 hover:text-red-400 transition-colors p-5 rounded-2xl border border-white/5 flex items-center justify-center mt-8 font-bold text-sm tracking-widest uppercase"
+           className="w-full bg-white/5 hover:bg-white/10 hover:border-red-500/50 text-gray-400 hover:text-red-400 transition-colors p-5 rounded-2xl border border-white/5 flex items-center justify-center mt-6 font-bold text-sm tracking-widest uppercase"
         >
            LOGOUT SECURELY
         </button>

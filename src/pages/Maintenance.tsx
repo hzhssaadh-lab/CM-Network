@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Send, 
   MessageCircle, 
@@ -21,7 +21,8 @@ import {
   Flame, 
   Check,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  Timer
 } from 'lucide-react';
 import { useApp } from '../hooks/useAppStore';
 import { formatCurrency } from '../lib/utils';
@@ -36,6 +37,43 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  const [countdown, setCountdown] = useState({
+    days: '25',
+    hours: '00',
+    minutes: '00',
+    seconds: '00',
+  });
+
+  useEffect(() => {
+    const key = 'cm_phase2_launch_target_ts';
+    let target = Number(localStorage.getItem(key));
+    const now = Date.now();
+    // If not set or already expired, initialize 25 days from now
+    if (!target || isNaN(target) || target <= now) {
+      target = now + 25 * 24 * 60 * 60 * 1000;
+      localStorage.setItem(key, target.toString());
+    }
+
+    const updateTimer = () => {
+      const diff = Math.max(0, target - Date.now());
+      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((diff / (1000 * 60)) % 60);
+      const s = Math.floor((diff / 1000) % 60);
+
+      setCountdown({
+        days: d.toString().padStart(2, '0'),
+        hours: h.toString().padStart(2, '0'),
+        minutes: m.toString().padStart(2, '0'),
+        seconds: s.toString().padStart(2, '0'),
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const referralCode = user?.referralCode || user?.uid?.substring(0, 8).toUpperCase() || 'CMNETWORK';
   const referralLink = `${window.location.origin}/?ref=${referralCode}`;
@@ -158,15 +196,14 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
           </div>
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#FFD700]/20 to-amber-500/20 border border-[#FFD700]/40 text-[#FFD700] text-xs font-black tracking-widest uppercase backdrop-blur-md shadow-[0_0_20px_rgba(255,215,0,0.2)] animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-ping" />
-            <Rocket className="w-3.5 h-3.5 text-[#FFD700]" />
-            <span>Phase 2 Started 🚀</span>
+            <Timer className="w-3.5 h-3.5 text-[#FFD700]" />
+            <span>Phase 2 Countdown: 25 Days ⏳</span>
           </div>
         </div>
 
-        {/* Hero Title */}
+        {/* Hero Title & 25 Days Countdown Clock */}
         <div className="flex flex-col items-center w-full">
-          <div className="w-20 h-20 sm:w-28 sm:h-28 mb-4 relative group">
+          <div className="w-20 h-20 sm:w-28 sm:h-28 mb-3 relative group">
             <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700] via-amber-400 to-[#00FF66] rounded-full blur-2xl opacity-40 group-hover:opacity-60 transition-opacity duration-700 animate-pulse" />
             <div className="w-full h-full rounded-full bg-gradient-to-br from-[#1A1A1A] to-[#050505] border-2 border-[#FFD700]/50 flex items-center justify-center relative shadow-[0_0_50px_rgba(255,215,0,0.25)]">
               <div className="absolute inset-1 rounded-full border border-[#FFD700]/30 border-dashed animate-[spin_12s_linear_infinite]" />
@@ -175,11 +212,31 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
           </div>
           
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-[#FFD700] to-white tracking-tight mb-2 text-center leading-tight">
-            CM NETWORK PHASE 2 IS LIVE
+            PHASE 2 LAUNCH COUNTDOWN
           </h1>
-          <p className="text-gray-400 text-xs sm:text-sm md:text-base font-medium tracking-wide max-w-lg leading-relaxed">
-            Phase 1 is officially completed ✅. Phase 2 initialization has started. All your coins, USDT balances, and referral networks are secure and active below.
+          <p className="text-gray-400 text-xs sm:text-sm md:text-base font-medium tracking-wide max-w-lg leading-relaxed mb-4">
+            Phase 1 is complete ✅. Phase 2 unlocks in 25 days! All your coins, USDT balances, and referral networks are secure and active below.
           </p>
+
+          {/* 25 Days Real-Time Countdown Grid */}
+          <div className="grid grid-cols-4 gap-2 sm:gap-3.5 w-full max-w-md my-2">
+            <div className="bg-gradient-to-b from-[#181818] to-[#0D0D0D] border border-[#FFD700]/40 rounded-2xl p-2.5 sm:p-4 flex flex-col items-center justify-center shadow-[0_0_25px_rgba(255,215,0,0.12)]">
+              <span className="text-2xl sm:text-4xl font-black text-[#FFD700] font-mono tracking-tight">{countdown.days}</span>
+              <span className="text-[9px] sm:text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Days</span>
+            </div>
+            <div className="bg-gradient-to-b from-[#181818] to-[#0D0D0D] border border-white/10 rounded-2xl p-2.5 sm:p-4 flex flex-col items-center justify-center">
+              <span className="text-2xl sm:text-4xl font-black text-white font-mono tracking-tight">{countdown.hours}</span>
+              <span className="text-[9px] sm:text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Hours</span>
+            </div>
+            <div className="bg-gradient-to-b from-[#181818] to-[#0D0D0D] border border-white/10 rounded-2xl p-2.5 sm:p-4 flex flex-col items-center justify-center">
+              <span className="text-2xl sm:text-4xl font-black text-white font-mono tracking-tight">{countdown.minutes}</span>
+              <span className="text-[9px] sm:text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Mins</span>
+            </div>
+            <div className="bg-gradient-to-b from-[#181818] to-[#0D0D0D] border border-[#00FF66]/40 rounded-2xl p-2.5 sm:p-4 flex flex-col items-center justify-center shadow-[0_0_25px_rgba(0,255,102,0.12)]">
+              <span className="text-2xl sm:text-4xl font-black text-[#00FF66] font-mono tracking-tight">{countdown.seconds}</span>
+              <span className="text-[9px] sm:text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Secs</span>
+            </div>
+          </div>
         </div>
 
         {/* =========================================================================
@@ -384,10 +441,10 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
         <div className="w-full bg-[#111] border border-white/10 rounded-2xl p-4 sm:p-5 text-left">
           <div className="flex justify-between items-center mb-2">
             <div>
-              <span className="text-white text-xs sm:text-sm font-bold block">Phase 2 Initialization Progress</span>
-              <span className="text-gray-400 text-[11px]">Phase 1 Complete ✅ | Deploying Phase 2 ecosystem</span>
+              <span className="text-white text-xs sm:text-sm font-bold block">Phase 2 Launch Countdown</span>
+              <span className="text-gray-400 text-[11px]">Phase 1 Complete ✅ | Phase 2 unlocks in {countdown.days} days</span>
             </div>
-            <span className="text-[#00FF66] font-mono font-black text-sm sm:text-base">LIVE</span>
+            <span className="text-[#00FF66] font-mono font-black text-xs sm:text-sm">{countdown.days}d {countdown.hours}h {countdown.minutes}m {countdown.seconds}s</span>
           </div>
           <div className="w-full h-2.5 bg-black rounded-full overflow-hidden border border-white/5 mt-2">
             <div className="h-full bg-gradient-to-r from-emerald-400 via-[#FFD700] to-emerald-400 w-full relative">
