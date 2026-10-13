@@ -25,7 +25,7 @@ import {
   Timer
 } from 'lucide-react';
 import { useApp } from '../hooks/useAppStore';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, getPhase2Countdown, PHASE_2_LAUNCH_DATE_STRING, PHASE_2_TOTAL_DAYS } from '../lib/utils';
 import toast from 'react-hot-toast';
 
 interface MaintenanceProps {
@@ -38,36 +38,11 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
-  const [countdown, setCountdown] = useState({
-    days: '25',
-    hours: '00',
-    minutes: '00',
-    seconds: '00',
-  });
+  const [countdown, setCountdown] = useState(getPhase2Countdown);
 
   useEffect(() => {
-    const key = 'cm_phase2_launch_target_ts';
-    let target = Number(localStorage.getItem(key));
-    const now = Date.now();
-    // If not set or already expired, initialize 25 days from now
-    if (!target || isNaN(target) || target <= now) {
-      target = now + 25 * 24 * 60 * 60 * 1000;
-      localStorage.setItem(key, target.toString());
-    }
-
     const updateTimer = () => {
-      const diff = Math.max(0, target - Date.now());
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / (1000 * 60)) % 60);
-      const s = Math.floor((diff / 1000) % 60);
-
-      setCountdown({
-        days: d.toString().padStart(2, '0'),
-        hours: h.toString().padStart(2, '0'),
-        minutes: m.toString().padStart(2, '0'),
-        seconds: s.toString().padStart(2, '0'),
-      });
+      setCountdown(getPhase2Countdown());
     };
 
     updateTimer();
@@ -214,9 +189,13 @@ export function Maintenance({ onMaintenanceEnd }: MaintenanceProps) {
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-[#FFD700] to-white tracking-tight mb-2 text-center leading-tight">
             PHASE 2 LAUNCH COUNTDOWN
           </h1>
-          <p className="text-gray-400 text-xs sm:text-sm md:text-base font-medium tracking-wide max-w-lg leading-relaxed mb-4">
-            Phase 1 is complete ✅. Phase 2 unlocks in 25 days! All your coins, USDT balances, and referral networks are secure and active below.
+          <p className="text-gray-400 text-xs sm:text-sm md:text-base font-medium tracking-wide max-w-lg leading-relaxed mb-3">
+            Phase 1 is complete ✅. Official Phase 2 countdown locked ({PHASE_2_TOTAL_DAYS} days target: {PHASE_2_LAUNCH_DATE_STRING}). All user coins, USDT balances, and referral networks are secure and active below.
           </p>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs font-mono mb-3">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Official Launch Date: <strong className="text-white">{PHASE_2_LAUNCH_DATE_STRING}</strong> (Fixed Global Timer)</span>
+          </div>
 
           {/* 25 Days Real-Time Countdown Grid */}
           <div className="grid grid-cols-4 gap-2 sm:gap-3.5 w-full max-w-md my-2">

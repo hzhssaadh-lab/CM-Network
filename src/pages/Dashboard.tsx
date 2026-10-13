@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppStore';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, getPhase2Countdown, PHASE_2_LAUNCH_DATE_STRING, PHASE_2_TOTAL_DAYS } from '../lib/utils';
 import { 
   CheckCircle2, 
   Rocket, 
@@ -26,35 +26,11 @@ export function Dashboard() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const [countdown, setCountdown] = useState({
-    days: '25',
-    hours: '00',
-    minutes: '00',
-    seconds: '00',
-  });
+  const [countdown, setCountdown] = useState(getPhase2Countdown);
 
   useEffect(() => {
-    const key = 'cm_phase2_launch_target_ts';
-    let target = Number(localStorage.getItem(key));
-    const now = Date.now();
-    if (!target || isNaN(target) || target <= now) {
-      target = now + 25 * 24 * 60 * 60 * 1000;
-      localStorage.setItem(key, target.toString());
-    }
-
     const updateTimer = () => {
-      const diff = Math.max(0, target - Date.now());
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / (1000 * 60)) % 60);
-      const s = Math.floor((diff / 1000) % 60);
-
-      setCountdown({
-        days: d.toString().padStart(2, '0'),
-        hours: h.toString().padStart(2, '0'),
-        minutes: m.toString().padStart(2, '0'),
-        seconds: s.toString().padStart(2, '0'),
-      });
+      setCountdown(getPhase2Countdown());
     };
 
     updateTimer();
@@ -101,10 +77,10 @@ export function Dashboard() {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Phase 2 Launch In 25 Days
+              Phase 2 Launch In {PHASE_2_TOTAL_DAYS} Days
             </h1>
             <p className="text-gray-400 text-xs sm:text-sm mt-1 max-w-xl">
-              Phase 1 is complete! Phase 2 unlocks in {countdown.days} days. Total coins, USDT balance, and referrals are actively displayed below.
+              Phase 1 is complete! Phase 2 countdown locked to {PHASE_2_LAUNCH_DATE_STRING} ({countdown.days}d {countdown.hours}h {countdown.minutes}m remaining). Total coins, USDT balance, and referrals are actively displayed below.
             </p>
           </div>
 
