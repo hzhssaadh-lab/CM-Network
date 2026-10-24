@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Twitter, MessageCircle, X, Send } from 'lucide-react';
-import cmLogo from '../assets/images/cm_simple_logo_1785173778768.jpg';
+import cmLogo from '../assets/images/cm_official_logo.jpg';
 
 export const SocialPopup: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    // Show on every open/refresh
-    setIsOpen(true);
+    // Only show once per session so it doesn't open repeatedly
+    const dismissed = sessionStorage.getItem('cm_social_popup_dismissed');
+    if (!dismissed) {
+      setIsOpen(true);
+    }
   }, []);
+
+  const handleClose = () => {
+    sessionStorage.setItem('cm_social_popup_dismissed', 'true');
+    setIsOpen(false);
+  };
 
   return (
     <AnimatePresence>
@@ -27,14 +35,14 @@ export const SocialPopup: React.FC = () => {
             className="bg-gradient-to-br from-gray-900 to-black border border-[#FFD700]/30 rounded-[32px] p-6 max-w-sm w-full relative shadow-[0_0_50px_rgba(255,215,0,0.15)]"
           >
             <button 
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
               className="absolute top-4 right-4 w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 transition-all z-10"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="text-center mb-6 mt-2">
-              <img src={cmLogo} alt="CM Network Logo" className="w-20 h-20 mx-auto mb-4 rounded-full drop-shadow-[0_0_15px_rgba(255,215,0,0.3)]" />
+              <img src={cmLogo} alt="CM Network Logo" className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-black object-contain border-2 border-[#FFD700]/60 drop-shadow-[0_0_20px_rgba(255,215,0,0.3)]" />
               <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Welcome to<br/><span className="text-[#FFD700]">CM Network</span></h2>
               <p className="text-gray-400 text-sm mt-3">Follow us on our official channels to stay updated with the latest news!</p>
             </div>

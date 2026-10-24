@@ -2,7 +2,7 @@ import { useApp } from '../hooks/useAppStore';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
-import cmLogo from '../assets/images/cm_simple_logo_1785173778768.jpg';
+import cmLogo from '../assets/images/cm_official_logo.jpg';
 
 export function Header() {
   const { user, updateUser, refreshUser } = useApp();
@@ -81,7 +81,7 @@ export function Header() {
       
       <header className="flex justify-between items-center mb-8 px-4 sm:px-8 pt-8 max-w-5xl mx-auto w-full flex-shrink-0">
         <div className="flex items-center space-x-3 cursor-pointer select-none" onClick={handleAdminClick}>
-          <img src={cmLogo} alt="CM Network Logo" className="w-12 h-12 rounded-full shadow-[0_0_25px_rgba(212,175,55,0.5)]" />
+          <img src={cmLogo} alt="CM Network Logo" className="w-12 h-12 rounded-xl bg-black object-contain border-2 border-[#FFD700]/60 shadow-[0_0_25px_rgba(212,175,55,0.5)]" />
           <div>
             <h1 className="text-2xl font-black tracking-tight bg-gradient-to-br from-white via-white to-gray-500 bg-clip-text text-transparent">CM NETWORK</h1>
             <p className="text-[9px] text-[#FFD700] uppercase tracking-[0.3em] font-bold">Protocol Active</p>

@@ -4,6 +4,7 @@ export interface UserProfile {
   name: string;
   email: string;
   photoURL: string;
+  avatar?: string;
   balance: number;
   miningRate: number; // CM per hour
   miningSessionEndTime: number | null; // Timestamp when session ends
@@ -13,7 +14,14 @@ export interface UserProfile {
   referralCount: number;
   joinDate: number;
   dailyStreak: number;
-  kycStatus: 'pending' | 'verified' | 'rejected';
+  kycStatus: 'pending' | 'verified' | 'rejected' | 'unverified';
+  kycSubmittedAt?: number;
+  kycPhotoUrl?: string;
+  kycChain?: 'BNB' | 'ETH' | 'SOL';
+  kycPaymentProofUrl?: string;
+  kycTxHash?: string;
+  nodeStatus?: 'none' | 'applied' | 'approved' | 'rejected';
+  nodeAppliedAt?: number;
   role: 'user' | 'admin';
   isActive: boolean;
   totalMined: number;
@@ -22,16 +30,15 @@ export interface UserProfile {
   deviceId?: string;
   transactionsBlocked?: boolean;
   squadId?: string;
-  adsWatchedToday?: number;
-  lastAdWatchDate?: string; // YYYY-MM-DD format
-  totalAdsWatched?: number;
-  cmAdsWatchedToday?: number;
-  lastCmAdWatchDate?: string;
-  totalCmAdsWatched?: number;
   totalTasksCompleted?: number;
   country?: string;
   isBlocked?: boolean;
   usdtBalance?: number;
+  walletAddress?: string;
+  level?: number;
+  adsWatchedToday?: number;
+  lastAdWatchDate?: string | null;
+  totalAdsWatched?: number;
 }
 
 export interface Withdrawal {
