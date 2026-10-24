@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useApp } from '../hooks/useAppStore';
-import { Edit2, X, Check, Coins, Camera, Mail, ShieldCheck, ExternalLink, Headphones, ArrowRightLeft, Clock, CheckCircle2 } from 'lucide-react';
+import { Edit2, X, Check, Coins, Camera, Mail, ShieldCheck, ExternalLink, Headphones } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatCurrency } from '../lib/utils';
 import { SocialChannels, OFFICIAL_SOCIALS } from '../components/SocialChannels';
-import { NodeSection } from '../components/NodeSection';
 
 const AVATARS = [
   { id: 'default_cap', type: 'image', url: 'https://i.pinimg.com/474x/61/4d/9a/614d9a5679cf070455092347cb4ec5e3.jpg', label: 'Yellow Cap' },
@@ -71,7 +69,6 @@ const renderAvatarHelper = (url: string, name: string, containerClasses: string,
 
 export function Profile() {
   const { user, logout, updateUser } = useApp();
-  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -258,107 +255,7 @@ export function Profile() {
          </div>
       </motion.div>
 
-      {/* KYC Status Banner */}
-      {(() => {
-        const isKycSubmitted = Boolean(
-          user.kycSubmittedAt || 
-          user.kycPhotoUrl || 
-          (user as any).kyc_submitted_at || 
-          (user as any).kyc_photo_url || 
-          user.kycTxHash || 
-          (user as any).kyc_tx_hash
-        );
-        const isKycVerified = (user.kycStatus === 'verified' || (user as any).kyc_status === 'verified') && Boolean((user as any).kycApprovedAt || (user as any).kyc_approved_at);
-        const isKycRejected = (user.kycStatus === 'rejected' || (user as any).kyc_status === 'rejected') && !isKycVerified;
-        const isKycPending = !isKycVerified && !isKycRejected && isKycSubmitted && (user.kycStatus === 'pending' || (user as any).kyc_status === 'pending');
-        const isNotApplied = !isKycVerified && !isKycPending && !isKycRejected;
-
-        return (
-          <div className="mb-6 p-5 rounded-3xl bg-[#0f0e0c] border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3.5">
-              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                isKycVerified ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
-                isKycPending ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
-                isKycRejected ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' :
-                'bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/30'
-              }`}>
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-black text-white">Identity Verification (KYC)</h4>
-                  {isKycVerified ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-black border border-emerald-500/30">
-                      Verified ✓
-                    </span>
-                  ) : isKycPending ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-black border border-amber-500/30">
-                      Pending Review ⏳
-                    </span>
-                  ) : isKycRejected ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 text-[10px] font-black border border-rose-500/30">
-                      Rejected ✕
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full bg-gradient-to-r from-[#FFD700] to-amber-500 text-black text-[11px] font-black shadow-[0_0_12px_rgba(255,215,0,0.4)] uppercase tracking-wider">
-                      Apply
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-0.5">
-                  {isKycVerified
-                    ? 'Your account identity is verified. Transfers and Node privileges are active.'
-                    : isKycPending
-                    ? 'Your KYC documents are under review by CM Network administrators.'
-                    : isKycRejected
-                    ? 'Your previous submission was rejected. Please re-apply with a clear selfie and valid tx proof.'
-                    : 'KYC not submitted yet. Apply with front camera selfie + BNB/ETH/SOL fee to unlock transfers.'}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => navigate('/kyc')}
-              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider active:scale-95 transition-all shadow shrink-0 ${
-                isKycVerified 
-                  ? 'bg-emerald-500 text-black hover:bg-emerald-400' 
-                  : isKycPending 
-                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' 
-                  : isKycRejected
-                  ? 'bg-rose-500 text-white hover:bg-rose-600'
-                  : 'bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black hover:brightness-110 shadow-[0_0_20px_rgba(255,215,0,0.4)]'
-              }`}
-            >
-              {isKycVerified ? 'View KYC Certificate' : isKycPending ? 'Review Pending ⏳' : isKycRejected ? 'Re-Apply for KYC' : 'Apply for KYC'}
-            </button>
-          </div>
-        );
-      })()}
-
-      {/* Node Operator Program Section */}
-      <div className="mb-6">
-        <NodeSection />
-      </div>
-
       <div className="space-y-4">
-        {/* P2P Quick Link */}
-        <button 
-          onClick={() => navigate('/p2p')}
-          className="w-full bg-[#0f0e0c] hover:bg-white/5 transition-colors p-5 rounded-2xl border border-white/10 flex items-center justify-between group"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-              <ArrowRightLeft className="w-4 h-4" />
-            </div>
-            <div className="text-left">
-              <span className="font-bold text-sm text-white block">P2P Trading Desk</span>
-              <span className="text-[11px] text-gray-400">
-                {user.nodeStatus === 'approved' ? 'Active Escrow Access ✓' : 'Invited Only (Node Operators 3-Months)'}
-              </span>
-            </div>
-          </div>
-          <span className="text-gray-500 group-hover:text-white transition-colors">→</span>
-        </button>
         <button onClick={() => {
            setEditedName(user.name);
            setIsEditing(true);

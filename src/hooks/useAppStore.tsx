@@ -23,8 +23,6 @@ interface AppState {
   claimAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   claimUsdtAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   startMining: () => Promise<{ success: boolean; message: string }>;
-  claimMiningReward?: () => Promise<{ success: boolean; message: string }>;
-  sendCryptoTransfer?: (recipient: string, amount: number, asset: 'CM' | 'USDT') => Promise<{ success: boolean; message: string; txHash?: string }>;
   requestWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
   requestUsdtWithdrawal: (amount: number, wallet: string, method?: string) => Promise<{ success: boolean; message: string }>;
   firebaseUser?: any; 
@@ -193,14 +191,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               needsUpdate = true;
             }
 
-            // Referral Count Protection: Reconcile across legacy columns
-            const bestRef = Math.max(Number(u.referralCount || 0), Number(u['Referral Count'] || 0), Number(u.referral_count || 0), Number(u.referrals || 0));
-            if (bestRef > Number(u.referralCount || 0)) {
-              u.referralCount = bestRef;
-              updates.referralCount = bestRef;
-              needsUpdate = true;
-            }
-
             if (needsUpdate) {
               await supabase.from('users').update(updates).eq('uid', sUser.id);
             }
@@ -233,20 +223,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             u.lastCmAdWatchDate = (u.cmAdsWatchedToday > 0) ? today : undefined;
 
-            // Strict KYC rule: Nobody is pre-verified. Everyone starts as unverified until they apply and admin approves.
-            const isExplicitlyApproved = u.kycStatus === 'verified' && Boolean((u as any).kycApprovedAt || (u as any).kyc_approved_at);
-            const hasKycSubmission = !!(u.kycSubmittedAt || u.kycPhotoUrl || (u as any).kyc_submitted_at || (u as any).kyc_photo_url || u.kycTxHash || (u as any).kyc_tx_hash);
-
-            if (isExplicitlyApproved) {
-              u.kycStatus = 'verified';
-            } else if (hasKycSubmission && (u.kycStatus === 'pending' || !u.kycStatus)) {
-              u.kycStatus = 'pending';
-            } else if (hasKycSubmission && u.kycStatus === 'rejected') {
-              u.kycStatus = 'rejected';
-            } else {
-              u.kycStatus = 'unverified';
-            }
-
             setUser({ ...u, uid: sUser.id } as UserProfile);
           }
         } else {
@@ -265,7 +241,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             referralCount: 0,
             joinDate: Date.now(),
             dailyStreak: 0,
-            kycStatus: 'unverified',
+            kycStatus: 'pending',
             role: (sUser.email === 'ms888mf@gmail.com' || sUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
@@ -378,7 +354,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           referralCount: 0,
           joinDate: Date.now(),
           dailyStreak: 0,
-          kycStatus: 'unverified',
+          kycStatus: 'pending',
           role: (email === 'ms888mf@gmail.com' || email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
           isActive: true,
           totalMined: 0,
@@ -526,7 +502,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             referralCount: 0,
             joinDate: Date.now(),
             dailyStreak: 0,
-            kycStatus: 'unverified',
+            kycStatus: 'pending',
             role: (email === 'ms888mf@gmail.com' || email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
@@ -1242,110 +1218,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const claimMiningReward = async () => {
-    if (!user) return { success: false, message: "Please log in to claim mining rewards." };
-    const now = Date.now();
-    if (!user.miningSessionEndTime || user.miningSessionEndTime > now) {
-      return { success: false, message: "12-hour mining session is still in progress!" };
-    }
-    const nextBalance = parseFloat(((user.balance || 0) + 0.5).toFixed(2));
-    try {
-      await updateUser({
-        balance: nextBalance,
-        miningSessionStartTime: null,
-        miningSessionEndTime: null,
-      });
-      return { success: true, message: "Claimed +0.50 CM Coins! Start a new 12-hour session now." };
-    } catch (e: any) {
-      return { success: false, message: e.message || "Failed to claim reward" };
-    }
-  };
-
   const startMining = async () => {
     if (!user) return { success: false, message: "Please log in to start mining." };
     const now = Date.now();
-    let currentBal = user.balance || 0;
-    let rewardNotice = "";
-    
-    // Automatically credit 0.5 CM if previous 12h session finished
-    if (user.miningSessionEndTime && user.miningSessionEndTime <= now && user.miningSessionStartTime) {
-      currentBal = parseFloat((currentBal + 0.5).toFixed(2));
-      rewardNotice = " (+0.50 CM credited for completed session!)";
-    } else if (user.miningSessionEndTime && user.miningSessionEndTime > now) {
-      return { success: false, message: "Mining is currently active! Session is in progress." };
+    if (user.miningSessionEndTime && user.miningSessionEndTime > now) {
+      return { success: false, message: "Mining is currently active!" };
     }
-
     const sessionEndTime = now + 12 * 60 * 60 * 1000;
     try {
       await updateUser({
-        balance: currentBal,
         miningSessionStartTime: now,
         miningSessionEndTime: sessionEndTime
       });
-      return { success: true, message: `12-Hour Mining Started! Mining 0.5 CM coins per session.${rewardNotice}` };
+      return { success: true, message: "12-Hour Mining Started! Keep earning CM coins." };
     } catch (e: any) {
       return { success: false, message: e.message || "Failed to start mining" };
-    }
-  };
-
-  const sendCryptoTransfer = async (recipient: string, amount: number, asset: 'CM' | 'USDT') => {
-    if (!user) return { success: false, message: "Please log in to transfer." };
-    if (!recipient || recipient.trim() === '') return { success: false, message: "Recipient address is required." };
-    if (!amount || amount <= 0) return { success: false, message: "Amount must be greater than 0." };
-
-    if (asset === 'CM') {
-      const currentBal = user.balance || 0;
-      const maxAllowed = Number((currentBal * 0.10).toFixed(4));
-      if (amount > maxAllowed + 0.0001) {
-        return { 
-          success: false, 
-          message: `Transfer limit exceeded: You can only send a maximum of 10% of your CM balance (${(currentBal * 0.10).toFixed(2)} CM).` 
-        };
-      }
-      if (amount > currentBal) return { success: false, message: "Insufficient CM Coin balance." };
-      const nextBal = parseFloat((currentBal - amount).toFixed(2));
-      const txHash = '0x' + Math.random().toString(16).substring(2, 10) + Math.random().toString(16).substring(2, 10);
-      try {
-        await updateUser({ balance: nextBal });
-        const existingTx = JSON.parse(localStorage.getItem(`cm_tx_${user.uid}`) || '[]');
-        existingTx.unshift({
-          id: txHash,
-          type: 'send',
-          asset: 'CM',
-          amount,
-          recipient,
-          timestamp: Date.now(),
-          status: 'Completed',
-          hash: txHash
-        });
-        localStorage.setItem(`cm_tx_${user.uid}`, JSON.stringify(existingTx.slice(0, 50)));
-        return { success: true, message: `Sent ${amount} CM to ${recipient.substring(0, 8)}... successfully!`, txHash };
-      } catch (e: any) {
-        return { success: false, message: e.message || "Transfer failed." };
-      }
-    } else {
-      const currentUsdt = user.usdtBalance || 0;
-      if (amount > currentUsdt) return { success: false, message: "Insufficient USDT balance." };
-      const nextUsdt = parseFloat((currentUsdt - amount).toFixed(2));
-      const txHash = '0x' + Math.random().toString(16).substring(2, 10) + Math.random().toString(16).substring(2, 10);
-      try {
-        await updateUser({ usdtBalance: nextUsdt });
-        const existingTx = JSON.parse(localStorage.getItem(`cm_tx_${user.uid}`) || '[]');
-        existingTx.unshift({
-          id: txHash,
-          type: 'send',
-          asset: 'USDT',
-          amount,
-          recipient,
-          timestamp: Date.now(),
-          status: 'Completed',
-          hash: txHash
-        });
-        localStorage.setItem(`cm_tx_${user.uid}`, JSON.stringify(existingTx.slice(0, 50)));
-        return { success: true, message: `Sent $${amount} USDT to ${recipient.substring(0, 8)}... successfully!`, txHash };
-      } catch (e: any) {
-        return { success: false, message: e.message || "Transfer failed." };
-      }
     }
   };
 
@@ -1370,8 +1257,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       claimAdReward, 
       claimUsdtAdReward, 
       startMining,
-      claimMiningReward,
-      sendCryptoTransfer,
       requestWithdrawal, 
       requestUsdtWithdrawal 
     }}>

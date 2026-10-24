@@ -7,24 +7,7 @@ import { UserProfile, Task as AppTask, TaskClaim } from '../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'react-hot-toast';
 
-import { 
-  ShieldAlert, 
-  ShieldCheck, 
-  CheckCircle2, 
-  Clock, 
-  XCircle, 
-  Search, 
-  ExternalLink, 
-  Cpu, 
-  Check, 
-  X, 
-  Users, 
-  AlertCircle, 
-  Copy, 
-  ZoomIn, 
-  RefreshCw,
-  Sparkles
-} from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 
 export function Admin() {
   const { user } = useApp();
@@ -37,23 +20,9 @@ export function Admin() {
   const [usdtWithdrawals, setUsdtWithdrawals] = useState<any[]>([]);
   const [adLogs, setAdLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'usdt_holders' | 'kyc' | 'nodes' | 'referrals' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config' | 'all_data'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'usdt_holders' | 'tasks' | 'approvals' | 'ads' | 'ad_logs' | 'withdrawals' | 'competition' | 'config' | 'all_data'>('users');
   const [searchQuery, setSearchQuery] = useState('');
   const [globalStats, setGlobalStats] = useState({ totalBalance: 0, totalMined: 0, totalUsdtBalance: 0 });
-
-  // KYC Section State
-  const [kycSearchQuery, setKycSearchQuery] = useState('');
-  const [kycFilterStatus, setKycFilterStatus] = useState<'all' | 'pending' | 'verified' | 'rejected'>('pending');
-  const [selectedProofModal, setSelectedProofModal] = useState<{ title: string; imageUrl: string; user?: UserProfile } | null>(null);
-
-  // Node Applications State
-  const [nodeSearchQuery, setNodeSearchQuery] = useState('');
-  const [nodeFilterStatus, setNodeFilterStatus] = useState<'all' | 'applied' | 'approved' | 'rejected'>('applied');
-
-  // Referrals Network State
-  const [referralSearchQuery, setReferralSearchQuery] = useState('');
-  const [referralPhaseFilter, setReferralPhaseFilter] = useState<'all' | 'phase1' | 'phase2'>('all');
-  const [referralKycFilter, setReferralKycFilter] = useState<'all' | 'verified' | 'pending'>('all');
 
   // USDT Holders Section State
   const [usdtHolders, setUsdtHolders] = useState<UserProfile[]>([]);
@@ -66,21 +35,6 @@ export function Admin() {
   const [editBalance, setEditBalance] = useState('');
   const [editUsdtBalance, setEditUsdtBalance] = useState('');
   const [editMiningRate, setEditMiningRate] = useState('');
-  const [editKycStatus, setEditKycStatus] = useState<string>('unverified');
-  const [editNodeStatus, setEditNodeStatus] = useState<string>('none');
-
-  const hasUserSubmittedKyc = (u: any) => {
-    return Boolean(
-      u?.kycPhotoUrl || 
-      u?.kycPaymentProofUrl || 
-      u?.kycSubmittedAt || 
-      u?.kycTxHash || 
-      u?.kyc_photo_url || 
-      u?.kyc_payment_proof_url || 
-      u?.kyc_submitted_at || 
-      u?.kyc_tx_hash
-    );
-  };
 
   // Edit Task State
   const [editingTask, setEditingTask] = useState<AppTask | null>(null);
@@ -249,22 +203,7 @@ export function Admin() {
           .limit(200);
           
         if (data) {
-          const cleaned = (data as UserProfile[]).map(u => {
-            const isExplicitlyApproved = u.kycStatus === 'verified' && Boolean((u as any).kycApprovedAt || (u as any).kyc_approved_at);
-            const hasSubmission = hasUserSubmittedKyc(u);
-
-            if (isExplicitlyApproved) {
-              return { ...u, kycStatus: 'verified' as any };
-            }
-            if (hasSubmission && (u.kycStatus === 'pending' || !u.kycStatus)) {
-              return { ...u, kycStatus: 'pending' as any };
-            }
-            if (hasSubmission && u.kycStatus === 'rejected') {
-              return { ...u, kycStatus: 'rejected' as any };
-            }
-            return { ...u, kycStatus: 'unverified' as any };
-          });
-          setUsers(cleaned);
+          setUsers(data as UserProfile[]);
         }
       } catch (err) {
         console.error("Search error", err);
@@ -277,24 +216,7 @@ export function Admin() {
   const fetchData = async () => {
     try {
       const { data: userData } = await supabase.from('users').select('*').order('joinDate', { ascending: false, nullsFirst: false }).limit(2000);
-      if (userData) {
-        const cleaned = (userData as UserProfile[]).map(u => {
-          const isExplicitlyApproved = u.kycStatus === 'verified' && Boolean((u as any).kycApprovedAt || (u as any).kyc_approved_at);
-          const hasSubmission = hasUserSubmittedKyc(u);
-
-          if (isExplicitlyApproved) {
-            return { ...u, kycStatus: 'verified' as any };
-          }
-          if (hasSubmission && (u.kycStatus === 'pending' || !u.kycStatus)) {
-            return { ...u, kycStatus: 'pending' as any };
-          }
-          if (hasSubmission && u.kycStatus === 'rejected') {
-            return { ...u, kycStatus: 'rejected' as any };
-          }
-          return { ...u, kycStatus: 'unverified' as any };
-        });
-        setUsers(cleaned);
-      }
+      if (userData) setUsers(userData as UserProfile[]);
 
       const { count: uCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       if (uCount !== null) setTotalUsersCount(uCount);
@@ -343,168 +265,12 @@ export function Admin() {
         "USDT": newUsdt,
         usdtbalance: newUsdt,
         miningRate: parseFloat(editMiningRate) || 0,
-        kycStatus: editKycStatus as any,
-        nodeStatus: editNodeStatus as any,
       }).eq('uid', editingUser.uid);
       setEditingUser(null);
       fetchData();
       fetchUsdtHolders();
-      toast.success("User updated successfully!");
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast.error("Failed to update user: " + e.message);
-    }
-  };
-
-  const handleApproveKyc = async (targetUser: UserProfile) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').update({
-        kycStatus: 'verified',
-        kycApprovedAt: Date.now()
-      }).eq('uid', targetUser.uid);
-      if (error) throw error;
-
-      await supabase.from('transactions').insert([{
-        id: 'tx_kyc_' + Date.now(),
-        type: 'kyc_verified',
-        amount: 0,
-        timestamp: Date.now(),
-        status: 'completed',
-        receiverUid: targetUser.uid,
-        senderUid: 'system',
-        description: 'Identity KYC verified by protocol administrator'
-      }]);
-
-      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, kycStatus: 'verified', kycApprovedAt: Date.now() } : u));
-      toast.success(`KYC Approved for ${targetUser.name || targetUser.email || targetUser.uid}!`);
-    } catch (e: any) {
-      console.error("KYC approve error:", e);
-      toast.error(`Error approving KYC: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRejectKyc = async (targetUser: UserProfile) => {
-    const reason = window.prompt("Enter rejection reason (optional):", "Unclear camera selfie or fee verification failed");
-    if (reason === null) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').update({
-        kycStatus: 'rejected'
-      }).eq('uid', targetUser.uid);
-      if (error) throw error;
-
-      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, kycStatus: 'rejected' } : u));
-      toast.success(`KYC Rejected for ${targetUser.name || targetUser.email || targetUser.uid}.`);
-    } catch (e: any) {
-      console.error("KYC reject error:", e);
-      toast.error(`Error rejecting KYC: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetKyc = async (targetUser: UserProfile) => {
-    if (!window.confirm(`Reset KYC for ${targetUser.name || targetUser.email} back to unverified?`)) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').update({
-        kycStatus: 'unverified'
-      }).eq('uid', targetUser.uid);
-      if (error) throw error;
-      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, kycStatus: 'unverified' } : u));
-      toast.success(`KYC status reset to unverified.`);
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetAllUsersKyc = async () => {
-    if (!window.confirm("RESET ALL USERS: Are you sure you want to reset EVERY user's KYC status to UNVERIFIED in the database?\n\nAll users will have to apply for KYC, and you can approve or reject them here.")) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').update({
-        kycStatus: 'unverified'
-      }).neq('kycStatus', 'unverified');
-      if (error) throw error;
-      setUsers(prev => prev.map(u => ({ ...u, kycStatus: 'unverified' })));
-      toast.success("All users' KYC status reset to UNVERIFIED! Users must now apply and wait for your approval.");
-      await fetchData();
-    } catch (e: any) {
-      console.error(e);
-      toast.error("Failed to reset all users: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApproveNode = async (targetUser: UserProfile) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').update({
-        nodeStatus: 'approved'
-      }).eq('uid', targetUser.uid);
-      if (error) throw error;
-
-      await supabase.from('transactions').insert([{
-        id: 'tx_node_' + Date.now(),
-        type: 'node_activated',
-        amount: 0,
-        timestamp: Date.now(),
-        status: 'completed',
-        receiverUid: targetUser.uid,
-        senderUid: 'system',
-        description: 'Validator Node license granted. P2P Escrow unlocked.'
-      }]);
-
-      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, nodeStatus: 'approved' } : u));
-      toast.success(`Node approved for ${targetUser.name || targetUser.email}! P2P trading unlocked.`);
-    } catch (e: any) {
-      console.error("Node approve error:", e);
-      toast.error(`Error approving Node: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRejectNode = async (targetUser: UserProfile) => {
-    const reason = window.prompt("Enter rejection reason (optional):", "Referral criteria (140+ with KYC verified) not met");
-    if (reason === null) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').update({
-        nodeStatus: 'rejected'
-      }).eq('uid', targetUser.uid);
-      if (error) throw error;
-
-      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, nodeStatus: 'rejected' } : u));
-      toast.success(`Node application rejected for ${targetUser.name || targetUser.email}.`);
-    } catch (e: any) {
-      console.error("Node reject error:", e);
-      toast.error(`Error rejecting Node: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRevokeNode = async (targetUser: UserProfile) => {
-    if (!window.confirm(`Revoke Node license for ${targetUser.name || targetUser.email}?`)) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').update({
-        nodeStatus: 'none'
-      }).eq('uid', targetUser.uid);
-      if (error) throw error;
-      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, nodeStatus: 'none' } : u));
-      toast.success(`Node status revoked.`);
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -1344,86 +1110,67 @@ export function Admin() {
           </button>
       </div>
 
-      <div className="flex space-x-3 mb-6 overflow-x-auto pb-2">
+      <div className="flex space-x-4 mb-6 overflow-x-auto pb-2">
         <button 
           onClick={() => setActiveTab('users')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'users' ? 'bg-[#FFD700] text-black shadow' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'users' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           Users
-        </button>
-        <button 
-          onClick={() => setActiveTab('kyc')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'kyc' ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-white/5 text-emerald-400 hover:bg-white/10'}`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>KYC Verifications</span>
-          {users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-400 text-black font-black animate-pulse">
-              {users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length}
-            </span>
-          )}
-        </button>
-        <button 
-          onClick={() => setActiveTab('nodes')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'nodes' ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-white/5 text-purple-400 hover:bg-white/10'}`}
-        >
-          <Cpu className="w-4 h-4" />
-          <span>Node Applications</span>
-          {users.filter(u => u.nodeStatus === 'applied').length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-300 text-black font-black animate-pulse">
-              {users.filter(u => u.nodeStatus === 'applied').length}
-            </span>
-          )}
-        </button>
-        <button 
-          onClick={() => setActiveTab('referrals')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'referrals' ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-white/5 text-blue-400 hover:bg-white/10'}`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Referrals Network</span>
         </button>
         <button 
           onClick={() => {
             setActiveTab('usdt_holders');
             fetchUsdtHolders();
           }}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'usdt_holders' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-green-400 hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'usdt_holders' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 text-green-400 hover:bg-white/10'}`}
         >
           💰 USDT Holders
         </button>
         <button 
           onClick={() => setActiveTab('all_data')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'all_data' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'all_data' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           All Data
         </button>
         <button 
           onClick={() => setActiveTab('tasks')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors whitespace-nowrap ${activeTab === 'tasks' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           Tasks
         </button>
         <button 
           onClick={() => setActiveTab('approvals')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'approvals' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'approvals' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           Approvals
         </button>
         <button 
           onClick={() => setActiveTab('config')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'config' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'config' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           App Config
         </button>
         <button 
+          onClick={() => setActiveTab('ads')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'ads' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          Ads Config
+        </button>
+        <button 
+          onClick={() => setActiveTab('ad_logs')}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'ad_logs' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+        >
+          Ad Logs
+        </button>
+        <button 
           onClick={() => setActiveTab('withdrawals')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'withdrawals' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'withdrawals' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           Withdrawals
         </button>
         <button 
           onClick={() => setActiveTab('competition')}
-          className={`px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'competition' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
+          className={`px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'competition' ? 'bg-[#FFD700] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}
         >
           Competition
         </button>
@@ -1535,12 +1282,12 @@ export function Admin() {
               <tr className="border-b border-white/10">
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">User</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Country</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-emerald-400">KYC Status</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-purple-400">Node Status</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">USDT Ads</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-blue-400">CM Ads</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Status</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">CM Balance</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-green-500">USDT Balance</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Ref Count</th>
-                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Status</th>
+                <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Role</th>
                 <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
@@ -1552,101 +1299,34 @@ export function Admin() {
                     <div className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]">{u.email}</div>
                   </td>
                   <td className="p-3 text-xs font-bold text-gray-300 uppercase tracking-widest">{u.country || 'N/A'}</td>
-                  
-                  {/* KYC Status Badge & Quick Action */}
+                  <td className="p-3 font-mono font-bold text-[#FFD700]">{u.totalAdsWatched || 0}</td>
+                  <td className="p-3 font-mono font-bold text-blue-400">{u.totalCmAdsWatched || 0}</td>
                   <td className="p-3">
-                    <div className="flex flex-col gap-1 items-start">
-                      {u.kycStatus === 'verified' ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Verified
-                        </span>
-                      ) : u.kycStatus === 'pending' ? (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 animate-pulse">
-                            <Clock className="w-3 h-3" /> Pending
-                          </span>
-                          <button
-                            onClick={() => handleApproveKyc(u)}
-                            className="text-[9px] bg-emerald-500 text-black font-black px-1.5 py-0.5 rounded hover:bg-emerald-400 transition-colors"
-                            title="Approve KYC"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={() => handleRejectKyc(u)}
-                            className="text-[9px] bg-red-500/20 text-red-400 font-black px-1.5 py-0.5 rounded hover:bg-red-500/30 transition-colors"
-                            title="Reject KYC"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : u.kycStatus === 'rejected' ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                          Rejected
-                        </span>
-                      ) : (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-white/5 text-gray-400">
-                          Unverified
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Node Status Badge & Quick Action */}
-                  <td className="p-3">
-                    <div className="flex flex-col gap-1 items-start">
-                      {u.nodeStatus === 'approved' ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                          <Cpu className="w-3 h-3" /> Node Active
-                        </span>
-                      ) : u.nodeStatus === 'applied' ? (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 animate-pulse">
-                            Applied
-                          </span>
-                          <button
-                            onClick={() => handleApproveNode(u)}
-                            className="text-[9px] bg-purple-500 text-white font-black px-1.5 py-0.5 rounded hover:bg-purple-400 transition-colors"
-                            title="Approve Node"
-                          >
-                            ⚡
-                          </button>
-                          <button
-                            onClick={() => handleRejectNode(u)}
-                            className="text-[9px] bg-red-500/20 text-red-400 font-black px-1.5 py-0.5 rounded hover:bg-red-500/30 transition-colors"
-                            title="Reject Node"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : u.nodeStatus === 'rejected' ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-red-500/20 text-red-400">
-                          Rejected
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-gray-500 font-mono">None</span>
-                      )}
-                    </div>
-                  </td>
-
-                  <td className="p-3 font-mono font-bold text-[#FFD700]">{formatCurrency(u.balance)}</td>
-                  <td className="p-3 font-mono font-bold text-green-500">${(u.usdtBalance || 0).toFixed(4)}</td>
-                  <td className="p-3 text-xs font-mono font-bold text-blue-400">{u.referralCount || 0}</td>
-                  <td className="p-3">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-widest font-bold ${u.isActive ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                    <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${u.isActive ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
                       {u.isActive ? 'Active' : 'Blocked'}
                     </span>
+                    <br />
+                    <span className={`text-[10px] px-2 py-1 mt-1 inline-block rounded-full uppercase tracking-widest font-bold ${!u.transactionsBlocked ? 'bg-green-500/20 text-green-500' : 'bg-orange-500/20 text-orange-500'}`}>
+                      {!u.transactionsBlocked ? 'TX Allowed' : 'TX Blocked'}
+                    </span>
                   </td>
-                  <td className="p-3 text-right space-x-2 whitespace-nowrap">
+                  <td className="p-3 font-mono font-bold text-[#FFD700]">{formatCurrency(u.balance)}</td>
+                  <td className="p-3 font-mono font-bold text-green-500">${(u.usdtBalance || 0).toFixed(4)}</td>
+                  <td className="p-3">
+                    <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-widest font-bold ${u.role === 'admin' ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-gray-300'}`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right space-x-2">
                     <button 
                       onClick={() => handleToggleTxStatus(u.uid, !!u.transactionsBlocked)}
-                      className="text-[10px] font-bold tracking-widest uppercase bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-lg transition-colors"
+                      className="text-[10px] font-bold tracking-widest uppercase bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors mb-2 sm:mb-0"
                     >
                       {!u.transactionsBlocked ? 'Block Tx' : 'Unblock Tx'}
                     </button>
                     <button 
                       onClick={() => handleToggleUserStatus(u.uid, u.isActive)}
-                      className="text-[10px] font-bold tracking-widest uppercase bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-lg transition-colors"
+                      className="text-[10px] font-bold tracking-widest uppercase bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       {u.isActive ? 'Block' : 'Unblock'}
                     </button>
@@ -1656,945 +1336,16 @@ export function Admin() {
                         setEditBalance((u.balance || 0).toString());
                         setEditUsdtBalance((u.usdtBalance || 0).toString());
                         setEditMiningRate((u.miningRate || 0).toString());
-                        setEditKycStatus(u.kycStatus || 'unverified');
-                        setEditNodeStatus(u.nodeStatus || 'none');
                       }}
                       className="text-[10px] font-bold tracking-widest uppercase bg-[#FFD700]/20 text-[#FFD700] hover:bg-[#FFD700]/30 px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      Edit User
+                      Edit Rate/Bal
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          KYC VERIFICATIONS HUB (APPROVE / REJECT WITH LIVE PHOTO & PAYMENT PROOF)
-         ========================================================================= */}
-      {activeTab === 'kyc' && (
-        <div className="bg-white/5 border border-emerald-500/30 rounded-3xl p-4 sm:p-8 animate-in fade-in duration-300 mb-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-wider mb-2">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Identity Verification Protocol (KYC)</span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black text-white">
-                KYC Applications & Identity Review
-              </h3>
-              <p className="text-xs text-gray-400 mt-1 max-w-2xl">
-                Review user live front camera selfies and blockchain fee payments (BNB, Ethereum, Solana). Approve to grant verified status and unlock Node Operator eligibility.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
-              <button 
-                onClick={handleResetAllUsersKyc}
-                disabled={loading}
-                className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 font-bold px-3.5 py-2.5 rounded-xl transition-all text-xs uppercase tracking-widest flex items-center gap-1.5"
-                title="Reset all users to unverified so they must apply and wait for your approval"
-              >
-                <span>Reset All to Unverified</span>
-              </button>
-              <button 
-                onClick={fetchData}
-                disabled={loading}
-                className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 font-bold px-4 py-2.5 rounded-xl transition-all text-xs uppercase tracking-widest flex items-center gap-2"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>Refresh Submissions</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Metric Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-4 rounded-2xl bg-black/60 border border-white/10">
-              <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Total Submissions</span>
-              <p className="text-2xl font-black text-white font-mono mt-1">
-                {users.filter(u => hasUserSubmittedKyc(u) || u.kycStatus === 'verified').length}
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]">
-              <span className="text-[10px] text-amber-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-400" /> Pending Review
-              </span>
-              <p className="text-2xl font-black text-amber-400 font-mono mt-1">
-                {users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length}
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-emerald-500/40">
-              <span className="text-[10px] text-emerald-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Verified Users
-              </span>
-              <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
-                {users.filter(u => u.kycStatus === 'verified').length}
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-red-500/40">
-              <span className="text-[10px] text-red-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <AlertCircle className="w-3 h-3 text-red-400" /> Rejected
-              </span>
-              <p className="text-2xl font-black text-red-400 font-mono mt-1">
-                {users.filter(u => u.kycStatus === 'rejected' && hasUserSubmittedKyc(u)).length}
-              </p>
-            </div>
-          </div>
-
-          {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              <button
-                onClick={() => setKycFilterStatus('pending')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  kycFilterStatus === 'pending' 
-                    ? 'bg-amber-500 text-black shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Pending ({users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length})
-              </button>
-              <button
-                onClick={() => setKycFilterStatus('verified')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  kycFilterStatus === 'verified' 
-                    ? 'bg-emerald-500 text-black shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Verified ({users.filter(u => u.kycStatus === 'verified').length})
-              </button>
-              <button
-                onClick={() => setKycFilterStatus('rejected')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  kycFilterStatus === 'rejected' 
-                    ? 'bg-red-500 text-white shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Rejected ({users.filter(u => u.kycStatus === 'rejected' && hasUserSubmittedKyc(u)).length})
-              </button>
-              <button
-                onClick={() => setKycFilterStatus('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  kycFilterStatus === 'all' 
-                    ? 'bg-white text-black shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                All Submissions
-              </button>
-            </div>
-
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                placeholder="Search name, email, or TXID..."
-                value={kycSearchQuery}
-                onChange={(e) => setKycSearchQuery(e.target.value)}
-                className="bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-emerald-500 transition-colors w-full"
-              />
-            </div>
-          </div>
-
-          {/* Submissions List */}
-          {(() => {
-            const kycUsers = users.filter(u => {
-              const applied = hasUserSubmittedKyc(u);
-              // Crucial: Only show users if they have submitted proof/selfie or are verified
-              if (!applied && u.kycStatus !== 'verified') return false;
-
-              if (kycFilterStatus === 'pending') {
-                if (u.kycStatus !== 'pending' || !applied) return false;
-              } else if (kycFilterStatus === 'verified') {
-                if (u.kycStatus !== 'verified') return false;
-              } else if (kycFilterStatus === 'rejected') {
-                if (u.kycStatus !== 'rejected' || !applied) return false;
-              } else {
-                if (!applied && u.kycStatus !== 'verified') return false;
-              }
-
-              if (kycSearchQuery.trim()) {
-                const q = kycSearchQuery.toLowerCase().trim();
-                const name = (u.name || '').toLowerCase();
-                const email = (u.email || '').toLowerCase();
-                const uid = (u.uid || '').toLowerCase();
-                const txHash = (u.kycTxHash || '').toLowerCase();
-                const chain = (u.kycChain || '').toLowerCase();
-                return name.includes(q) || email.includes(q) || uid.includes(q) || txHash.includes(q) || chain.includes(q);
-              }
-              return true;
-            });
-
-            if (kycUsers.length === 0) {
-              return (
-                <div className="text-center py-16 p-8 rounded-2xl bg-black/40 border border-white/5 space-y-3">
-                  <ShieldCheck className="w-10 h-10 text-emerald-500/40 mx-auto" />
-                  <h4 className="text-sm font-bold text-white">No KYC Submissions in this filter</h4>
-                  <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                    {kycFilterStatus === 'pending' 
-                      ? 'Great news! There are currently no pending KYC applications waiting for review.'
-                      : 'No user applications match your current status filter.'}
-                  </p>
-                </div>
-              );
-            }
-
-            return (
-              <div className="space-y-4">
-                {kycUsers.map((u) => {
-                  const feeInfo = u.kycChain === 'SOL'
-                    ? { fee: '0.00041 SOL', address: '2z8hTr7ccNH6bq2kyjS9cvH9d8XFMESaWFaD9z5HSr1D' }
-                    : u.kycChain === 'ETH'
-                    ? { fee: '0.00001245 ETH', address: '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120' }
-                    : { fee: '0.00053 BNB', address: '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120' };
-
-                  return (
-                    <div 
-                      key={u.uid}
-                      className="p-5 sm:p-6 rounded-2xl bg-black/60 border border-white/10 hover:border-emerald-500/40 transition-all space-y-5"
-                    >
-                      {/* User Top Row */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
-                        <div className="flex items-center space-x-3.5">
-                          <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-black text-emerald-400 text-sm shrink-0">
-                            {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-white font-black text-base">{u.name || 'Anonymous Miner'}</h4>
-                              <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                u.kycStatus === 'verified' 
-                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                  : u.kycStatus === 'pending'
-                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
-                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              }`}>
-                                {u.kycStatus === 'verified' ? '✓ Verified' : u.kycStatus === 'pending' ? '⏳ Pending Review' : '✕ Rejected'}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-400 font-mono mt-0.5 flex items-center gap-3 flex-wrap">
-                              <span>Email: {u.email}</span>
-                              <span>UID: {u.uid}</span>
-                              {u.kycSubmittedAt && (
-                                <span className="text-gray-500">
-                                  Submitted: {new Date(u.kycSubmittedAt).toLocaleString()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Balances & Referrals */}
-                        <div className="flex items-center gap-3">
-                          <div className="text-right px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Balance</span>
-                            <span className="text-xs font-mono font-black text-[#FFD700]">
-                              {formatCurrency(u.balance)} CM
-                            </span>
-                          </div>
-                          <div className="text-right px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Referrals</span>
-                            <span className="text-xs font-mono font-black text-blue-400">
-                              {u.referralCount || 0}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Proofs Grid: Front Camera Selfie vs Payment Screenshot */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Selfie Proof */}
-                        <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              📸 Front Camera Live Selfie
-                            </span>
-                            {u.kycPhotoUrl && (
-                              <button
-                                onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Front Camera Selfie`, imageUrl: u.kycPhotoUrl!, user: u })}
-                                className="text-[10px] text-emerald-400 font-bold hover:underline flex items-center gap-1"
-                              >
-                                <ZoomIn className="w-3 h-3" /> Zoom Photo
-                              </button>
-                            )}
-                          </div>
-
-                          {u.kycPhotoUrl ? (
-                            <div 
-                              onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Front Camera Selfie`, imageUrl: u.kycPhotoUrl!, user: u })}
-                              className="relative h-44 rounded-xl overflow-hidden border border-white/10 group cursor-pointer bg-black/80 flex items-center justify-center"
-                            >
-                              <img 
-                                src={u.kycPhotoUrl} 
-                                alt="Live Selfie" 
-                                className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <span className="px-3 py-1.5 rounded-lg bg-black/80 text-white text-xs font-bold flex items-center gap-1">
-                                  <ZoomIn className="w-3.5 h-3.5" /> Click to view full image
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="h-44 rounded-xl border border-dashed border-white/10 flex items-center justify-center text-xs text-gray-500">
-                              No selfie photo uploaded
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Fee & Payment Screenshot Proof */}
-                        <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              🧾 Fee Receipt & Gas Transfer
-                            </span>
-                            {u.kycPaymentProofUrl && (
-                              <button
-                                onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Fee Payment Screenshot`, imageUrl: u.kycPaymentProofUrl!, user: u })}
-                                className="text-[10px] text-emerald-400 font-bold hover:underline flex items-center gap-1"
-                              >
-                                <ZoomIn className="w-3 h-3" /> Zoom Screenshot
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Fee metadata box */}
-                          <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5 text-[11px] space-y-1 font-mono">
-                            <div className="flex justify-between">
-                              <span className="text-gray-400">Selected Chain:</span>
-                              <span className="text-emerald-400 font-bold">{u.kycChain || 'BNB'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-400">Required Gas Fee:</span>
-                              <span className="text-white font-bold">{feeInfo.fee}</span>
-                            </div>
-                            <div className="flex justify-between items-center pt-1 border-t border-white/5">
-                              <span className="text-gray-400">TXID Hash:</span>
-                              <span className="text-[#FFD700] truncate max-w-[180px]">
-                                {u.kycTxHash || 'Not provided'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Screenshot image */}
-                          {u.kycPaymentProofUrl ? (
-                            <div 
-                              onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Fee Payment Screenshot`, imageUrl: u.kycPaymentProofUrl!, user: u })}
-                              className="relative h-28 rounded-xl overflow-hidden border border-white/10 group cursor-pointer bg-black/80 flex items-center justify-center"
-                            >
-                              <img 
-                                src={u.kycPaymentProofUrl} 
-                                alt="Payment Proof" 
-                                className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <span className="px-3 py-1.5 rounded-lg bg-black/80 text-white text-xs font-bold flex items-center gap-1">
-                                  <ZoomIn className="w-3.5 h-3.5" /> View full receipt
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="h-28 rounded-xl border border-dashed border-white/10 flex items-center justify-center text-xs text-gray-500">
-                              No payment screenshot uploaded
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action Decision Buttons */}
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-white/5">
-                        <span className="text-xs text-gray-500">
-                          Review decision will update the user&apos;s KYC status across the entire network in real time.
-                        </span>
-                        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-                          <button
-                            onClick={() => handleResetKyc(u)}
-                            className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-bold transition-colors"
-                          >
-                            Reset
-                          </button>
-                          <button
-                            onClick={() => handleRejectKyc(u)}
-                            className="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Reject KYC</span>
-                          </button>
-                          <button
-                            onClick={() => handleApproveKyc(u)}
-                            className="px-5 py-2 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 flex items-center gap-1.5"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Approve KYC ✓</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* =========================================================================
-          NODE APPLICATIONS HUB (APPROVE / REJECT VALIDATOR NODES & P2P ACCESS)
-         ========================================================================= */}
-      {activeTab === 'nodes' && (
-        <div className="bg-white/5 border border-purple-500/30 rounded-3xl p-4 sm:p-8 animate-in fade-in duration-300 mb-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-black uppercase tracking-wider mb-2">
-                <Cpu className="w-3.5 h-3.5" />
-                <span>Validator Node Licensing & Governance</span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black text-white">
-                Node Operator Applications
-              </h3>
-              <p className="text-xs text-gray-400 mt-1 max-w-2xl">
-                Review and approve Node Validators. Approving grants exclusive access to P2P Escrow Trading, higher node multiplier yields, and core team direct communication.
-              </p>
-            </div>
-            <button 
-              onClick={fetchData}
-              disabled={loading}
-              className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30 font-bold px-4 py-2.5 rounded-xl transition-all text-xs uppercase tracking-widest flex items-center gap-2 self-start sm:self-auto shrink-0"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Applicants</span>
-            </button>
-          </div>
-
-          {/* Criteria Checklist Card */}
-          <div className="p-4 rounded-2xl bg-black/60 border border-purple-500/20 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="flex items-start gap-2.5">
-              <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">1</span>
-              <div>
-                <h5 className="text-xs font-bold text-white">140+ Referral Milestone</h5>
-                <p className="text-[11px] text-gray-400 mt-0.5">Applicant must have invited at least 140 members.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">2</span>
-              <div>
-                <h5 className="text-xs font-bold text-white">100% Referral KYC Verified</h5>
-                <p className="text-[11px] text-gray-400 mt-0.5">All referrals must complete front camera & fee KYC.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">3</span>
-              <div>
-                <h5 className="text-xs font-bold text-white">Unlocked Privileges</h5>
-                <p className="text-[11px] text-gray-400 mt-0.5">Approved nodes get P2P trading & direct team chat.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Metric Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-4 rounded-2xl bg-black/60 border border-white/10">
-              <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Total Applicants</span>
-              <p className="text-2xl font-black text-white font-mono mt-1">
-                {users.filter(u => u.nodeStatus && u.nodeStatus !== 'none').length}
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.1)]">
-              <span className="text-[10px] text-purple-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <Clock className="w-3 h-3 text-purple-400" /> Pending Applications
-              </span>
-              <p className="text-2xl font-black text-purple-400 font-mono mt-1">
-                {users.filter(u => u.nodeStatus === 'applied').length}
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-emerald-500/40">
-              <span className="text-[10px] text-emerald-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <Cpu className="w-3 h-3 text-emerald-400" /> Approved Node Operators
-              </span>
-              <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
-                {users.filter(u => u.nodeStatus === 'approved').length}
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-red-500/40">
-              <span className="text-[10px] text-red-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <AlertCircle className="w-3 h-3 text-red-400" /> Rejected
-              </span>
-              <p className="text-2xl font-black text-red-400 font-mono mt-1">
-                {users.filter(u => u.nodeStatus === 'rejected').length}
-              </p>
-            </div>
-          </div>
-
-          {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              <button
-                onClick={() => setNodeFilterStatus('applied')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  nodeFilterStatus === 'applied' 
-                    ? 'bg-purple-500 text-white shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Pending Applied ({users.filter(u => u.nodeStatus === 'applied').length})
-              </button>
-              <button
-                onClick={() => setNodeFilterStatus('approved')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  nodeFilterStatus === 'approved' 
-                    ? 'bg-emerald-500 text-black shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Approved Operators ({users.filter(u => u.nodeStatus === 'approved').length})
-              </button>
-              <button
-                onClick={() => setNodeFilterStatus('rejected')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  nodeFilterStatus === 'rejected' 
-                    ? 'bg-red-500 text-white shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Rejected ({users.filter(u => u.nodeStatus === 'rejected').length})
-              </button>
-              <button
-                onClick={() => setNodeFilterStatus('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  nodeFilterStatus === 'all' 
-                    ? 'bg-white text-black shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                All Applicants
-              </button>
-            </div>
-
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                placeholder="Search name, email, or UID..."
-                value={nodeSearchQuery}
-                onChange={(e) => setNodeSearchQuery(e.target.value)}
-                className="bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-purple-500 transition-colors w-full"
-              />
-            </div>
-          </div>
-
-          {/* Node Applicants List */}
-          {(() => {
-            const nodeUsers = users.filter(u => {
-              if (nodeFilterStatus !== 'all') {
-                if (u.nodeStatus !== nodeFilterStatus) return false;
-              } else {
-                if (!u.nodeStatus || u.nodeStatus === 'none') return false;
-              }
-
-              if (nodeSearchQuery.trim()) {
-                const q = nodeSearchQuery.toLowerCase().trim();
-                const name = (u.name || '').toLowerCase();
-                const email = (u.email || '').toLowerCase();
-                const uid = (u.uid || '').toLowerCase();
-                return name.includes(q) || email.includes(q) || uid.includes(q);
-              }
-              return true;
-            });
-
-            if (nodeUsers.length === 0) {
-              return (
-                <div className="text-center py-16 p-8 rounded-2xl bg-black/40 border border-white/5 space-y-3">
-                  <Cpu className="w-10 h-10 text-purple-500/40 mx-auto" />
-                  <h4 className="text-sm font-bold text-white">No Node Applications Found</h4>
-                  <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                    {nodeFilterStatus === 'applied' 
-                      ? 'No pending node validator applications waiting for approval.'
-                      : 'No users match your selected filter.'}
-                  </p>
-                </div>
-              );
-            }
-
-            return (
-              <div className="space-y-4">
-                {nodeUsers.map((u) => {
-                  const meetsRef = (u.referralCount || 0) >= 140;
-                  const isUserKyc = u.kycStatus === 'verified';
-
-                  return (
-                    <div 
-                      key={u.uid}
-                      className="p-5 sm:p-6 rounded-2xl bg-black/60 border border-white/10 hover:border-purple-500/40 transition-all space-y-4"
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
-                        <div className="flex items-center space-x-3.5">
-                          <div className="w-11 h-11 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center font-black text-purple-400 text-sm shrink-0">
-                            {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-white font-black text-base">{u.name || 'Anonymous Miner'}</h4>
-                              <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                u.nodeStatus === 'approved' 
-                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                  : u.nodeStatus === 'applied'
-                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
-                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              }`}>
-                                {u.nodeStatus === 'approved' ? '⚡ Node Operator Active' : u.nodeStatus === 'applied' ? '⏳ Application Pending' : '✕ Application Rejected'}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-400 font-mono mt-0.5 flex items-center gap-3 flex-wrap">
-                              <span>Email: {u.email}</span>
-                              <span>UID: {u.uid}</span>
-                              {u.nodeAppliedAt && (
-                                <span className="text-gray-500">
-                                  Applied: {new Date(u.nodeAppliedAt).toLocaleString()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="flex items-center gap-3">
-                          <div className="text-right px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Balance</span>
-                            <span className="text-xs font-mono font-black text-[#FFD700]">
-                              {formatCurrency(u.balance)} CM
-                            </span>
-                          </div>
-                          <div className="text-right px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Applicant KYC</span>
-                            <span className={`text-xs font-mono font-black ${isUserKyc ? 'text-emerald-400' : 'text-amber-400'}`}>
-                              {isUserKyc ? 'Verified ✓' : 'Pending KYC ⏳'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Criteria Audit Card */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/5">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs font-bold">
-                            <span className="text-gray-400">Referral Requirement (140+):</span>
-                            <span className={meetsRef ? 'text-emerald-400' : 'text-amber-400'}>
-                              {u.referralCount || 0} / 140 {meetsRef ? '✓ Met' : '⏳ In Progress'}
-                            </span>
-                          </div>
-                          <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full ${meetsRef ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                              style={{ width: `${Math.min(100, (((u.referralCount || 0) / 140) * 100))}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs font-bold">
-                            <span className="text-gray-400">P2P Escrow Trading Status:</span>
-                            <span className={u.nodeStatus === 'approved' ? 'text-emerald-400' : 'text-gray-400'}>
-                              {u.nodeStatus === 'approved' ? 'Unlocked & Active 🔓' : 'Locked (Node Required) 🔒'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-gray-500">
-                            Node operators can post and take bids on the P2P Escrow Desk.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-white/5">
-                        <span className="text-xs text-gray-500">
-                          Approving unlocks P2P Escrow trading and awards the official Node Validator license.
-                        </span>
-                        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-                          <button
-                            onClick={() => handleRevokeNode(u)}
-                            className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-bold transition-colors"
-                          >
-                            Reset
-                          </button>
-                          <button
-                            onClick={() => handleRejectNode(u)}
-                            className="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Reject Node</span>
-                          </button>
-                          <button
-                            onClick={() => handleApproveNode(u)}
-                            className="px-5 py-2 rounded-xl bg-purple-500 text-white hover:bg-purple-400 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] active:scale-95 flex items-center gap-1.5"
-                          >
-                            <Cpu className="w-3.5 h-3.5" />
-                            <span>Approve Node Validator ⚡</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* =========================================================================
-          REFERRALS NETWORK LEDGER (PHASE 1 & PHASE 2 ALL USERS WITH COINS & KYC)
-         ========================================================================= */}
-      {activeTab === 'referrals' && (
-        <div className="bg-white/5 border border-blue-500/30 rounded-3xl p-4 sm:p-8 animate-in fade-in duration-300 mb-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-black uppercase tracking-wider mb-2">
-                <Users className="w-3.5 h-3.5" />
-                <span>Protocol Referral Tree & Network Ledger</span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black text-white">
-                All Referrals (Phase 1 & Phase 2)
-              </h3>
-              <p className="text-xs text-gray-400 mt-1 max-w-2xl">
-                Global view of all referred users from Phase 1 and Phase 2. Audit who invited each member, their accumulated CM Coins, and real-time KYC verification status.
-              </p>
-            </div>
-            <button 
-              onClick={fetchData}
-              disabled={loading}
-              className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30 font-bold px-4 py-2.5 rounded-xl transition-all text-xs uppercase tracking-widest flex items-center gap-2 self-start sm:self-auto shrink-0"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Network</span>
-            </button>
-          </div>
-
-          {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              <button
-                onClick={() => setReferralPhaseFilter('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  referralPhaseFilter === 'all' 
-                    ? 'bg-blue-500 text-white shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                All Members ({users.length})
-              </button>
-              <button
-                onClick={() => setReferralPhaseFilter('phase1')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  referralPhaseFilter === 'phase1' 
-                    ? 'bg-purple-500 text-white shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Phase 1 Pioneers
-              </button>
-              <button
-                onClick={() => setReferralPhaseFilter('phase2')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  referralPhaseFilter === 'phase2' 
-                    ? 'bg-emerald-500 text-black shadow' 
-                    : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-              >
-                Phase 2 Members
-              </button>
-            </div>
-
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                placeholder="Search user, referrer, email, or UID..."
-                value={referralSearchQuery}
-                onChange={(e) => setReferralSearchQuery(e.target.value)}
-                className="bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500 transition-colors w-full"
-              />
-            </div>
-          </div>
-
-          {/* Referrals Table */}
-          {(() => {
-            const PHASE_2_TS = 1729600000000;
-            const refUsers = users.filter(u => {
-              const isP1 = !u.joinDate || u.joinDate < PHASE_2_TS;
-              if (referralPhaseFilter === 'phase1' && !isP1) return false;
-              if (referralPhaseFilter === 'phase2' && isP1) return false;
-
-              if (referralSearchQuery.trim()) {
-                const q = referralSearchQuery.toLowerCase().trim();
-                const name = (u.name || '').toLowerCase();
-                const email = (u.email || '').toLowerCase();
-                const uid = (u.uid || '').toLowerCase();
-                const refBy = (u.referredBy || '').toLowerCase();
-                const refCode = (u.referralCode || '').toLowerCase();
-                return name.includes(q) || email.includes(q) || uid.includes(q) || refBy.includes(q) || refCode.includes(q);
-              }
-              return true;
-            });
-
-            return (
-              <div className="overflow-x-auto overflow-y-auto max-h-[60vh] rounded-xl pr-1">
-                <table className="w-full text-left border-collapse min-w-[900px]">
-                  <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">User</th>
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-blue-400">Referred By</th>
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Phase</th>
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-emerald-400">KYC Status</th>
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">CM Coins</th>
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-green-500">USDT</th>
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest">Ref Count</th>
-                      <th className="p-3 text-[10px] text-gray-500 uppercase tracking-widest text-right">Quick Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {refUsers.map((u) => {
-                      const isP1 = !u.joinDate || u.joinDate < PHASE_2_TS;
-                      const cmCoins = Number(u.balance ?? (u as any)['CM Coins'] ?? (u as any).cm_coins ?? 0);
-                      const usdtBal = Number(u.usdtBalance ?? (u as any)['USDT'] ?? 0);
-
-                      return (
-                        <tr key={u.uid} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                          <td className="p-3">
-                            <div className="font-bold text-sm truncate max-w-[150px]">{u.name}</div>
-                            <div className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]">{u.email}</div>
-                          </td>
-                          <td className="p-3 text-xs font-mono font-bold text-blue-400">
-                            {u.referredBy || <span className="text-gray-500 font-normal">None / Pioneer</span>}
-                          </td>
-                          <td className="p-3">
-                            {isP1 ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                Phase 1 Pioneer
-                              </span>
-                            ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                                Phase 2 Member
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            {u.kycStatus === 'verified' ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-max">
-                                <Check className="w-3 h-3" /> KYC Verified
-                              </span>
-                            ) : u.kycStatus === 'pending' ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 w-max animate-pulse">
-                                <Clock className="w-3 h-3" /> KYC Pending
-                              </span>
-                            ) : u.kycStatus === 'rejected' ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-red-500/20 text-red-400 border border-red-500/30 w-max">
-                                KYC Rejected
-                              </span>
-                            ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-white/5 text-gray-400 w-max">
-                                Not Done
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 font-mono font-bold text-[#FFD700]">{formatCurrency(cmCoins)}</td>
-                          <td className="p-3 font-mono font-bold text-green-500">${usdtBal.toFixed(4)}</td>
-                          <td className="p-3 font-mono font-bold text-white">{u.referralCount || 0}</td>
-                          <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
-                            {u.kycStatus === 'pending' && (
-                              <button
-                                onClick={() => handleApproveKyc(u)}
-                                className="text-[10px] bg-emerald-500 text-black font-black px-2.5 py-1 rounded hover:bg-emerald-400 transition-colors"
-                              >
-                                Approve KYC
-                              </button>
-                            )}
-                            {u.nodeStatus === 'applied' && (
-                              <button
-                                onClick={() => handleApproveNode(u)}
-                                className="text-[10px] bg-purple-500 text-white font-black px-2.5 py-1 rounded hover:bg-purple-400 transition-colors"
-                              >
-                                Approve Node
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                setEditingUser(u);
-                                setEditBalance((u.balance || 0).toString());
-                                setEditUsdtBalance((u.usdtBalance || 0).toString());
-                                setEditMiningRate((u.miningRate || 0).toString());
-                                setEditKycStatus(u.kycStatus || 'unverified');
-                                setEditNodeStatus(u.nodeStatus || 'none');
-                              }}
-                              className="text-[10px] bg-white/10 hover:bg-white/20 text-white font-bold px-2.5 py-1 rounded transition-colors"
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* Lightbox Image Preview Modal */}
-      {selectedProofModal && (
-        <div 
-          onClick={() => setSelectedProofModal(null)}
-          className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#12110c] border border-white/20 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] flex flex-col space-y-4 shadow-2xl relative"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h3 className="text-lg font-black text-white">{selectedProofModal.title}</h3>
-                {selectedProofModal.user && (
-                  <p className="text-xs text-gray-400 font-mono mt-0.5">
-                    User: {selectedProofModal.user.name} ({selectedProofModal.user.email})
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setSelectedProofModal(null)}
-                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto flex items-center justify-center bg-black/60 rounded-2xl p-2 border border-white/5 min-h-[350px]">
-              <img 
-                src={selectedProofModal.imageUrl} 
-                alt="Full proof" 
-                className="max-h-[65vh] max-w-full object-contain rounded-lg"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <a 
-                href={selectedProofModal.imageUrl} 
-                target="_blank" 
-                rel="noreferrer" 
-                download="kyc-proof"
-                className="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-bold"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Open original image in new tab</span>
-              </a>
-              <button
-                onClick={() => setSelectedProofModal(null)}
-                className="px-6 py-2.5 rounded-xl bg-[#FFD700] text-black font-black text-xs uppercase tracking-wider"
-              >
-                Close Preview
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -3328,32 +2079,6 @@ export function Admin() {
                   onChange={(e) => setEditMiningRate(e.target.value)}
                   className="w-full bg-black/50 border border-white/10 rounded-xl p-3 focus:border-[#FFD700] outline-none transition-colors"
                 />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-emerald-400 font-bold mb-2">KYC Verification Status</label>
-                <select
-                  value={editKycStatus}
-                  onChange={(e) => setEditKycStatus(e.target.value)}
-                  className="w-full bg-black/50 border border-emerald-500/30 rounded-xl p-3 focus:border-emerald-500 outline-none transition-colors text-white"
-                >
-                  <option value="unverified">Unverified</option>
-                  <option value="pending">Pending Review</option>
-                  <option value="verified">Verified (Approved) ✓</option>
-                  <option value="rejected">Rejected ✕</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-purple-400 font-bold mb-2">Validator Node Status</label>
-                <select
-                  value={editNodeStatus}
-                  onChange={(e) => setEditNodeStatus(e.target.value)}
-                  className="w-full bg-black/50 border border-purple-500/30 rounded-xl p-3 focus:border-purple-500 outline-none transition-colors text-white"
-                >
-                  <option value="none">Standard Miner (No Node)</option>
-                  <option value="applied">Application Pending</option>
-                  <option value="approved">Approved Node Operator ⚡ (P2P Enabled)</option>
-                  <option value="rejected">Application Rejected</option>
-                </select>
               </div>
             </div>
             <div className="flex space-x-4 mt-8">

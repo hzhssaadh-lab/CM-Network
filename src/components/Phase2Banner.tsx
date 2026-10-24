@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../hooks/useAppStore';
+import React, { useState, useEffect } from 'react';
+import { getPhase2Countdown, PHASE_2_TOTAL_DAYS, PHASE_2_LAUNCH_DATE_STRING } from '../lib/utils';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -8,30 +7,22 @@ import {
   Coins, 
   Wallet, 
   ArrowRightLeft, 
-  Pickaxe, 
+  Layers, 
   CheckCircle2, 
   Flame,
-  X,
-  Rocket
+  X
 } from 'lucide-react';
 
-interface Phase2BannerProps {
-  onOpenAuth?: (mode?: 'login' | 'signup') => void;
-}
-
-export function Phase2Banner({ onOpenAuth }: Phase2BannerProps) {
-  const { user } = useApp();
-  const navigate = useNavigate();
+export function Phase2Banner() {
+  const [countdown, setCountdown] = useState(getPhase2Countdown());
   const [showRoadmap, setShowRoadmap] = useState(false);
 
-  const handleLaunchPhase2 = () => {
-    if (!user) {
-      if (onOpenAuth) onOpenAuth('signup');
-      else navigate('/login');
-    } else {
-      navigate('/dashboard');
-    }
-  };
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(getPhase2Countdown());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <>
@@ -47,36 +38,27 @@ export function Phase2Banner({ onOpenAuth }: Phase2BannerProps) {
             </button>
 
             <div className="flex items-center gap-2 mb-3">
-              <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest flex items-center gap-1.5">
-                <Rocket className="w-3.5 h-3.5" /> PHASE 2 ROADMAP • LIVE
+              <span className="px-3 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-xs font-black uppercase tracking-widest">
+                ✦ PHASE 2 ROADMAP
               </span>
+              <span className="text-xs text-gray-400">Launch Date: {PHASE_2_LAUNCH_DATE_STRING}</span>
             </div>
 
             <h3 className="text-2xl font-black text-white tracking-tight mb-2">
-              Phase 2 Ecosystem Architecture
+              The Evolution of CM Network
             </h3>
             <p className="text-sm text-gray-300 mb-6">
-              Phase 2 is now activated! All balances are preserved and users can now mine 0.5 CM coins per 12 hours, transfer on-chain funds, and grow referral nodes.
+              All Phase 1 balances are 100% safe and preserved. Phase 2 unlocks full Web3 liquidity, peer-to-peer exchange, and audited smart contracts.
             </p>
 
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-white/5 border border-[#FFD700]/30 flex items-start gap-3">
                 <div className="w-8 h-8 rounded-xl bg-[#FFD700]/10 text-[#FFD700] flex items-center justify-center shrink-0 mt-0.5">
-                  <Pickaxe className="w-4 h-4" />
+                  <Coins className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">1. 12-Hour Cloud Mining Node (Live)</h4>
-                  <p className="text-xs text-gray-400 mt-0.5">Mine 0.50 CM Coins every 12-hour cycle with automated node synchronization and zero battery drain.</p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white/5 border border-[#FFD700]/30 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#FFD700]/10 text-[#FFD700] flex items-center justify-center shrink-0 mt-0.5">
-                  <Wallet className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">2. Web3 Wallet & On-Chain Transfers (Live)</h4>
-                  <p className="text-xs text-gray-400 mt-0.5">Send and receive CM Coins and USDT with QR codes and verifiable on-chain transaction history.</p>
+                  <h4 className="text-sm font-bold text-white">1. Smart Multiplier Reward Engine</h4>
+                  <p className="text-xs text-gray-400 mt-0.5">Automated yield multipliers, zero-battery cloud mining nodes, and daily check-in booster rewards.</p>
                 </div>
               </div>
 
@@ -85,8 +67,18 @@ export function Phase2Banner({ onOpenAuth }: Phase2BannerProps) {
                   <ArrowRightLeft className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">3. CM Peer-to-Peer (P2P) Desk</h4>
-                  <p className="text-xs text-gray-400 mt-0.5">Direct buyer-to-seller escrow mechanism allowing community members to trade CM coins against USDT safely.</p>
+                  <h4 className="text-sm font-bold text-white">2. CM Peer-to-Peer (P2P) Trading Desk</h4>
+                  <p className="text-xs text-gray-400 mt-0.5">Direct buyer-to-seller escrow mechanism allowing community members to trade CM coins against USDT and local currencies safely.</p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/5 border border-[#FFD700]/30 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#FFD700]/10 text-[#FFD700] flex items-center justify-center shrink-0 mt-0.5">
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">3. CM Non-Custodial Web3 Wallet</h4>
+                  <p className="text-xs text-gray-400 mt-0.5">Multi-chain EVM support (BSC, Polygon, Ethereum) with instant token wrapping and decentralized staking pools.</p>
                 </div>
               </div>
 
@@ -95,8 +87,8 @@ export function Phase2Banner({ onOpenAuth }: Phase2BannerProps) {
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">4. Audited Contract Address</h4>
-                  <p className="text-xs text-gray-400 mt-0.5">Verified BEP-20 / CM Smart Chain smart contract with transparent liquidity and public tokenomics.</p>
+                  <h4 className="text-sm font-bold text-white">4. Official Audited Contract Address</h4>
+                  <p className="text-xs text-gray-400 mt-0.5">Publishing verified BEP-20 / ERC-20 contract code with CertiK and Hacken audits, liquidity locks, and public tokenomics.</p>
                 </div>
               </div>
             </div>
@@ -114,152 +106,141 @@ export function Phase2Banner({ onOpenAuth }: Phase2BannerProps) {
       )}
 
       {/* Main Phase 2 Section Banner */}
-      <div className="w-full relative rounded-[36px] bg-gradient-to-br from-[#14120a] via-[#0d0c09] to-[#070706] border-2 border-[#FFD700]/40 p-6 sm:p-10 overflow-hidden shadow-[0_10px_50px_rgba(0,0,0,0.8),0_0_35px_rgba(255,215,0,0.12)]">
+      <div className="w-full relative rounded-[36px] bg-gradient-to-br from-[#12100a] via-[#0d0c09] to-[#070706] border border-[#FFD700]/30 p-6 sm:p-10 overflow-hidden shadow-[0_10px_50px_rgba(0,0,0,0.8),0_0_30px_rgba(255,215,0,0.06)]">
         {/* Ambient background gold glow */}
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#FFD700]/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute -bottom-10 left-0 w-80 h-80 bg-emerald-600/10 rounded-full blur-[90px] pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#FFD700]/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute -bottom-10 left-0 w-80 h-80 bg-amber-600/5 rounded-full blur-[90px] pointer-events-none" />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
           
-          {/* Left Column: Announcement & CTAs */}
+          {/* Left Column: Countdown & CTA */}
           <div className="lg:col-span-5 space-y-5">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(52,211,153,0.2)]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>PHASE 2 IS NOW LIVE 🚀</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-[#FFD700]/40 text-[#FFD700] text-xs font-black uppercase tracking-widest shadow-[0_0_15px_rgba(255,215,0,0.15)]">
+              <span>✦</span>
+              <span>PHASE 2</span>
             </div>
 
             <div>
               <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">
-                PHASE 2 ACTIVATED
+                COUNTDOWN STARTED
               </h3>
               <p className="text-base sm:text-lg font-bold bg-gradient-to-r from-[#FFD700] via-amber-300 to-[#FFD700] bg-clip-text text-transparent mt-0.5">
-                12h Mining Engine • Web3 Wallet • P2P
+                Bigger Features. More Opportunities.
               </p>
             </div>
 
-            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed max-w-md font-medium">
-              Phase 2 is fully operational! Earn 0.50 CM Coins every 12 hours, transfer assets seamlessly via Web3 Wallet, and scale your community referral earnings.
+            <p className="text-xs sm:text-sm text-gray-400 leading-relaxed max-w-md">
+              Phase 2 will bring new features to take CM Network to the next level. Get ready for the next chapter! All Phase 1 balances remain fully intact.
             </p>
 
-            {/* 3 Metric Pills */}
-            <div className="grid grid-cols-3 gap-2.5 max-w-sm pt-1">
-              <div className="bg-black/60 border border-[#FFD700]/30 rounded-2xl p-2.5 text-center">
-                <span className="block text-base sm:text-lg font-mono font-black text-[#FFD700]">0.5 CM</span>
-                <span className="text-[9px] font-bold text-gray-400 uppercase">12h Yield</span>
+            {/* Universal Fixed 25-Day Countdown Display */}
+            <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-sm pt-1">
+              <div className="bg-black/60 border border-[#FFD700]/30 rounded-2xl p-2.5 text-center shadow-[inset_0_1px_1px_rgba(255,215,0,0.2)]">
+                <span className="block text-xl sm:text-2xl font-mono font-black text-white">{countdown.days}</span>
+                <span className="text-[9px] font-bold text-[#FFD700] uppercase tracking-wider">Days</span>
               </div>
-              <div className="bg-black/60 border border-[#FFD700]/30 rounded-2xl p-2.5 text-center">
-                <span className="block text-base sm:text-lg font-mono font-black text-emerald-400">Live</span>
-                <span className="text-[9px] font-bold text-gray-400 uppercase">Web3 Wallet</span>
+              <div className="bg-black/60 border border-[#FFD700]/30 rounded-2xl p-2.5 text-center shadow-[inset_0_1px_1px_rgba(255,215,0,0.2)]">
+                <span className="block text-xl sm:text-2xl font-mono font-black text-white">{countdown.hours}</span>
+                <span className="text-[9px] font-bold text-[#FFD700] uppercase tracking-wider">Hours</span>
               </div>
-              <div className="bg-black/60 border border-[#FFD700]/30 rounded-2xl p-2.5 text-center">
-                <span className="block text-base sm:text-lg font-mono font-black text-blue-400">100%</span>
-                <span className="text-[9px] font-bold text-gray-400 uppercase">Data Safe</span>
+              <div className="bg-black/60 border border-[#FFD700]/30 rounded-2xl p-2.5 text-center shadow-[inset_0_1px_1px_rgba(255,215,0,0.2)]">
+                <span className="block text-xl sm:text-2xl font-mono font-black text-white">{countdown.minutes}</span>
+                <span className="text-[9px] font-bold text-[#FFD700] uppercase tracking-wider">Mins</span>
+              </div>
+              <div className="bg-black/60 border border-[#FFD700]/30 rounded-2xl p-2.5 text-center shadow-[inset_0_1px_1px_rgba(255,215,0,0.2)]">
+                <span className="block text-xl sm:text-2xl font-mono font-black text-[#FFD700]">{countdown.seconds}</span>
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Secs</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                onClick={handleLaunchPhase2}
-                className="px-6 py-3.5 rounded-full bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-[0_0_25px_rgba(255,215,0,0.35)]"
-              >
-                <span>{user ? 'Enter Phase 2 Hub' : 'Start Mining (0.5 CM)'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            <div>
               <button
                 onClick={() => setShowRoadmap(true)}
-                className="px-5 py-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all"
+                className="px-6 py-3 rounded-full bg-gradient-to-r from-[#FFD700] to-amber-500 text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,215,0,0.25)]"
               >
-                Roadmap
+                <span>View Roadmap</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Right Column: 4 Feature Cards */}
-          <div className="lg:col-span-7 flex flex-col space-y-4">
+          {/* Right Column: 4 Coming Soon Cards */}
+          <div className="lg:col-span-7 flex flex-col space-y-5">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs sm:text-sm font-black text-[#FFD700] uppercase tracking-[0.2em] flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#FFD700]" />
-                <span>PHASE 2 LIVE PROTOCOLS</span>
+              <h4 className="text-xs sm:text-sm font-black text-[#FFD700] uppercase tracking-[0.2em]">
+                WHAT'S COMING IN PHASE 2?
               </h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               
-              {/* Card 1: 12h Mining Engine */}
-              <div 
-                onClick={handleLaunchPhase2}
-                className="bg-white/5 border border-white/10 hover:border-[#FFD700] rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.08] cursor-pointer group"
-              >
-                <div className="flex items-center space-x-3 mb-1.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#FFD700]/15 border border-[#FFD700]/40 flex items-center justify-center text-[#FFD700] group-hover:scale-110 transition-transform shadow-sm">
-                    <Pickaxe className="w-4 h-4" />
+              {/* Card 1: New Reward System */}
+              <div className="bg-white/5 border border-white/10 hover:border-[#FFD700]/50 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.07] group">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] group-hover:scale-110 transition-transform">
+                    <Sparkles className="w-4 h-4" />
                   </div>
                   <div>
-                    <h5 className="text-sm font-extrabold text-white">12-Hour Mining Engine</h5>
-                    <p className="text-[11px] text-emerald-400 font-bold">0.50 CM / 12 Hours • Active ✓</p>
+                    <h5 className="text-sm font-extrabold text-white">New Reward System</h5>
+                    <p className="text-[11px] text-gray-400">More Ways to Earn</p>
                   </div>
                 </div>
               </div>
 
               {/* Card 2: CM P2P Trading */}
-              <div 
-                onClick={() => navigate('/wallet')}
-                className="bg-white/5 border border-white/10 hover:border-emerald-500 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.08] cursor-pointer group"
-              >
-                <div className="flex items-center space-x-3 mb-1.5">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shadow-sm">
+              <div className="bg-white/5 border border-white/10 hover:border-[#FFD700]/50 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.07] group">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] group-hover:scale-110 transition-transform">
                     <ArrowRightLeft className="w-4 h-4" />
                   </div>
                   <div>
-                    <h5 className="text-sm font-extrabold text-white">Web3 Send & Receive</h5>
-                    <p className="text-[11px] text-emerald-400 font-bold">Instant Transfers • Active ✓</p>
+                    <h5 className="text-sm font-extrabold text-white">CM P2P Trading</h5>
+                    <p className="text-[11px] text-gray-400">Buy & Sell CM Coins</p>
                   </div>
                 </div>
               </div>
 
               {/* Card 3: CM Web3 Wallet */}
-              <div 
-                onClick={() => navigate('/wallet')}
-                className="bg-white/5 border border-white/10 hover:border-[#FFD700] rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.08] cursor-pointer group"
-              >
-                <div className="flex items-center space-x-3 mb-1.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#FFD700]/15 border border-[#FFD700]/40 flex items-center justify-center text-[#FFD700] group-hover:scale-110 transition-transform shadow-sm">
+              <div className="bg-white/5 border border-white/10 hover:border-[#FFD700]/50 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.07] group">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] group-hover:scale-110 transition-transform">
                     <Wallet className="w-4 h-4" />
                   </div>
                   <div>
                     <h5 className="text-sm font-extrabold text-white">CM Web3 Wallet</h5>
-                    <p className="text-[11px] text-emerald-400 font-bold">Audit History • Active ✓</p>
+                    <p className="text-[11px] text-gray-400">Multi-Chain Support</p>
                   </div>
                 </div>
               </div>
 
               {/* Card 4: Official Contract Address */}
-              <div className="bg-white/5 border border-white/10 hover:border-blue-500 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.08] group">
-                <div className="flex items-center space-x-3 mb-1.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/40 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform shadow-sm">
+              <div className="bg-white/5 border border-white/10 hover:border-[#FFD700]/50 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.07] group">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] group-hover:scale-110 transition-transform">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
-                    <h5 className="text-sm font-extrabold text-white">Verified CM Contract</h5>
-                    <p className="text-[11px] text-blue-400 font-bold">BEP-20 / Smart Chain • Synced ✓</p>
+                    <h5 className="text-sm font-extrabold text-white">Official Contract Address</h5>
+                    <p className="text-[11px] text-gray-400">Transparency & Trust</p>
                   </div>
                 </div>
               </div>
 
             </div>
 
-            {/* Live Progress Bar */}
+            {/* Stepper Progress Line */}
             <div className="pt-2">
               <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                <span className="text-emerald-400 font-black flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Phase 1 Completed
-                </span>
-                <span className="text-emerald-400 font-black flex items-center gap-1">
-                  <Rocket className="w-3 h-3" /> Phase 2 Live (12h = 0.5 CM)
-                </span>
+                <span className="text-[#FFD700]">Phase 1 Active</span>
+                <span className="text-gray-400">Auditing</span>
+                <span className="text-gray-400">P2P Testing</span>
+                <span className="text-[#FFD700] font-black">Phase 2 • Coming Soon</span>
               </div>
-              <div className="relative h-2 w-full bg-white/10 rounded-full overflow-hidden border border-white/10">
-                <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-emerald-500 via-[#FFD700] to-amber-500 rounded-full w-full" />
+              <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/10">
+                <div 
+                  className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-emerald-500 via-[#FFD700] to-amber-500 rounded-full"
+                  style={{ width: `${Math.max(15, 100 - (countdown.totalMs / (25 * 24 * 60 * 60 * 1000)) * 100)}%` }}
+                />
               </div>
             </div>
 

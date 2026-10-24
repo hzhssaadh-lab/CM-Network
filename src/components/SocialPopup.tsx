@@ -7,17 +7,9 @@ export const SocialPopup: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    // Only show once per session so it doesn't open repeatedly
-    const dismissed = sessionStorage.getItem('cm_social_popup_dismissed');
-    if (!dismissed) {
-      setIsOpen(true);
-    }
+    // Show on every open/refresh
+    setIsOpen(true);
   }, []);
-
-  const handleClose = () => {
-    sessionStorage.setItem('cm_social_popup_dismissed', 'true');
-    setIsOpen(false);
-  };
 
   return (
     <AnimatePresence>
@@ -35,7 +27,7 @@ export const SocialPopup: React.FC = () => {
             className="bg-gradient-to-br from-gray-900 to-black border border-[#FFD700]/30 rounded-[32px] p-6 max-w-sm w-full relative shadow-[0_0_50px_rgba(255,215,0,0.15)]"
           >
             <button 
-              onClick={handleClose}
+              onClick={() => setIsOpen(false)}
               className="absolute top-4 right-4 w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 transition-all z-10"
             >
               <X className="w-5 h-5" />

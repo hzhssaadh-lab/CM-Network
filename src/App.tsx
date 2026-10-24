@@ -11,8 +11,7 @@ import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
 import { Leaderboard } from './pages/Leaderboard';
 import { Squads } from './pages/Squads';
-import { P2P } from './pages/P2P';
-import { Kyc } from './pages/Kyc';
+import { Ads } from './pages/Ads';
 import { Maintenance } from './pages/Maintenance';
 import { SocialPopup } from './components/SocialPopup';
 import { OFFICIAL_SOCIALS } from './components/SocialChannels';
@@ -62,8 +61,8 @@ function AppContent() {
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isHomeRoute = location.pathname === '/';
 
-  // Landing Page at "/" for visitors who are not logged in; for logged-in users, Phase 2 is LIVE!
-  if (isHomeRoute && !user) {
+  // Landing Page at "/" (always accessible with reference design)
+  if (isHomeRoute) {
     return (
       <>
         <Toaster position="top-center" toastOptions={{ style: { background: '#1c1b18', color: '#fff', border: '1px solid #FFD700', borderRadius: '16px' } }} />
@@ -77,8 +76,10 @@ function AppContent() {
     return <Login />;
   }
 
-  // Phase 2 is officially live: bypass old countdown timer
-  // Users have uninterrupted access to all Phase 2 dashboard and mining sections
+  // Maintenance mode check for app inner pages
+  if (maintenanceMode && !isAdminRoute && !isHomeRoute) {
+    return <Maintenance onMaintenanceEnd={() => setMaintenanceMode(false)} />;
+  }
 
   return (
     <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto p-4 sm:p-8 relative">
@@ -88,13 +89,9 @@ function AppContent() {
       
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
         <Routes>
-          <Route path="/" element={user ? <Dashboard /> : <LandingPage />} />
-          <Route path="/landing" element={<LandingPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/mining" element={<Dashboard defaultTab="mining" />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/tasks" element={<Tasks />} />
-          <Route path="/p2p" element={<P2P />} />
-          <Route path="/kyc" element={<Kyc />} />
+          <Route path="/ads" element={<Ads />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
