@@ -201,14 +201,7 @@ export function LandingPage() {
                 className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-[#FFD700]/50 text-white font-bold text-xs flex items-center gap-2 hover:bg-white/10 transition-colors"
               >
                 <Zap className="w-4 h-4 text-[#FFD700]" />
-                <span>Earn Tasks</span>
-              </button>
-              <button
-                onClick={() => navigate('/ads')}
-                className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-[#FFD700]/50 text-white font-bold text-xs flex items-center gap-2 hover:bg-white/10 transition-colors"
-              >
-                <PlayCircle className="w-4 h-4 text-emerald-400" />
-                <span>Watch & Earn Ads</span>
+                <span>Tasks</span>
               </button>
               <button
                 onClick={() => navigate('/wallet')}
@@ -263,13 +256,10 @@ export function LandingPage() {
                 {user ? (
                   <>
                     <button
-                      onClick={() => {
-                        const el = document.getElementById('mining');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                      }}
+                      onClick={() => navigate('/dashboard')}
                       className="px-7 py-3.5 rounded-full bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 hover:brightness-110 active:scale-95 transition-all shadow-[0_0_25px_rgba(255,215,0,0.35)]"
                     >
-                      <span>Start Mining Now</span>
+                      <span>Start Mining (0.5 CM)</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <button
@@ -286,14 +276,14 @@ export function LandingPage() {
                       onClick={() => handleOpenAuth('signup')}
                       className="px-7 py-3.5 rounded-full bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 hover:brightness-110 active:scale-95 transition-all shadow-[0_0_25px_rgba(255,215,0,0.35)]"
                     >
-                      <span>Create Your Account</span>
+                      <span>Start Mining Now</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleOpenAuth('login')}
                       className="px-7 py-3.5 rounded-full bg-black/60 border border-[#FFD700]/50 hover:border-[#FFD700] text-white font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 hover:bg-white/5 active:scale-95 transition-all shadow-sm"
                     >
-                      <span>Sign In</span>
+                      <span>Open Wallet (Sign In)</span>
                       <ArrowRight className="w-4 h-4 text-[#FFD700]" />
                     </button>
                   </>
@@ -388,8 +378,8 @@ export function LandingPage() {
             </button>
           </div>
 
-          {/* 4 Gold-Bordered Feature Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* 3 Gold-Bordered Feature Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Card 1: Mining */}
             <div 
@@ -412,25 +402,7 @@ export function LandingPage() {
               </div>
             </div>
 
-            {/* Card 2: Watch & Earn */}
-            <div 
-              onClick={() => handleProtectedAction('/ads')}
-              className="bg-gradient-to-b from-[#14120c] via-[#0f0e0a] to-[#0a0a07] border border-[#FFD700]/30 hover:border-[#FFD700] rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(255,215,0,0.15)] group cursor-pointer"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-[#FFD700]/10 border border-[#FFD700]/40 flex items-center justify-center text-[#FFD700] mb-5 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(255,215,0,0.15)]">
-                <PlayCircle className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-black text-white mb-1.5">Watch & Earn</h3>
-              <p className="text-xs text-gray-400 leading-relaxed mb-6 min-h-[36px]">
-                Watch ads and earn CM coins & USDT. Daily limits apply with verified rewards.
-              </p>
-              <div className="inline-flex items-center gap-1.5 text-xs font-black text-[#FFD700] group-hover:gap-2.5 transition-all">
-                <span>Earn Now</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* Card 3: Referral Rewards */}
+            {/* Card 2: Referral Rewards */}
             <div 
               onClick={() => handleProtectedAction('/friends')}
               className="bg-gradient-to-b from-[#14120c] via-[#0f0e0a] to-[#0a0a07] border border-[#FFD700]/30 hover:border-[#FFD700] rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(255,215,0,0.15)] group cursor-pointer"
@@ -448,7 +420,7 @@ export function LandingPage() {
               </div>
             </div>
 
-            {/* Card 4: CM Wallet */}
+            {/* Card 3: CM Wallet */}
             <div 
               onClick={() => handleProtectedAction('/wallet')}
               className="bg-gradient-to-b from-[#14120c] via-[#0f0e0a] to-[#0a0a07] border border-[#FFD700]/30 hover:border-[#FFD700] rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(255,215,0,0.15)] group cursor-pointer"
@@ -511,13 +483,13 @@ export function LandingPage() {
 
             </div>
 
-            {/* Center Mobile Phone Showcase with Real User Mining & Balances */}
-            <div id="mining" className="lg:col-span-5 flex justify-center order-1 lg:order-2">
+            {/* Center Live Price Chart & Real User Mining Showcase */}
+            <div id="mining" className="lg:col-span-6 flex justify-center order-1 lg:order-2">
               <MobileDashboardMockup onOpenAuth={handleOpenAuth} />
             </div>
 
             {/* Right "Why CM Network?" Content & 4 Grid Badges */}
-            <div className="lg:col-span-4 space-y-6 order-3">
+            <div className="lg:col-span-3 space-y-6 order-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-[#FFD700] mb-2">
                   WHY CM NETWORK?
@@ -573,7 +545,7 @@ export function LandingPage() {
 
         {/* SECTION 4: PHASE 2 BANNER & ROADMAP COUNTDOWN */}
         <section className="relative">
-          <Phase2Banner />
+          <Phase2Banner onOpenAuth={handleOpenAuth} />
         </section>
 
       </main>
@@ -610,8 +582,8 @@ export function LandingPage() {
           </nav>
 
           {/* Official Social Links: WhatsApp, X, and Telegram */}
-          <div className="flex items-center space-x-3">
-            <span className="text-xs font-bold text-gray-400 hidden sm:inline">Follow Us:</span>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <span className="text-xs font-bold text-gray-400 mr-1 hidden sm:inline">Official Community:</span>
             
             {/* WhatsApp */}
             <a 
@@ -620,11 +592,12 @@ export function LandingPage() {
               rel="noopener noreferrer"
               aria-label="WhatsApp Channel"
               title="Official WhatsApp Channel"
-              className="w-10 h-10 rounded-full bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500 flex items-center justify-center text-gray-300 hover:text-emerald-400 transition-all hover:scale-110 shadow-sm"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/70 text-gray-300 hover:text-emerald-400 transition-all hover:scale-105 shadow-sm group"
             >
-              <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 fill-current text-emerald-400" viewBox="0 0 24 24">
                 <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67M9.53 7.5C9.36 7.5 9.09 7.57 8.87 7.8C8.65 8.04 8.04 8.61 8.04 9.77C8.04 10.93 8.88 12.05 9 12.21C9.12 12.37 10.63 14.82 13.01 15.75C14.98 16.53 15.38 16.37 15.82 16.33C16.26 16.29 17.24 15.75 17.44 15.18C17.65 14.61 17.65 14.13 17.59 14.02C17.52 13.92 17.35 13.86 17.1 13.73C16.85 13.61 15.61 13 15.38 12.91C15.15 12.83 14.98 12.79 14.81 13.04C14.64 13.29 14.16 13.86 14.01 14.02C13.87 14.19 13.72 14.21 13.47 14.08C13.22 13.96 12.43 13.7 11.49 12.86C10.75 12.2 10.26 11.39 10.12 11.14C9.97 10.89 10.1 10.76 10.23 10.63C10.34 10.52 10.48 10.34 10.61 10.19C10.74 10.04 10.79 9.94 10.87 9.77C10.95 9.61 10.91 9.46 10.85 9.34C10.79 9.22 10.29 8 10.08 7.5"/>
               </svg>
+              <span className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">WhatsApp</span>
             </a>
 
             {/* X (Twitter) */}
@@ -634,11 +607,12 @@ export function LandingPage() {
               rel="noopener noreferrer"
               aria-label="X (Twitter)"
               title="Official X Channel"
-              className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/20 border border-white/10 hover:border-white flex items-center justify-center text-gray-300 hover:text-white transition-all hover:scale-110 shadow-sm"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/15 border border-white/15 hover:border-white/50 text-gray-300 hover:text-white transition-all hover:scale-105 shadow-sm group"
             >
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 fill-current text-white" viewBox="0 0 24 24">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
               </svg>
+              <span className="text-xs font-bold text-white group-hover:text-[#FFD700] transition-colors">X</span>
             </a>
 
             {/* Telegram */}
@@ -648,11 +622,12 @@ export function LandingPage() {
               rel="noopener noreferrer"
               aria-label="Telegram"
               title="Official Telegram Channel"
-              className="w-10 h-10 rounded-full bg-white/5 hover:bg-[#0088cc]/20 border border-white/10 hover:border-[#0088cc] flex items-center justify-center text-gray-300 hover:text-[#0088cc] transition-all hover:scale-110 shadow-sm"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0088cc]/10 hover:bg-[#0088cc]/20 border border-[#0088cc]/30 hover:border-[#0088cc]/70 text-gray-300 hover:text-[#0088cc] transition-all hover:scale-105 shadow-sm group"
             >
-              <svg className="w-4.5 h-4.5 fill-current" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 fill-current text-[#0088cc]" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.77-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
               </svg>
+              <span className="text-xs font-bold text-white group-hover:text-[#0088cc] transition-colors">Telegram</span>
             </a>
           </div>
 

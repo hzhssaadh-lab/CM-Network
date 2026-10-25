@@ -63,8 +63,9 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
 
   const navLinks = [
     { name: 'Home', path: '/' },
-    { name: 'Mining', path: '/#mining' },
-    { name: 'Tasks', path: '/tasks' },
+    { name: 'Mining', path: user ? '/dashboard' : '/#mining' },
+    { name: 'P2P', path: '/p2p' },
+    { name: 'KYC', path: '/kyc' },
     { name: 'Wallet', path: '/wallet' },
     { name: 'Profile', path: '/profile' },
   ];
@@ -244,13 +245,20 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
           {user ? (
             <div className="flex items-center space-x-2">
               <NavLink
+                to="/dashboard"
+                className="h-10 px-4 rounded-full bg-gradient-to-r from-[#FFD700] to-amber-500 text-black font-black text-xs uppercase tracking-wider flex items-center space-x-1.5 shadow-[0_0_15px_rgba(255,215,0,0.3)] hover:brightness-110 active:scale-95 transition-all"
+              >
+                <span>Dashboard</span>
+              </NavLink>
+
+              <NavLink
                 to="/profile"
-                className="h-10 px-4 rounded-full bg-white/5 border border-[#FFD700]/40 flex items-center space-x-2 text-xs font-bold text-white hover:bg-white/10 transition-all"
+                className="h-10 px-3 rounded-full bg-white/5 border border-[#FFD700]/40 flex items-center space-x-2 text-xs font-bold text-white hover:bg-white/10 transition-all"
               >
                 <div className="w-5 h-5 rounded-full bg-[#FFD700]/20 text-[#FFD700] flex items-center justify-center font-bold text-[10px]">
                   {user.name ? user.name[0].toUpperCase() : 'U'}
                 </div>
-                <span className="max-w-[90px] truncate">{user.name || 'Account'}</span>
+                <span className="max-w-[70px] truncate hidden sm:inline">{user.name || 'Account'}</span>
               </NavLink>
 
               <button

@@ -1,38 +1,29 @@
 import { useApp } from '../hooks/useAppStore';
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef } from 'react';
 import { RefreshCw } from 'lucide-react';
 import cmLogo from '../assets/images/cm_official_logo.jpg';
+import { AdminSecretModal } from './AdminSecretModal';
 
 export function Header() {
-  const { user, updateUser, refreshUser } = useApp();
+  const { user, refreshUser } = useApp();
   const [clicks, setClicks] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [pwdInput, setPwdInput] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const navigate = useNavigate();
+  const clickTimeoutRef = useRef<any>(null);
   
-  const handleAdminClick = async () => {
+  const handleAdminClick = () => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+    }
     const newClicks = clicks + 1;
-    setClicks(newClicks);
-    if (newClicks >= 3) {
+    if (newClicks >= 8) {
       setClicks(0);
       setShowPrompt(true);
-    }
-  };
-
-  const submitPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pwdInput === "Saad3268@12") {
-      if (user && user.role !== 'admin') {
-        await updateUser({ role: 'admin' });
-      }
-      setShowPrompt(false);
-      setPwdInput('');
-      navigate('/admin');
     } else {
-      setErrorMsg('Incorrect Access Code');
+      setClicks(newClicks);
+      clickTimeoutRef.current = setTimeout(() => {
+        setClicks(0);
+      }, 4000);
     }
   };
 
@@ -45,39 +36,7 @@ export function Header() {
 
   return (
     <>
-      {showPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="text-xl font-bold text-white mb-4">Admin Access Required</h3>
-            <form onSubmit={submitPassword} className="space-y-4">
-              <input 
-                type="password"
-                placeholder="Enter Access Code"
-                value={pwdInput}
-                onChange={(e) => { setPwdInput(e.target.value); setErrorMsg(''); }}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD700]"
-                autoFocus
-              />
-              {errorMsg && <p className="text-red-400 text-xs font-medium">{errorMsg}</p>}
-              <div className="flex space-x-3">
-                <button 
-                  type="button" 
-                  onClick={() => { setShowPrompt(false); setPwdInput(''); setErrorMsg(''); }}
-                  className="flex-1 bg-white/5 text-gray-300 py-3 rounded-xl hover:bg-white/10 transition-colors font-bold text-sm"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 bg-[#FFD700] text-black py-3 rounded-xl hover:bg-[#e6c200] transition-colors font-bold text-sm"
-                >
-                  Verify
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AdminSecretModal isOpen={showPrompt} onClose={() => setShowPrompt(false)} />
       
       <header className="flex justify-between items-center mb-8 px-4 sm:px-8 pt-8 max-w-5xl mx-auto w-full flex-shrink-0">
         <div className="flex items-center space-x-3 cursor-pointer select-none" onClick={handleAdminClick}>

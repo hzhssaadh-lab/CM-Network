@@ -125,10 +125,12 @@ export function Tasks() {
 
     const fetchTasks = async () => {
       try {
-        const { data: tasksData, error } = await supabase.from('tasks').select('*').eq('isActive', true);
-        if (error) throw error;
-        
-        setTasks(tasksData || []);
+        const { data: tasksData, error: tasksErr } = await supabase.from('tasks').select('*');
+        if (tasksErr) {
+          console.error("Error fetching tasks table:", tasksErr);
+        }
+        const activeTasks = (tasksData || []).filter(t => t.type !== 'ad');
+        setTasks(activeTasks);
 
         const completedMap = new Map<string, string>();
         

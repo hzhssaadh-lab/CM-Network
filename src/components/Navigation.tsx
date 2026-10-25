@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Zap, Wallet, Users, User, Shield, Trophy, Flag, PlaySquare } from 'lucide-react';
+import { Home, Zap, Wallet, Users, User, Shield, Trophy, Flag, PlaySquare, ArrowRightLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../hooks/useAppStore';
 
@@ -7,18 +7,13 @@ export function Navigation() {
   const { user } = useApp();
   
   const navItems = [
-    { to: '/', icon: Home, label: 'DASHBOARD' },
+    { to: '/dashboard', icon: Home, label: 'DASHBOARD' },
+    { to: '/p2p', icon: ArrowRightLeft, label: 'P2P' },
     { to: '/tasks', icon: Zap, label: 'TASKS' },
-    { to: '/ads', icon: PlaySquare, label: 'EARN' },
     { to: '/wallet', icon: Wallet, label: 'WALLET' },
     { to: '/friends', icon: Users, label: 'FRIENDS' },
-    { to: '/leaderboard', icon: Trophy, label: 'RANKS' },
     { to: '/profile', icon: User, label: 'PROFILE' },
   ];
-
-  if (user?.role === 'admin') {
-    navItems.push({ to: '/admin', icon: Shield, label: 'ADMIN' });
-  }
 
   return (
     <nav className="h-20 bg-white/5 border-t border-white/10 rounded-t-[40px] flex items-center justify-around px-2 sm:px-12 w-full max-w-7xl mx-auto backdrop-blur-md pb-safe">

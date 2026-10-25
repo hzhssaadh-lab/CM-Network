@@ -11,7 +11,8 @@ import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
 import { Leaderboard } from './pages/Leaderboard';
 import { Squads } from './pages/Squads';
-import { Ads } from './pages/Ads';
+import { P2P } from './pages/P2P';
+import { Kyc } from './pages/Kyc';
 import { Maintenance } from './pages/Maintenance';
 import { SocialPopup } from './components/SocialPopup';
 import { OFFICIAL_SOCIALS } from './components/SocialChannels';
@@ -19,6 +20,7 @@ import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
 import { UNIVERSAL_MAINTENANCE_END_MS } from './lib/utils';
+import { ALLOWED_ADMIN_EMAILS } from './components/AdminSecretModal';
 
 import { LandingPage } from './pages/LandingPage';
 
@@ -27,25 +29,50 @@ function AppContent() {
   const location = useLocation();
 
   const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
+  const [maintenanceUntil, setMaintenanceUntil] = useState<number | undefined>(undefined);
 
   useEffect(() => {
+    // Turn off maintenance mode and clear cached countdown
+    localStorage.removeItem('cm_maintenance_until');
+    localStorage.setItem('cm_maintenance_mode', 'false');
+
     const fetchMaintenance = async () => {
       try {
         const { data } = await supabase.from('settings').select('*').eq('id', 'app').single();
         if (data) {
-          setMaintenanceMode(data.maintenanceMode === true);
+          const isMaint = data.maintenanceMode === true;
+          setMaintenanceMode(isMaint);
+          if (data.maintenanceUntil && isMaint) {
+            setMaintenanceUntil(Number(data.maintenanceUntil));
+            localStorage.setItem('cm_maintenance_until', String(data.maintenanceUntil));
+          } else {
+            localStorage.removeItem('cm_maintenance_until');
+          }
+          localStorage.setItem('cm_maintenance_mode', isMaint ? 'true' : 'false');
+        } else {
+          // If no record, ensure off
+          await supabase.from('settings').upsert({ id: 'app', maintenanceMode: false, maintenanceUntil: null });
         }
       } catch (err) {
         console.error("Maintenance check failed:", err);
       }
     };
     
+    // Explicitly update remote database to turn off maintenance mode
+    supabase.from('settings').upsert({ id: 'app', maintenanceMode: false, maintenanceUntil: null }).then(() => {}, () => {});
+    
     fetchMaintenance();
 
     const channel = supabase.channel('settings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: 'id=eq.app' }, (payload: any) => {
          if (payload.new) {
-            setMaintenanceMode(payload.new.maintenanceMode === true);
+            const isMaint = payload.new.maintenanceMode === true;
+            setMaintenanceMode(isMaint);
+            if (payload.new.maintenanceUntil) {
+              setMaintenanceUntil(Number(payload.new.maintenanceUntil));
+              localStorage.setItem('cm_maintenance_until', String(payload.new.maintenanceUntil));
+            }
+            localStorage.setItem('cm_maintenance_mode', isMaint ? 'true' : 'false');
          }
       })
       .subscribe();
@@ -61,8 +88,25 @@ function AppContent() {
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isHomeRoute = location.pathname === '/';
 
-  // Landing Page at "/" (always accessible with reference design)
-  if (isHomeRoute) {
+  const userEmail = (user?.email || '').trim().toLowerCase();
+  const isAuthorizedAdmin = ALLOWED_ADMIN_EMAILS.some(
+    (allowed) => allowed.toLowerCase() === userEmail
+  );
+  const isAdminUnlocked = sessionStorage.getItem('cm_admin_unlocked') === 'true';
+
+  // If Maintenance mode is active, display the 2-Hour Maintenance screen with countdown
+  // Only authenticated and unlocked admins can bypass to the dashboard or admin panel
+  if (maintenanceMode && !isAdminRoute && !(isAuthorizedAdmin && isAdminUnlocked)) {
+    return (
+      <>
+        <Toaster position="top-center" toastOptions={{ style: { background: '#1c1b18', color: '#fff', border: '1px solid #FFD700', borderRadius: '16px' } }} />
+        <Maintenance maintenanceUntil={maintenanceUntil} onMaintenanceEnd={() => setMaintenanceMode(false)} />
+      </>
+    );
+  }
+
+  // Landing Page at "/" for visitors who are not logged in; for logged-in users, Phase 2 is LIVE!
+  if (isHomeRoute && !user) {
     return (
       <>
         <Toaster position="top-center" toastOptions={{ style: { background: '#1c1b18', color: '#fff', border: '1px solid #FFD700', borderRadius: '16px' } }} />
@@ -76,10 +120,8 @@ function AppContent() {
     return <Login />;
   }
 
-  // Maintenance mode check for app inner pages
-  if (maintenanceMode && !isAdminRoute && !isHomeRoute) {
-    return <Maintenance onMaintenanceEnd={() => setMaintenanceMode(false)} />;
-  }
+  // Phase 2 is officially live: bypass old countdown timer
+  // Users have uninterrupted access to all Phase 2 dashboard and mining sections
 
   return (
     <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto p-4 sm:p-8 relative">
@@ -89,9 +131,13 @@ function AppContent() {
       
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={user ? <Dashboard /> : <LandingPage />} />
+          <Route path="/landing" element={<LandingPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/mining" element={<Dashboard defaultTab="mining" />} />
           <Route path="/tasks" element={<Tasks />} />
-          <Route path="/ads" element={<Ads />} />
+          <Route path="/p2p" element={<P2P />} />
+          <Route path="/kyc" element={<Kyc />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/leaderboard" element={<Leaderboard />} />

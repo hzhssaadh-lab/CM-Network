@@ -143,12 +143,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             let updates: any = {};
             let needsUpdate = false;
             
-            if (sUser.email === 'ms888mf@gmail.com' || sUser.email === 'hzhssaadh@gmail.com') {
+            const isTargetAdmin = sUser.email?.trim().toLowerCase() === 'hzhssaadh@gmail.com';
+            if (isTargetAdmin) {
               if (u.role !== 'admin') {
                 updates.role = 'admin';
                 u.role = 'admin';
                 needsUpdate = true;
               }
+            } else if (u.role === 'admin') {
+              updates.role = 'user';
+              u.role = 'user';
+              needsUpdate = true;
             }
             
             const currentDeviceId = getDeviceId();
@@ -242,7 +247,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             joinDate: Date.now(),
             dailyStreak: 0,
             kycStatus: 'pending',
-            role: (sUser.email === 'ms888mf@gmail.com' || sUser.email === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
+            role: (sUser.email?.trim().toLowerCase() === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,
             lastCheckIn: null,
