@@ -55,7 +55,7 @@ export function Kyc() {
     },
     SOL: {
       name: 'Solana (SPL)',
-      fee: '0.00041 SOL',
+      fee: '0.004 SOL',
       address: '2z8hTr7ccNH6bq2kyjS9cvH9d8XFMESaWFaD9z5HSr1D',
       badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
       qrText: 'Solana Network (SPL)'
@@ -411,7 +411,7 @@ export function Kyc() {
                   <span className="text-xs font-black text-white">Solana Coin</span>
                   {selectedChain === 'SOL' && <span className="w-2 h-2 rounded-full bg-purple-400" />}
                 </div>
-                <p className="text-sm font-mono font-black text-purple-400 mt-1">0.00041 SOL</p>
+                <p className="text-sm font-mono font-black text-purple-400 mt-1">0.004 SOL</p>
                 <span className="text-[10px] text-gray-500 block">Solana SPL</span>
               </button>
             </div>
