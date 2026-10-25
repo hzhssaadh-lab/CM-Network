@@ -228,6 +228,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             u.lastCmAdWatchDate = (u.cmAdsWatchedToday > 0) ? today : undefined;
 
+            // Hydrate KYC submission details from settings table or localStorage
+            try {
+              let kycDetails: any = null;
+              const { data: kycRow } = await supabase.from('settings').select('*').eq('id', `kyc_${sUser.id}`).maybeSingle();
+              if (kycRow?.adsterraSnippet) {
+                try { kycDetails = JSON.parse(kycRow.adsterraSnippet); } catch(e) {}
+              }
+              if (!kycDetails) {
+                const cached = localStorage.getItem(`cm_kyc_submission_${sUser.id}`);
+                if (cached) {
+                  try { kycDetails = JSON.parse(cached); } catch(e) {}
+                }
+              }
+              if (kycDetails) {
+                u.kycPhotoUrl = kycDetails.kycPhotoUrl || kycDetails.selfie;
+                u.kycPaymentProofUrl = kycDetails.kycPaymentProofUrl || kycDetails.proof;
+                u.kycChain = kycDetails.kycChain || kycDetails.chain;
+                u.kycTxHash = kycDetails.kycTxHash || kycDetails.txHash;
+                u.kycSubmittedAt = kycDetails.kycSubmittedAt || kycDetails.submittedAt;
+                if (kycDetails.status === 'verified') {
+                  u.kycStatus = 'verified';
+                  (u as any).kycApprovedAt = kycDetails.approvedAt || Date.now();
+                } else if (kycDetails.status === 'rejected') {
+                  u.kycStatus = 'rejected';
+                } else if (u.kycStatus !== 'verified') {
+                  u.kycStatus = 'pending';
+                }
+              }
+            } catch (err) {
+              console.warn("KYC hydration error:", err);
+            }
+
             setUser({ ...u, uid: sUser.id } as UserProfile);
           }
         } else {
@@ -542,12 +574,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     try {
       const matchConditions = [];
-      if (user.uid) {
-        matchConditions.push(`uid.eq.${user.uid}`);
-        matchConditions.push(`UID.eq.${user.uid}`);
+      const userUid = user.uid || user.UID;
+      if (userUid) {
+        matchConditions.push(`uid.eq.${userUid}`);
+        matchConditions.push(`UID.eq.${userUid}`);
       }
       if (user.email) {
         matchConditions.push(`email.ilike.${user.email}`);
+      }
+
+      // If updating KYC fields, save submission payload to settings table
+      if (data.kycPhotoUrl || data.kycPaymentProofUrl || data.kycSubmittedAt || data.kycChain || data.kycTxHash) {
+        const kycPayload = {
+          userId: userUid,
+          userEmail: user.email,
+          userName: user.name,
+          kycPhotoUrl: data.kycPhotoUrl || user.kycPhotoUrl,
+          kycPaymentProofUrl: data.kycPaymentProofUrl || user.kycPaymentProofUrl,
+          kycChain: data.kycChain || user.kycChain,
+          kycTxHash: data.kycTxHash || user.kycTxHash,
+          kycSubmittedAt: data.kycSubmittedAt || user.kycSubmittedAt || Date.now(),
+          status: data.kycStatus || user.kycStatus || 'pending'
+        };
+        try {
+          localStorage.setItem(`cm_kyc_submission_${userUid}`, JSON.stringify(kycPayload));
+          await supabase.from('settings').upsert({
+            id: `kyc_${userUid}`,
+            adsterraSnippet: JSON.stringify(kycPayload)
+          });
+        } catch (err) {
+          console.warn("Could not save kyc to settings:", err);
+        }
       }
 
       const payload: any = { ...data };
@@ -559,6 +616,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         payload["USDT"] = payload.usdtBalance;
         payload.usdtbalance = payload.usdtBalance;
       }
+      if (payload.kycStatus !== undefined) {
+        payload.kycstatus = payload.kycStatus;
+      }
+
+      // Strip non-existent columns from users table update payload to prevent PostgREST column errors
+      delete payload.kycPhotoUrl;
+      delete payload.kycPaymentProofUrl;
+      delete payload.kycChain;
+      delete payload.kycTxHash;
+      delete payload.kycSubmittedAt;
+      delete payload.kycApprovedAt;
+      delete payload.kyc_photo_url;
+      delete payload.kyc_payment_proof_url;
+      delete payload.kyc_submitted_at;
+      delete payload.kyc_tx_hash;
 
       const { error } = await supabase
         .from('users')

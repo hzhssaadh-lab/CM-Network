@@ -297,22 +297,55 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
+      // Fetch all KYC submissions stored in settings table
+      const { data: kycSettings } = await supabase.from('settings').select('*').like('id', 'kyc_%');
+      const kycMap = new Map<string, any>();
+      if (kycSettings) {
+        for (const r of kycSettings) {
+          try {
+            const parsed = JSON.parse(r.adsterraSnippet || '{}');
+            const uid = r.id.replace('kyc_', '');
+            kycMap.set(uid, parsed);
+            if (parsed.userEmail) {
+              kycMap.set(parsed.userEmail.trim().toLowerCase(), parsed);
+            }
+          } catch (e) {}
+        }
+      }
+
       const { data: userData } = await supabase.from('users').select('*').order('joinDate', { ascending: false, nullsFirst: false }).limit(2000);
       if (userData) {
         const cleaned = (userData as UserProfile[]).map(u => {
-          const isExplicitlyApproved = u.kycStatus === 'verified' && Boolean((u as any).kycApprovedAt || (u as any).kyc_approved_at);
+          const kycInfo = kycMap.get(u.uid) || kycMap.get(u.UID) || kycMap.get(u.email?.trim().toLowerCase());
+          if (kycInfo) {
+            u.kycPhotoUrl = kycInfo.kycPhotoUrl || kycInfo.selfie;
+            u.kycPaymentProofUrl = kycInfo.kycPaymentProofUrl || kycInfo.proof;
+            u.kycChain = kycInfo.kycChain || kycInfo.chain;
+            u.kycTxHash = kycInfo.kycTxHash || kycInfo.txHash;
+            u.kycSubmittedAt = kycInfo.kycSubmittedAt || kycInfo.submittedAt;
+            if (kycInfo.status === 'verified') {
+              u.kycStatus = 'verified' as any;
+              (u as any).kycApprovedAt = kycInfo.approvedAt || Date.now();
+            } else if (kycInfo.status === 'rejected') {
+              u.kycStatus = 'rejected' as any;
+            } else if (u.kycStatus !== 'verified') {
+              u.kycStatus = 'pending' as any;
+            }
+          }
+
+          const isExplicitlyApproved = u.kycStatus === 'verified' && Boolean((u as any).kycApprovedAt || (u as any).kyc_approved_at || kycInfo?.status === 'verified');
           const hasSubmission = hasUserSubmittedKyc(u);
 
           if (isExplicitlyApproved) {
             return { ...u, kycStatus: 'verified' as any };
           }
-          if (hasSubmission && (u.kycStatus === 'pending' || !u.kycStatus)) {
+          if (hasSubmission && (u.kycStatus === 'pending' || !u.kycStatus || u.kycStatus === 'unverified')) {
             return { ...u, kycStatus: 'pending' as any };
           }
           if (hasSubmission && u.kycStatus === 'rejected') {
             return { ...u, kycStatus: 'rejected' as any };
           }
-          return { ...u, kycStatus: 'unverified' as any };
+          return { ...u, kycStatus: (u.kycStatus === 'verified' ? 'verified' : 'unverified') as any };
         });
         setUsers(cleaned);
       }
@@ -382,9 +415,27 @@ export function Admin() {
     try {
       const { error } = await supabase.from('users').update({
         kycStatus: 'verified',
-        kycApprovedAt: Date.now()
+        kycstatus: 'verified'
       }).eq('uid', targetUser.uid);
       if (error) throw error;
+
+      // Update in settings table
+      const kycInfo = (targetUser as any);
+      await supabase.from('settings').upsert({
+        id: `kyc_${targetUser.uid}`,
+        adsterraSnippet: JSON.stringify({
+          userId: targetUser.uid,
+          userEmail: targetUser.email,
+          userName: targetUser.name,
+          kycPhotoUrl: kycInfo.kycPhotoUrl,
+          kycPaymentProofUrl: kycInfo.kycPaymentProofUrl,
+          kycChain: kycInfo.kycChain,
+          kycTxHash: kycInfo.kycTxHash,
+          kycSubmittedAt: kycInfo.kycSubmittedAt || Date.now(),
+          status: 'verified',
+          approvedAt: Date.now()
+        })
+      });
 
       await supabase.from('transactions').insert([{
         id: 'tx_kyc_' + Date.now(),
@@ -399,6 +450,7 @@ export function Admin() {
 
       setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, kycStatus: 'verified', kycApprovedAt: Date.now() } : u));
       toast.success(`KYC Approved for ${targetUser.name || targetUser.email || targetUser.uid}!`);
+      await fetchData();
     } catch (e: any) {
       console.error("KYC approve error:", e);
       toast.error(`Error approving KYC: ${e.message}`);
@@ -413,12 +465,32 @@ export function Admin() {
     setLoading(true);
     try {
       const { error } = await supabase.from('users').update({
-        kycStatus: 'rejected'
+        kycStatus: 'rejected',
+        kycstatus: 'rejected'
       }).eq('uid', targetUser.uid);
       if (error) throw error;
 
+      const kycInfo = (targetUser as any);
+      await supabase.from('settings').upsert({
+        id: `kyc_${targetUser.uid}`,
+        adsterraSnippet: JSON.stringify({
+          userId: targetUser.uid,
+          userEmail: targetUser.email,
+          userName: targetUser.name,
+          kycPhotoUrl: kycInfo.kycPhotoUrl,
+          kycPaymentProofUrl: kycInfo.kycPaymentProofUrl,
+          kycChain: kycInfo.kycChain,
+          kycTxHash: kycInfo.kycTxHash,
+          kycSubmittedAt: kycInfo.kycSubmittedAt,
+          status: 'rejected',
+          rejectionReason: reason,
+          rejectedAt: Date.now()
+        })
+      });
+
       setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, kycStatus: 'rejected' } : u));
       toast.success(`KYC Rejected for ${targetUser.name || targetUser.email || targetUser.uid}.`);
+      await fetchData();
     } catch (e: any) {
       console.error("KYC reject error:", e);
       toast.error(`Error rejecting KYC: ${e.message}`);
@@ -432,11 +504,15 @@ export function Admin() {
     setLoading(true);
     try {
       const { error } = await supabase.from('users').update({
-        kycStatus: 'unverified'
+        kycStatus: 'unverified',
+        kycstatus: 'unverified'
       }).eq('uid', targetUser.uid);
       if (error) throw error;
-      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, kycStatus: 'unverified' } : u));
+
+      await supabase.from('settings').delete().eq('id', `kyc_${targetUser.uid}`);
+      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, kycStatus: 'unverified', kycPhotoUrl: undefined, kycPaymentProofUrl: undefined } : u));
       toast.success(`KYC status reset to unverified.`);
+      await fetchData();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
