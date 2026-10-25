@@ -1,6 +1,6 @@
 import { useApp } from '../hooks/useAppStore';
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../lib/utils';
 import { UserProfile, Task as AppTask, TaskClaim } from '../types';
@@ -1266,83 +1266,8 @@ export function Admin() {
     (allowed) => allowed.toLowerCase() === currentEmail
   );
 
-  if (!user || !isAuthorizedEmail) {
-    return (
-      <div className="w-full max-w-md mx-auto my-16 p-8 rounded-3xl bg-black/90 border border-red-500/40 text-center space-y-4 shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500 mx-auto">
-          <ShieldAlert className="w-8 h-8" />
-        </div>
-        <h2 className="text-2xl font-black text-white">Access Restricted</h2>
-        <p className="text-xs text-gray-400 leading-relaxed">
-          The Admin Portal is restricted exclusively to authorized administrators (<strong className="text-white">hzhadh@gmail.com</strong>).
-        </p>
-        <button
-          onClick={() => navigate('/')}
-          className="w-full py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all"
-        >
-          Return to Dashboard
-        </button>
-      </div>
-    );
-  }
-
-  if (!isUnlockedState) {
-    return (
-      <div className="w-full max-w-md mx-auto my-16 p-8 rounded-3xl bg-[#12110d] border-2 border-[#FFD700]/50 text-center space-y-5 shadow-[0_0_50px_rgba(255,215,0,0.2)] animate-in fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-[#FFD700]/15 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] mx-auto shadow-lg">
-          <Lock className="w-8 h-8" />
-        </div>
-        <div>
-          <h2 className="text-xl font-black text-white">Admin Terminal Locked</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Verified Account: <strong className="text-[#FFD700]">{user.email}</strong>
-          </p>
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (directPassword === ADMIN_SECRET_PASSWORD) {
-              sessionStorage.setItem('cm_admin_unlocked', 'true');
-              setIsUnlockedState(true);
-              toast.success("Admin terminal unlocked ✓");
-            } else {
-              setDirectError("Incorrect Admin Password. Please try again.");
-            }
-          }}
-          className="space-y-4 text-left"
-        >
-          <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-              Admin Password
-            </label>
-            <input
-              type="password"
-              placeholder="Enter admin password..."
-              value={directPassword}
-              onChange={(e) => { setDirectPassword(e.target.value); setDirectError(''); }}
-              className="w-full px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white text-sm font-mono focus:border-[#FFD700] focus:outline-none"
-              autoFocus
-            />
-            {directError && <p className="text-xs text-red-400 mt-1 font-medium">{directError}</p>}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 font-bold text-xs uppercase tracking-wider"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95"
-            >
-              Verify & Enter
-            </button>
-          </div>
-        </form>
-      </div>
-    );
+  if (!user || !isAuthorizedEmail || !isUnlockedState) {
+    return <Navigate to="/" replace />;
   }
 
   return (

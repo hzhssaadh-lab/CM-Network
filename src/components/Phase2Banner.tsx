@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   Flame,
   X,
-  Rocket
+  Rocket,
+  Clock
 } from 'lucide-react';
 
 interface Phase2BannerProps {
@@ -90,13 +91,16 @@ export function Phase2Banner({ onOpenAuth }: Phase2BannerProps) {
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-white/5 border border-[#FFD700]/30 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#FFD700]/10 text-[#FFD700] flex items-center justify-center shrink-0 mt-0.5">
-                  <ShieldCheck className="w-4 h-4" />
+              <div className="p-4 rounded-2xl bg-white/5 border border-amber-500/30 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <Clock className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">4. Audited Contract Address</h4>
-                  <p className="text-xs text-gray-400 mt-0.5">Verified BEP-20 / CM Smart Chain smart contract with transparent liquidity and public tokenomics.</p>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>4. Official Contract Address</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">Coming Soon ⏳</span>
+                  </h4>
+                  <p className="text-xs text-gray-400 mt-0.5">Official BEP-20 smart contract address will be published once the multi-sig audit is complete.</p>
                 </div>
               </div>
             </div>
@@ -234,14 +238,14 @@ export function Phase2Banner({ onOpenAuth }: Phase2BannerProps) {
               </div>
 
               {/* Card 4: Official Contract Address */}
-              <div className="bg-white/5 border border-white/10 hover:border-blue-500 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.08] group">
+              <div className="bg-white/5 border border-white/10 hover:border-amber-500/50 rounded-2xl p-4 transition-all duration-300 hover:bg-white/[0.08] group">
                 <div className="flex items-center space-x-3 mb-1.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/40 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform shadow-sm">
-                    <ShieldCheck className="w-4 h-4" />
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform shadow-sm">
+                    <Clock className="w-4 h-4" />
                   </div>
                   <div>
-                    <h5 className="text-sm font-extrabold text-white">Verified CM Contract</h5>
-                    <p className="text-[11px] text-blue-400 font-bold">BEP-20 / Smart Chain • Synced ✓</p>
+                    <h5 className="text-sm font-extrabold text-white">Official Contract Address</h5>
+                    <p className="text-[11px] text-amber-400 font-bold">Coming Soon ⏳ (In Audit)</p>
                   </div>
                 </div>
               </div>

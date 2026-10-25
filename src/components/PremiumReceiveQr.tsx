@@ -120,6 +120,21 @@ export function PremiumReceiveQr({ walletAddress }: PremiumReceiveQrProps) {
         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
         <span>{copied ? 'Address Copied!' : 'Copy Deposit Address'}</span>
       </button>
+
+      {/* Contract Address Status */}
+      <div className="w-full max-w-sm p-3 rounded-xl bg-white/[0.03] border border-amber-500/30 flex items-center justify-between text-left">
+        <div>
+          <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider block">
+            CM Contract Address
+          </span>
+          <span className="text-xs font-mono font-bold text-amber-400">
+            Coming Soon ⏳
+          </span>
+        </div>
+        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">
+          In Audit
+        </span>
+      </div>
     </div>
   );
 }

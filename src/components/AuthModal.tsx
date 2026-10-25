@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../hooks/useAppStore';
 import { 
   X, 
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import cmLogo from '../assets/images/cm_official_logo.jpg';
+import { AdminSecretModal } from './AdminSecretModal';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -31,21 +32,25 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
   const [inviteCode, setInviteCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [secretAdminOpen, setSecretAdminOpen] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
+  const logoClickTimeoutRef = useRef<any>(null);
 
   if (!isOpen) return null;
 
-  const handleStudioDirectAuth = async () => {
-    setIsSubmitting(true);
-    setErrorMsg('');
-    try {
-      await loginWithStudioEmail('hzhssaadh@gmail.com');
-      toast.success("Logged in successfully via Studio Access!", { icon: "⚡" });
-      onClose();
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || "Failed to log in.");
-    } finally {
-      setIsSubmitting(false);
+  const handleLogoClick = () => {
+    if (logoClickTimeoutRef.current) {
+      clearTimeout(logoClickTimeoutRef.current);
+    }
+    const next = logoClicks + 1;
+    if (next >= 6) {
+      setLogoClicks(0);
+      setSecretAdminOpen(true);
+    } else {
+      setLogoClicks(next);
+      logoClickTimeoutRef.current = setTimeout(() => {
+        setLogoClicks(0);
+      }, 4000);
     }
   };
 
@@ -103,9 +108,22 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
           <X className="w-4 h-4" />
         </button>
 
+        {/* Secret Admin Verification Modal */}
+        <AdminSecretModal
+          isOpen={secretAdminOpen}
+          onClose={() => setSecretAdminOpen(false)}
+          onSuccess={() => {
+            setSecretAdminOpen(false);
+            onClose();
+          }}
+        />
+
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-block relative mb-3">
+          <div 
+            onClick={handleLogoClick}
+            className="inline-block relative mb-3 cursor-pointer select-none active:scale-95 transition-transform"
+          >
             <img 
               src={cmLogo} 
               alt="CM Network" 
@@ -118,29 +136,6 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
           <p className="text-xs text-gray-400 mt-1">
             Mine CM coins, earn USDT, and build for tomorrow in Web3.
           </p>
-        </div>
-
-        {/* 1. Fast Google AI Studio 1-Click Access for Admin / Dev */}
-        <div className="mb-4">
-          <button
-            onClick={handleStudioDirectAuth}
-            disabled={isSubmitting}
-            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-[#FFD700]/25 to-amber-500/20 border-2 border-[#FFD700]/80 hover:border-[#FFD700] text-[#FFD700] hover:text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(255,215,0,0.2)] hover:shadow-[0_0_35px_rgba(255,215,0,0.4)] active:scale-[0.98] transition-all"
-          >
-            <Sparkles className="w-4 h-4 animate-spin text-[#FFD700]" />
-            <span>Studio 1-Click Access (Admin)</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          </button>
-          <p className="text-[10px] text-gray-500 text-center mt-1">
-            Directly authenticates registered account <code className="text-[#FFD700]">hzhssaadh@gmail.com</code>
-          </p>
-        </div>
-
-        {/* Divider */}
-        <div className="flex items-center my-4">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">or sign in with</span>
-          <div className="flex-1 h-px bg-white/10" />
         </div>
 
         {/* Google OAuth Button */}

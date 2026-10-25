@@ -16,7 +16,7 @@ export function Header() {
       clearTimeout(clickTimeoutRef.current);
     }
     const newClicks = clicks + 1;
-    if (newClicks >= 8) {
+    if (newClicks >= 6) {
       setClicks(0);
       setShowPrompt(true);
     } else {

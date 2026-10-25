@@ -269,6 +269,30 @@ export function Wallet() {
 
       </div>
 
+      {/* Contract Address Notice Card */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#16140d] via-[#100f0b] to-[#16140d] border border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_20px_rgba(245,158,11,0.08)]">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+              <span>CM Token Contract Address</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                Coming Soon ⏳
+              </span>
+            </h4>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Official BEP-20 smart contract address will be published here upon audit completion.
+            </p>
+          </div>
+        </div>
+        <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-center sm:text-right shrink-0">
+          <span className="text-[9px] uppercase font-bold text-gray-400 block">Status</span>
+          <span className="text-xs font-mono font-black text-amber-400">Coming Soon ⏳</span>
+        </div>
+      </div>
+
       {/* Main Tabs Navigation */}
       <div className="flex bg-black/60 p-1.5 rounded-2xl border border-white/10 gap-1.5">
         <button 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../hooks/useAppStore';
 import { 
@@ -17,6 +17,7 @@ import {
   Wallet
 } from 'lucide-react';
 import cmLogo from '../assets/images/cm_official_logo.jpg';
+import { AdminSecretModal } from './AdminSecretModal';
 
 interface NavbarProps {
   onOpenAuth?: (initialMode?: 'login' | 'signup') => void;
@@ -32,32 +33,24 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
   const [selectedLang, setSelectedLang] = useState<'EN' | 'UR' | 'ES' | 'AR'>('EN');
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // Secret admin code access
+  // Secret admin code access via 6 logo clicks
   const [logoClicks, setLogoClicks] = useState(0);
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
-  const [adminPwd, setAdminPwd] = useState('');
-  const [adminError, setAdminError] = useState('');
+  const logoClickTimeoutRef = useRef<any>(null);
 
   const handleLogoClick = () => {
+    if (logoClickTimeoutRef.current) {
+      clearTimeout(logoClickTimeoutRef.current);
+    }
     const next = logoClicks + 1;
-    setLogoClicks(next);
-    if (next >= 3) {
+    if (next >= 6) {
       setLogoClicks(0);
       setShowAdminPrompt(true);
-    }
-  };
-
-  const handleAdminVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPwd === 'Saad3268@12') {
-      if (user && user.role !== 'admin') {
-        await updateUser({ role: 'admin' });
-      }
-      setShowAdminPrompt(false);
-      setAdminPwd('');
-      navigate('/admin');
     } else {
-      setAdminError('Incorrect Access Code');
+      setLogoClicks(next);
+      logoClickTimeoutRef.current = setTimeout(() => {
+        setLogoClicks(0);
+      }, 4000);
     }
   };
 
@@ -69,10 +62,6 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
     { name: 'Wallet', path: '/wallet' },
     { name: 'Profile', path: '/profile' },
   ];
-
-  if (user?.role === 'admin') {
-    navLinks.push({ name: 'Admin', path: '/admin' });
-  }
 
   const handleNavClick = (path: string, e: React.MouseEvent) => {
     if (path.startsWith('/#')) {
@@ -101,40 +90,10 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
   return (
     <>
       {/* Secret Admin Verification Modal */}
-      {showAdminPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#111] border border-[#FFD700]/50 rounded-2xl p-6 w-full max-w-sm shadow-[0_0_30px_rgba(255,215,0,0.2)]">
-            <h3 className="text-xl font-bold text-white mb-2">Admin Protocol Required</h3>
-            <p className="text-xs text-gray-400 mb-4">Enter master access key to proceed to Saad's Admin Console.</p>
-            <form onSubmit={handleAdminVerify} className="space-y-4">
-              <input 
-                type="password"
-                placeholder="Enter Access Code"
-                value={adminPwd}
-                onChange={(e) => { setAdminPwd(e.target.value); setAdminError(''); }}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFD700]"
-                autoFocus
-              />
-              {adminError && <p className="text-red-400 text-xs font-medium">{adminError}</p>}
-              <div className="flex space-x-3">
-                <button 
-                  type="button" 
-                  onClick={() => { setShowAdminPrompt(false); setAdminPwd(''); setAdminError(''); }}
-                  className="flex-1 bg-white/5 text-gray-300 py-2.5 rounded-xl hover:bg-white/10 transition-colors font-bold text-xs"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-[#FFD700] to-amber-500 text-black py-2.5 rounded-xl hover:brightness-110 font-black text-xs shadow-[0_0_15px_rgba(255,215,0,0.3)]"
-                >
-                  Verify
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AdminSecretModal 
+        isOpen={showAdminPrompt} 
+        onClose={() => setShowAdminPrompt(false)} 
+      />
 
       {/* Top Navigation Bar */}
       <header className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-5 flex items-center justify-between z-40 relative">

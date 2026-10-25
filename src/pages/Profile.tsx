@@ -110,12 +110,7 @@ export function Profile() {
          <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700] opacity-10 blur-[100px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#FFD700] opacity-5 blur-[100px] pointer-events-none translate-y-1/2 -translate-x-1/2"></div>
          
-         {user?.email?.trim().toLowerCase() === 'hzhssaadh@gmail.com' && (
-           <span className="absolute top-6 right-6 bg-red-500/10 text-red-400 text-[10px] items-center flex font-bold px-4 py-1.5 rounded-full border border-red-500/20 uppercase tracking-widest">
-             <span className="w-1.5 h-1.5 bg-red-400 rounded-full mr-2"></span>
-             Admin
-           </span>
-         )}
+
          
          <div className="w-full relative z-20 flex flex-col items-center justify-center h-[260px] mb-6" style={{ perspective: 1000 }}>
            <motion.div
