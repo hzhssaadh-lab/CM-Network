@@ -255,6 +255,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 } else if (u.kycStatus !== 'verified') {
                   u.kycStatus = 'pending';
                 }
+              } else {
+                // If user has not submitted KYC details, they must be unverified so the submit form is shown
+                if (u.kycStatus !== 'verified' && (u as any).kycstatus !== 'verified') {
+                  u.kycStatus = 'unverified';
+                  (u as any).kycstatus = 'unverified';
+                }
               }
             } catch (err) {
               console.warn("KYC hydration error:", err);
@@ -278,7 +284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             referralCount: 0,
             joinDate: Date.now(),
             dailyStreak: 0,
-            kycStatus: 'pending',
+            kycStatus: 'unverified',
             role: (sUser.email?.trim().toLowerCase() === 'hzhssaadh@gmail.com') ? 'admin' : 'user',
             isActive: true,
             totalMined: 0,

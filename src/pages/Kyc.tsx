@@ -43,9 +43,20 @@ export function Kyc() {
   const [proofData, setProofData] = useState<string | null>(user?.kycPaymentProofUrl || null);
   const [txHash, setTxHash] = useState(user?.kycTxHash || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasJustSubmitted, setHasJustSubmitted] = useState(false);
+  const [isReSubmitting, setIsReSubmitting] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Image zoom modal for submitted proofs
   const [zoomImage, setZoomImage] = useState<{ url: string; title: string } | null>(null);
+
+  // Live timer interval to update 24h review countdown and KYC close deadline
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const CHAIN_CONFIG = {
     BNB: {
@@ -194,6 +205,8 @@ export function Kyc() {
 
       // 3. Update application state & user record
       await updateUser(kycData);
+      setHasJustSubmitted(true);
+      setIsReSubmitting(false);
 
       confetti({ particleCount: 75, spread: 75, origin: { y: 0.6 } });
       toast.success('KYC application submitted! 24-Hour Review has started.', { icon: '🛡️', duration: 4000 });
@@ -205,14 +218,32 @@ export function Kyc() {
     }
   };
 
+  const userUid = user?.uid || (user as any)?.UID || '';
+  const cachedSubmission = userUid ? localStorage.getItem(`cm_kyc_submission_${userUid}`) : null;
+  const hasSubmitted = hasJustSubmitted || Boolean((user?.kycPhotoUrl && user?.kycPaymentProofUrl) || cachedSubmission);
+
   const isVerified = (user?.kycStatus === 'verified' || (user as any)?.kycstatus === 'verified');
-  const isPending = !isVerified && Boolean(
-    user?.kycStatus === 'pending' || 
-    (user as any)?.kycstatus === 'pending' || 
-    user?.kycSubmittedAt || 
-    user?.kycPhotoUrl || 
-    user?.kycPaymentProofUrl
-  );
+  const isRejected = (user?.kycStatus === 'rejected' || (user as any)?.kycstatus === 'rejected') && !isReSubmitting;
+  // Under review ONLY if user actually submitted and is not verified/rejected
+  const isPending = !isVerified && !isRejected && hasSubmitted && !isReSubmitting;
+
+  // Countdown to KYC Close (Closes after 10th - November 10, 2026 23:59:59)
+  const kycCloseDeadline = new Date('2026-11-10T23:59:59').getTime();
+  const msUntilClose = Math.max(0, kycCloseDeadline - currentTime);
+  const closeDays = Math.floor(msUntilClose / (1000 * 60 * 60 * 24));
+  const closeHours = Math.floor((msUntilClose % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const closeMins = Math.floor((msUntilClose % (1000 * 60 * 60)) / (1000 * 60));
+  const closeSecs = Math.floor((msUntilClose % (1000 * 60)) / 1000);
+  const isKycClosed = msUntilClose <= 0;
+
+  // 24-Hour Review Live Countdown
+  const submissionTime = user?.kycSubmittedAt || Date.now();
+  const reviewWindowMs = 24 * 60 * 60 * 1000;
+  const timeElapsedMs = currentTime - submissionTime;
+  const timeRemainingMs = Math.max(0, reviewWindowMs - timeElapsedMs);
+  const reviewHours = Math.floor(timeRemainingMs / (1000 * 60 * 60));
+  const reviewMins = Math.floor((timeRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  const reviewSecs = Math.floor((timeRemainingMs % (1000 * 60)) / 1000);
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 pb-16 animate-in fade-in duration-500">
@@ -238,6 +269,48 @@ export function Kyc() {
         </div>
       )}
 
+      {/* KYC Closing Deadline Countdown Banner (10 ke baad KYC Close) */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#1b170d] via-[#14120a] to-[#1b170d] border border-[#FFD700]/30 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#FFD700]/15 border border-[#FFD700]/40 flex items-center justify-center text-[#FFD700] shrink-0 shadow-[0_0_15px_rgba(255,215,0,0.2)]">
+            <Clock className="w-5 h-5 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-black text-white">KYC Registration Window</h4>
+              <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-black uppercase tracking-wider">
+                Closes After 10th (10 Nov)
+              </span>
+            </div>
+            <p className="text-xs text-gray-300 mt-0.5">
+              Limited-time protocol verification window. After 10th, new KYC submissions will be closed.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 font-mono shrink-0">
+          <div className="px-3 py-1.5 rounded-xl bg-black/60 border border-white/10 text-center min-w-[52px]">
+            <div className="text-base font-black text-[#FFD700]">{closeDays}d</div>
+            <div className="text-[9px] uppercase font-sans text-gray-400 font-bold">Days</div>
+          </div>
+          <div className="text-[#FFD700] font-black">:</div>
+          <div className="px-3 py-1.5 rounded-xl bg-black/60 border border-white/10 text-center min-w-[52px]">
+            <div className="text-base font-black text-[#FFD700]">{String(closeHours).padStart(2, '0')}h</div>
+            <div className="text-[9px] uppercase font-sans text-gray-400 font-bold">Hours</div>
+          </div>
+          <div className="text-[#FFD700] font-black">:</div>
+          <div className="px-3 py-1.5 rounded-xl bg-black/60 border border-white/10 text-center min-w-[52px]">
+            <div className="text-base font-black text-[#FFD700]">{String(closeMins).padStart(2, '0')}m</div>
+            <div className="text-[9px] uppercase font-sans text-gray-400 font-bold">Mins</div>
+          </div>
+          <div className="text-[#FFD700] font-black">:</div>
+          <div className="px-3 py-1.5 rounded-xl bg-black/60 border border-white/10 text-center min-w-[52px]">
+            <div className="text-base font-black text-[#FFD700]">{String(closeSecs).padStart(2, '0')}s</div>
+            <div className="text-[9px] uppercase font-sans text-gray-400 font-bold">Secs</div>
+          </div>
+        </div>
+      </div>
+
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-[#17140c] via-[#12110c] to-[#17140c] border border-[#FFD700]/40 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#FFD700]/5 rounded-full blur-3xl pointer-events-none" />
@@ -262,6 +335,11 @@ export function Kyc() {
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>KYC VERIFIED ✓</span>
               </div>
+            ) : isRejected ? (
+              <div className="px-4 py-2.5 rounded-2xl bg-red-500/15 border border-red-500/40 text-red-400 text-xs font-black flex items-center gap-2">
+                <X className="w-4 h-4 text-red-400" />
+                <span>KYC REJECTED</span>
+              </div>
             ) : isPending ? (
               <div className="px-4 py-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-black flex items-center gap-2 animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.2)]">
                 <Clock className="w-4 h-4 text-amber-400" />
@@ -270,7 +348,7 @@ export function Kyc() {
             ) : (
               <div className="px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-gray-300 text-xs font-black flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-[#FFD700]" />
-                <span>NOT VERIFIED</span>
+                <span>NOT SUBMITTED</span>
               </div>
             )}
           </div>
@@ -302,9 +380,34 @@ export function Kyc() {
             </button>
           </div>
         </div>
+      ) : isRejected ? (
+        /* REJECTED STATE: ALLOW USER TO RE-SUBMIT */
+        <div className="bg-[#0f0e0c] border border-red-500/30 rounded-3xl p-8 text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center text-red-400 mx-auto">
+            <X className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-black text-white">KYC Verification Not Approved</h2>
+          <p className="text-sm text-gray-300 max-w-md mx-auto">
+            Your previous KYC submission could not be verified by the compliance administrator (unclear selfie or gas transfer not found). You can re-submit your details below.
+          </p>
+          <div className="pt-2 flex justify-center">
+            <button
+              onClick={() => {
+                setIsReSubmitting(true);
+                setSelfieData(null);
+                setProofData(null);
+                setTxHash('');
+              }}
+              className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#FFD700] to-amber-500 text-black font-black text-xs uppercase tracking-wider hover:brightness-110 flex items-center gap-2 shadow-lg"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Re-submit KYC Application</span>
+            </button>
+          </div>
+        </div>
       ) : isPending ? (
 
-        /* STATE 2: 24-HOUR KYC REVIEW SCREEN (REQUESTED BY USER) */
+        /* STATE 2: 24-HOUR KYC REVIEW SCREEN (SHOWN ONLY AFTER USER SUBMITS) */
         <div className="space-y-6">
           
           {/* Main 24-Hour Review Hero Card */}
@@ -319,7 +422,7 @@ export function Kyc() {
 
               <div>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-black uppercase tracking-widest mb-2">
-                  <Clock className="w-3.5 h-3.5" /> 24 Hours Review Active
+                  <Clock className="w-3.5 h-3.5" /> 24 Hours Review Window
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                   KYC Under Verification (24 Hours)
@@ -327,6 +430,16 @@ export function Kyc() {
                 <p className="text-xs sm:text-sm text-gray-300 mt-2 leading-relaxed">
                   Your KYC verification request and payment proof have been successfully received and submitted to the CM Network Compliance Team. Reviews are processed within <strong className="text-amber-400">24 hours</strong>.
                 </p>
+              </div>
+
+              {/* 24-Hour Dynamic Countdown Timer */}
+              <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs sm:text-sm font-black shadow-lg">
+                <Clock className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
+                <span>
+                  {timeRemainingMs > 0 
+                    ? `Estimated Review Time Left: ${reviewHours}h ${String(reviewMins).padStart(2, '0')}m ${String(reviewSecs).padStart(2, '0')}s` 
+                    : 'Final Validator Review in Progress (Under 24h Window)'}
+                </span>
               </div>
 
               {/* 24-Hour Review Notice Bar */}
@@ -787,11 +900,21 @@ export function Kyc() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black font-black text-sm uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,215,0,0.35)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            disabled={isSubmitting || isKycClosed}
+            className={`w-full py-4 rounded-2xl ${
+              isKycClosed 
+                ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-white/10' 
+                : 'bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black font-black text-sm uppercase tracking-wider hover:brightness-110 active:scale-95 shadow-[0_0_30px_rgba(255,215,0,0.35)] cursor-pointer'
+            } transition-all flex items-center justify-center gap-2 disabled:opacity-50`}
           >
             <ShieldCheck className="w-5 h-5" />
-            <span>{isSubmitting ? 'Submitting Application...' : 'Submit KYC Verification'}</span>
+            <span>
+              {isKycClosed 
+                ? 'KYC Submissions Closed (Window Ended After 10th)' 
+                : isSubmitting 
+                ? 'Submitting Application...' 
+                : 'Submit KYC Verification (24-Hour Review)'}
+            </span>
           </button>
         </form>
       )}
