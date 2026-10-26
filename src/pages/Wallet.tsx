@@ -41,23 +41,15 @@ export function Wallet() {
 
   if (!user) return null;
 
-  const isKycVerified = user.kycStatus === 'verified' && Boolean((user as any).kycApprovedAt || (user as any).kyc_approved_at);
+  const isKycVerified = user.kycStatus === 'verified' || user.role === 'admin';
   const currentBalance = user.balance || 0;
   const usdtBalance = user.usdtBalance || 0;
   const referralCount = user.referralCount || 0;
   const referralCode = user.referralCode || user.uid?.substring(0, 8).toUpperCase() || 'CMNETWORK';
   const walletAddress = user.walletAddress || `0x${user.uid?.replace(/[^a-fA-F0-9]/g, '').padEnd(40, '7a9c').substring(0, 40)}`;
 
-  // Tab switch with KYC gate
+  // Tab switch
   const handleTabChange = (tab: 'send' | 'receive' | 'history') => {
-    if ((tab === 'send' || tab === 'receive') && !isKycVerified) {
-      toast.error('Identity Verification (KYC) required for Send and Receive! Please complete KYC first.', {
-        icon: '🛡️',
-        duration: 4000
-      });
-      navigate('/kyc');
-      return;
-    }
     setActiveTab(tab);
   };
 
@@ -313,7 +305,6 @@ export function Wallet() {
         >
           <QrCode className="w-4 h-4" />
           <span>Receive & QR</span>
-          {!isKycVerified && <Lock className="w-3 h-3 ml-1 text-amber-500" />}
         </button>
         <button 
           onClick={() => handleTabChange('history')} 

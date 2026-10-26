@@ -23,6 +23,8 @@ interface AppState {
   claimAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   claimUsdtAdReward: () => Promise<{ success: boolean; reward: number; message: string; limitReached?: boolean }>;
   startMining: () => Promise<{ success: boolean; message: string }>;
+  claimMiningReward?: () => Promise<{ success: boolean; message: string }>;
+  sendCryptoTransfer: (recipient: string, amount: number, asset: 'CM' | 'USDT') => Promise<{ success: boolean; message: string }>;
   requestWithdrawal: (amount: number, wallet: string) => Promise<{ success: boolean; message: string }>;
   requestUsdtWithdrawal: (amount: number, wallet: string, method?: string) => Promise<{ success: boolean; message: string }>;
   firebaseUser?: any; 
@@ -1334,6 +1336,205 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const claimMiningReward = async () => {
+    if (!user) return { success: false, message: "Please log in to claim mining reward." };
+    const now = Date.now();
+    if (user.miningSessionEndTime && user.miningSessionEndTime > now) {
+      return { success: false, message: "Mining session is still active!" };
+    }
+    const rewardAmount = 0.50;
+    const nextBal = Number(((user.balance || 0) + rewardAmount).toFixed(4));
+    try {
+      await updateUser({
+        balance: nextBal,
+        miningSessionStartTime: null,
+        miningSessionEndTime: null,
+        totalMined: Number(((user.totalMined || 0) + rewardAmount).toFixed(4))
+      });
+      return { success: true, message: `Successfully claimed +${rewardAmount} CM Coins!` };
+    } catch (e: any) {
+      return { success: false, message: e.message || "Failed to claim reward" };
+    }
+  };
+
+  const sendCryptoTransfer = async (
+    recipientInput: string,
+    amount: number,
+    asset: 'CM' | 'USDT'
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!user) return { success: false, message: "Please log in to transfer assets." };
+
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return { success: false, message: "Please enter a valid amount." };
+    }
+
+    const currentBal = asset === 'CM' ? (user.balance || 0) : (user.usdtBalance || 0);
+    if (currentBal < numAmount) {
+      return { success: false, message: `Insufficient ${asset} balance. You currently have ${currentBal.toFixed(2)} ${asset}.` };
+    }
+
+    const trimmed = (recipientInput || '').trim();
+    if (!trimmed) {
+      return { success: false, message: "Please enter a recipient wallet address, User UID, or Email." };
+    }
+
+    // Prevent transferring to self
+    const isSelf = 
+      trimmed.toLowerCase() === user.uid.toLowerCase() ||
+      (user.email && trimmed.toLowerCase() === user.email.toLowerCase()) ||
+      (user.walletAddress && trimmed.toLowerCase() === user.walletAddress.toLowerCase()) ||
+      (user.referralCode && trimmed.toUpperCase() === user.referralCode.toUpperCase());
+
+    if (isSelf) {
+      return { success: false, message: "You cannot transfer assets to your own account." };
+    }
+
+    try {
+      // 1. Look up recipient in Supabase database
+      let recipientUser: any = null;
+
+      // By UID / email / walletAddress / referralCode
+      const { data: uidMatch } = await supabase.from('users').select('*').or(`uid.eq.${trimmed},UID.eq.${trimmed}`).limit(1);
+      if (uidMatch && uidMatch.length > 0) {
+        recipientUser = uidMatch[0];
+      } else if (trimmed.includes('@')) {
+        const { data: emailMatch } = await supabase.from('users').select('*').ilike('email', trimmed).limit(1);
+        if (emailMatch && emailMatch.length > 0) recipientUser = emailMatch[0];
+      } else {
+        const { data: walletMatch } = await supabase.from('users').select('*').ilike('walletAddress', trimmed).limit(1);
+        if (walletMatch && walletMatch.length > 0) {
+          recipientUser = walletMatch[0];
+        } else {
+          const { data: refMatch } = await supabase.from('users').select('*').ilike('referralCode', trimmed).limit(1);
+          if (refMatch && refMatch.length > 0) recipientUser = refMatch[0];
+        }
+      }
+
+      if (recipientUser && (recipientUser.uid === user.uid || (recipientUser.email && recipientUser.email.toLowerCase() === user.email?.toLowerCase()))) {
+        return { success: false, message: "You cannot transfer assets to yourself." };
+      }
+
+      // 2. If recipient user exists in database, credit them
+      if (recipientUser) {
+        const recTargetUid = recipientUser.uid || recipientUser.UID;
+        const recMatch = [`uid.eq.${recTargetUid}`, `UID.eq.${recTargetUid}`];
+        if (recipientUser.email) recMatch.push(`email.ilike.${recipientUser.email}`);
+
+        if (asset === 'CM') {
+          const recNewBal = Number(((recipientUser.balance || 0) + numAmount).toFixed(4));
+          await supabase.from('users').update({
+            balance: recNewBal,
+            "CM Coins": recNewBal,
+            cm_coins: recNewBal
+          }).or(recMatch.join(','));
+        } else {
+          const recNewUsdt = Number(((recipientUser.usdtBalance || 0) + numAmount).toFixed(4));
+          await supabase.from('users').update({
+            usdtBalance: recNewUsdt,
+            "USDT": recNewUsdt,
+            usdtbalance: recNewUsdt
+          }).or(recMatch.join(','));
+        }
+
+        try {
+          await supabase.from('transactions').insert([{
+            id: `tx_rcv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            type: 'transfer_received',
+            amount: numAmount,
+            timestamp: Date.now(),
+            status: 'completed',
+            receiverUid: recTargetUid,
+            senderUid: user.uid,
+            description: `Received ${numAmount} ${asset} from ${user.name || user.email || user.uid.substring(0, 8)}`
+          }]);
+        } catch (e) {
+          console.warn("Receiver transaction log warning:", e);
+        }
+      }
+
+      // 3. Debit Sender
+      const senderMatch = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
+      if (user.email) senderMatch.push(`email.ilike.${user.email}`);
+
+      if (asset === 'CM') {
+        const senderNewBal = Number(((user.balance || 0) - numAmount).toFixed(4));
+        const { error: debitErr } = await supabase.from('users').update({
+          balance: senderNewBal,
+          "CM Coins": senderNewBal,
+          cm_coins: senderNewBal
+        }).or(senderMatch.join(','));
+
+        if (debitErr) throw debitErr;
+
+        setUser(prev => prev ? {
+          ...prev,
+          balance: senderNewBal,
+          "CM Coins": senderNewBal,
+          cm_coins: senderNewBal
+        } as any : null);
+      } else {
+        const senderNewUsdt = Number(((user.usdtBalance || 0) - numAmount).toFixed(4));
+        const { error: debitErr } = await supabase.from('users').update({
+          usdtBalance: senderNewUsdt,
+          "USDT": senderNewUsdt,
+          usdtbalance: senderNewUsdt
+        }).or(senderMatch.join(','));
+
+        if (debitErr) throw debitErr;
+
+        setUser(prev => prev ? {
+          ...prev,
+          usdtBalance: senderNewUsdt,
+          "USDT": senderNewUsdt,
+          usdtbalance: senderNewUsdt
+        } as any : null);
+      }
+
+      // 4. Record Outgoing Transaction
+      const txId = `tx_send_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const txHash = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      try {
+        await supabase.from('transactions').insert([{
+          id: txId,
+          type: 'transfer_sent',
+          amount: -numAmount,
+          timestamp: Date.now(),
+          status: 'completed',
+          receiverUid: recipientUser ? (recipientUser.uid || recipientUser.UID) : trimmed,
+          senderUid: user.uid,
+          description: `Sent ${numAmount} ${asset} to ${recipientUser?.name || trimmed}`
+        }]);
+      } catch (e) {
+        console.warn("Sender transaction log warning:", e);
+      }
+
+      // Store in localStorage transaction cache for immediate UI rendering
+      const localTx = {
+        id: txId,
+        type: 'send',
+        asset: asset,
+        amount: numAmount,
+        recipient: recipientUser?.name ? `${recipientUser.name} (${trimmed})` : trimmed,
+        timestamp: Date.now(),
+        status: 'Completed',
+        hash: txHash
+      };
+      const existingHistory = JSON.parse(localStorage.getItem(`cm_tx_${user.uid}`) || '[]');
+      localStorage.setItem(`cm_tx_${user.uid}`, JSON.stringify([localTx, ...existingHistory]));
+
+      const displayRecipient = recipientUser?.name ? `${recipientUser.name} (${trimmed})` : trimmed;
+      return { 
+        success: true, 
+        message: `Successfully transferred ${numAmount} ${asset} to ${displayRecipient}!` 
+      };
+    } catch (err: any) {
+      console.error("sendCryptoTransfer exception:", err);
+      return { success: false, message: err?.message || "Transfer failed. Please check your connection and try again." };
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       user, 
@@ -1355,6 +1556,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       claimAdReward, 
       claimUsdtAdReward, 
       startMining,
+      claimMiningReward,
+      sendCryptoTransfer,
       requestWithdrawal, 
       requestUsdtWithdrawal 
     }}>

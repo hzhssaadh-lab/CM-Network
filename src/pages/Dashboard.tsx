@@ -180,31 +180,21 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
     }
   };
 
-  const isKycVerified = user.kycStatus === 'verified' && Boolean((user as any).kycApprovedAt || (user as any).kyc_approved_at);
+  const isKycVerified = user.kycStatus === 'verified' || user.role === 'admin';
 
   const handleOpenSend = () => {
     if (!isKycVerified) {
-      toast.error('Identity Verification (KYC) required to Send assets! Redirecting to KYC...', {
+      toast.error('Identity Verification (KYC) required to Send assets! Please complete KYC first.', {
         icon: '🛡️',
         duration: 4000
       });
       navigate('/kyc');
       return;
     }
-    setActiveTab('wallet');
     setShowSendModal(true);
   };
 
   const handleOpenReceive = () => {
-    if (!isKycVerified) {
-      toast.error('Identity Verification (KYC) required to Receive assets! Redirecting to KYC...', {
-        icon: '🛡️',
-        duration: 4000
-      });
-      navigate('/kyc');
-      return;
-    }
-    setActiveTab('wallet');
     setShowReceiveModal(true);
   };
 
