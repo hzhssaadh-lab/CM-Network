@@ -1360,23 +1360,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const sendCryptoTransfer = async (
     recipientInput: string,
     amount: number,
-    asset: 'CM' | 'USDT'
+    asset: 'CM' | 'USDT' = 'CM'
   ): Promise<{ success: boolean; message: string }> => {
     if (!user) return { success: false, message: "Please log in to transfer assets." };
+
+    // Enforce CM Coin only as required
+    if (asset === 'USDT') {
+      return { success: false, message: "Transfers are exclusively enabled for CM Coin. USDT transfers are disabled." };
+    }
 
     const numAmount = Number(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       return { success: false, message: "Please enter a valid amount." };
     }
 
-    const currentBal = asset === 'CM' ? (user.balance || 0) : (user.usdtBalance || 0);
+    const currentBal = user.balance || 0;
     if (currentBal < numAmount) {
-      return { success: false, message: `Insufficient ${asset} balance. You currently have ${currentBal.toFixed(2)} ${asset}.` };
+      return { success: false, message: `Insufficient CM Coin balance. You currently have ${currentBal.toFixed(2)} CM.` };
+    }
+
+    // Transfer limit: 10%
+    const maxAllowed = Number((currentBal * 0.10).toFixed(4));
+    if (user.role !== 'admin' && numAmount > maxAllowed + 0.0001) {
+      return { success: false, message: `Transfer limit exceeded: Maximum 10% of CM balance (${maxAllowed.toFixed(2)} CM) allowed per transfer.` };
     }
 
     const trimmed = (recipientInput || '').trim();
     if (!trimmed) {
-      return { success: false, message: "Please enter a recipient wallet address, User UID, or Email." };
+      return { success: false, message: "Please enter a recipient CM User UID, wallet address, or email." };
     }
 
     // Prevent transferring to self
@@ -1387,111 +1398,147 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (user.referralCode && trimmed.toUpperCase() === user.referralCode.toUpperCase());
 
     if (isSelf) {
-      return { success: false, message: "You cannot transfer assets to your own account." };
+      return { success: false, message: "You cannot transfer CM Coins to your own account." };
     }
 
     try {
       // 1. Look up recipient in Supabase database
       let recipientUser: any = null;
 
-      // By UID / email / walletAddress / referralCode
-      const { data: uidMatch } = await supabase.from('users').select('*').or(`uid.eq.${trimmed},UID.eq.${trimmed}`).limit(1);
-      if (uidMatch && uidMatch.length > 0) {
-        recipientUser = uidMatch[0];
-      } else if (trimmed.includes('@')) {
-        const { data: emailMatch } = await supabase.from('users').select('*').ilike('email', trimmed).limit(1);
-        if (emailMatch && emailMatch.length > 0) recipientUser = emailMatch[0];
-      } else {
-        const { data: walletMatch } = await supabase.from('users').select('*').ilike('walletAddress', trimmed).limit(1);
-        if (walletMatch && walletMatch.length > 0) {
-          recipientUser = walletMatch[0];
-        } else {
-          const { data: refMatch } = await supabase.from('users').select('*').ilike('referralCode', trimmed).limit(1);
-          if (refMatch && refMatch.length > 0) recipientUser = refMatch[0];
-        }
-      }
+      // Match by UID
+      try {
+        const { data: uidMatch } = await supabase.from('users').select('*').eq('uid', trimmed).maybeSingle();
+        if (uidMatch) recipientUser = uidMatch;
+      } catch (e) {}
 
-      if (recipientUser && (recipientUser.uid === user.uid || (recipientUser.email && recipientUser.email.toLowerCase() === user.email?.toLowerCase()))) {
-        return { success: false, message: "You cannot transfer assets to yourself." };
-      }
-
-      // 2. If recipient user exists in database, credit them
-      if (recipientUser) {
-        const recTargetUid = recipientUser.uid || recipientUser.UID;
-        const recMatch = [`uid.eq.${recTargetUid}`, `UID.eq.${recTargetUid}`];
-        if (recipientUser.email) recMatch.push(`email.ilike.${recipientUser.email}`);
-
-        if (asset === 'CM') {
-          const recNewBal = Number(((recipientUser.balance || 0) + numAmount).toFixed(4));
-          await supabase.from('users').update({
-            balance: recNewBal,
-            "CM Coins": recNewBal,
-            cm_coins: recNewBal
-          }).or(recMatch.join(','));
-        } else {
-          const recNewUsdt = Number(((recipientUser.usdtBalance || 0) + numAmount).toFixed(4));
-          await supabase.from('users').update({
-            usdtBalance: recNewUsdt,
-            "USDT": recNewUsdt,
-            usdtbalance: recNewUsdt
-          }).or(recMatch.join(','));
-        }
-
+      // Match by Email
+      if (!recipientUser && trimmed.includes('@')) {
         try {
-          await supabase.from('transactions').insert([{
-            id: `tx_rcv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            type: 'transfer_received',
-            amount: numAmount,
-            timestamp: Date.now(),
-            status: 'completed',
-            receiverUid: recTargetUid,
-            senderUid: user.uid,
-            description: `Received ${numAmount} ${asset} from ${user.name || user.email || user.uid.substring(0, 8)}`
-          }]);
-        } catch (e) {
-          console.warn("Receiver transaction log warning:", e);
-        }
+          const { data: emailMatch } = await supabase.from('users').select('*').ilike('email', trimmed).maybeSingle();
+          if (emailMatch) recipientUser = emailMatch;
+        } catch (e) {}
       }
+
+      // Match by Referral Code
+      if (!recipientUser) {
+        try {
+          const { data: refMatch } = await supabase.from('users').select('*').ilike('referralCode', trimmed).maybeSingle();
+          if (refMatch) recipientUser = refMatch;
+        } catch (e) {}
+      }
+
+      // Match by walletAddress column
+      if (!recipientUser) {
+        try {
+          const { data: walletMatch } = await supabase.from('users').select('*').ilike('walletAddress', trimmed).maybeSingle();
+          if (walletMatch) recipientUser = walletMatch;
+        } catch (e) {}
+      }
+
+      // Match by derived wallet address (0x...)
+      if (!recipientUser && trimmed.toLowerCase().startsWith('0x')) {
+        try {
+          const { data: allUsers } = await supabase.from('users').select('*').limit(500);
+          if (allUsers && allUsers.length > 0) {
+            const found = allUsers.find(u => {
+              const uUid = u.uid || '';
+              const derived = `0x${uUid.replace(/[^a-fA-F0-9]/g, '').padEnd(40, '7a9c').substring(0, 40)}`.toLowerCase();
+              return derived === trimmed.toLowerCase() || (u.walletAddress && u.walletAddress.toLowerCase() === trimmed.toLowerCase());
+            });
+            if (found) recipientUser = found;
+          }
+        } catch (e) {}
+      }
+
+      // Require valid recipient to ensure transfer actually arrives
+      if (!recipientUser) {
+        return { 
+          success: false, 
+          message: "Recipient user not found! Please check the recipient CM UID, wallet address, or registered email." 
+        };
+      }
+
+      if (recipientUser.uid === user.uid || (recipientUser.email && user.email && recipientUser.email.toLowerCase() === user.email.toLowerCase())) {
+        return { success: false, message: "You cannot transfer CM Coins to yourself." };
+      }
+
+      const recTargetUid = recipientUser.uid;
+
+      // 2. Credit Recipient User
+      const recCurrentBal = Number(recipientUser.balance || recipientUser['CM Coins'] || recipientUser.cm_coins || 0);
+      const recNewBal = Number((recCurrentBal + numAmount).toFixed(4));
+
+      try {
+        const { error: recErr } = await supabase.from('users').update({
+          balance: recNewBal,
+          "CM Coins": recNewBal,
+          cm_coins: recNewBal
+        }).eq('uid', recTargetUid);
+
+        if (recErr) {
+          await supabase.from('users').update({ balance: recNewBal }).eq('uid', recTargetUid);
+        }
+      } catch (e) {
+        await supabase.from('users').update({ balance: recNewBal }).eq('uid', recTargetUid);
+      }
+
+      // Log incoming transaction for recipient
+      try {
+        await supabase.from('transactions').insert([{
+          id: `tx_rcv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          type: 'transfer_received',
+          amount: numAmount,
+          timestamp: Date.now(),
+          status: 'completed',
+          receiverUid: recTargetUid,
+          senderUid: user.uid,
+          description: `Received ${numAmount} CM Coins from ${user.name || user.email || user.uid.substring(0, 8)}`
+        }]);
+      } catch (e) {
+        console.warn("Receiver transaction log warning:", e);
+      }
+
+      // Update recipient's local history cache if same device
+      try {
+        const recHistory = JSON.parse(localStorage.getItem(`cm_tx_${recTargetUid}`) || '[]');
+        recHistory.unshift({
+          id: `tx_rcv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          type: 'receive',
+          asset: 'CM',
+          amount: numAmount,
+          recipient: `From ${user.name || user.email || user.uid.substring(0, 8)}`,
+          timestamp: Date.now(),
+          status: 'Completed',
+          hash: '0x' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('')
+        });
+        localStorage.setItem(`cm_tx_${recTargetUid}`, JSON.stringify(recHistory.slice(0, 50)));
+      } catch (e) {}
 
       // 3. Debit Sender
-      const senderMatch = [`uid.eq.${user.uid}`, `UID.eq.${user.uid}`];
-      if (user.email) senderMatch.push(`email.ilike.${user.email}`);
-
-      if (asset === 'CM') {
-        const senderNewBal = Number(((user.balance || 0) - numAmount).toFixed(4));
+      const senderNewBal = Number(((user.balance || 0) - numAmount).toFixed(4));
+      try {
         const { error: debitErr } = await supabase.from('users').update({
           balance: senderNewBal,
           "CM Coins": senderNewBal,
           cm_coins: senderNewBal
-        }).or(senderMatch.join(','));
+        }).eq('uid', user.uid);
 
-        if (debitErr) throw debitErr;
-
-        setUser(prev => prev ? {
-          ...prev,
-          balance: senderNewBal,
-          "CM Coins": senderNewBal,
-          cm_coins: senderNewBal
-        } as any : null);
-      } else {
-        const senderNewUsdt = Number(((user.usdtBalance || 0) - numAmount).toFixed(4));
-        const { error: debitErr } = await supabase.from('users').update({
-          usdtBalance: senderNewUsdt,
-          "USDT": senderNewUsdt,
-          usdtbalance: senderNewUsdt
-        }).or(senderMatch.join(','));
-
-        if (debitErr) throw debitErr;
-
-        setUser(prev => prev ? {
-          ...prev,
-          usdtBalance: senderNewUsdt,
-          "USDT": senderNewUsdt,
-          usdtbalance: senderNewUsdt
-        } as any : null);
+        if (debitErr) {
+          await supabase.from('users').update({ balance: senderNewBal }).eq('uid', user.uid);
+        }
+      } catch (e) {
+        await supabase.from('users').update({ balance: senderNewBal }).eq('uid', user.uid);
       }
 
-      // 4. Record Outgoing Transaction
+      // Update React user state immediately
+      setUser(prev => prev ? {
+        ...prev,
+        balance: senderNewBal,
+        "CM Coins": senderNewBal,
+        cm_coins: senderNewBal
+      } as any : null);
+
+      // 4. Record Outgoing Transaction for Sender
       const txId = `tx_send_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const txHash = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
 
@@ -1502,32 +1549,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           amount: -numAmount,
           timestamp: Date.now(),
           status: 'completed',
-          receiverUid: recipientUser ? (recipientUser.uid || recipientUser.UID) : trimmed,
+          receiverUid: recTargetUid,
           senderUid: user.uid,
-          description: `Sent ${numAmount} ${asset} to ${recipientUser?.name || trimmed}`
+          description: `Sent ${numAmount} CM Coins to ${recipientUser.name || recipientUser.email || recTargetUid.substring(0, 8)}`
         }]);
       } catch (e) {
         console.warn("Sender transaction log warning:", e);
       }
 
-      // Store in localStorage transaction cache for immediate UI rendering
+      // Store in sender's local storage transaction cache
+      const displayRecipient = recipientUser.name 
+        ? `${recipientUser.name} (${recipientUser.email || recTargetUid.substring(0, 8)})` 
+        : (recipientUser.email || trimmed);
+
       const localTx = {
         id: txId,
         type: 'send',
-        asset: asset,
+        asset: 'CM',
         amount: numAmount,
-        recipient: recipientUser?.name ? `${recipientUser.name} (${trimmed})` : trimmed,
+        recipient: displayRecipient,
         timestamp: Date.now(),
         status: 'Completed',
         hash: txHash
       };
       const existingHistory = JSON.parse(localStorage.getItem(`cm_tx_${user.uid}`) || '[]');
-      localStorage.setItem(`cm_tx_${user.uid}`, JSON.stringify([localTx, ...existingHistory]));
+      localStorage.setItem(`cm_tx_${user.uid}`, JSON.stringify([localTx, ...existingHistory].slice(0, 50)));
 
-      const displayRecipient = recipientUser?.name ? `${recipientUser.name} (${trimmed})` : trimmed;
       return { 
         success: true, 
-        message: `Successfully transferred ${numAmount} ${asset} to ${displayRecipient}!` 
+        message: `Successfully sent ${numAmount} CM Coins to ${displayRecipient}!` 
       };
     } catch (err: any) {
       console.error("sendCryptoTransfer exception:", err);

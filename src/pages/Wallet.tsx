@@ -102,18 +102,16 @@ export function Wallet() {
       return;
     }
 
-    if (sendAsset === 'CM') {
-      const maxAllowed = Number((currentBalance * 0.10).toFixed(4));
-      if (numAmount > maxAllowed + 0.0001) {
-        toast.error(`Transfer Limit: You can only send up to 10% of your CM balance (Max: ${(currentBalance * 0.10).toFixed(2)} CM)!`, {
-          icon: '⚠️'
-        });
-        return;
-      }
+    const maxAllowed = Number((currentBalance * 0.10).toFixed(4));
+    if (user.role !== 'admin' && numAmount > maxAllowed + 0.0001) {
+      toast.error(`Transfer Limit: You can only send up to 10% of your CM balance (Max: ${(currentBalance * 0.10).toFixed(2)} CM)!`, {
+        icon: '⚠️'
+      });
+      return;
     }
 
     setIsSending(true);
-    const res = await sendCryptoTransfer(recipient, numAmount, sendAsset);
+    const res = await sendCryptoTransfer(recipient, numAmount, 'CM');
     setIsSending(false);
 
     if (res.success) {
@@ -318,50 +316,43 @@ export function Wallet() {
       </div>
 
       {/* =========================================================================
-          TAB 1: SEND ASSETS FORM
+          TAB 1: SEND ASSETS FORM (CM COIN ONLY)
          ========================================================================= */}
       {activeTab === 'send' && (
         <div className="bg-[#11100d] border border-[#FFD700]/30 rounded-3xl p-6 sm:p-8 space-y-6">
           <div>
-            <h2 className="text-xl font-black text-white">Transfer CM Coins & USDT</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Send funds to any CM Network wallet or recipient UID with instant settlement.</p>
+            <h2 className="text-xl font-black text-white">Transfer CM Coins</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Send CM Coins to any CM Network wallet address, recipient UID, or registered email with instant settlement.</p>
           </div>
 
           <form onSubmit={handleSendSubmit} className="space-y-4 max-w-xl">
-            {/* Asset Selection */}
+            {/* Asset Selection (CM Coin Only) */}
             <div>
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Select Asset</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSendAsset('CM')}
-                  className={`p-3 rounded-2xl border text-left transition-all ${
-                    sendAsset === 'CM' ? 'bg-[#FFD700]/15 border-[#FFD700] shadow-[0_0_15px_rgba(255,215,0,0.2)]' : 'bg-black/50 border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <span className="text-xs font-black text-white block">CM Coin</span>
-                  <span className="text-[11px] font-mono text-[#FFD700] font-bold">Balance: {formatCurrency(currentBalance)} CM</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSendAsset('USDT')}
-                  className={`p-3 rounded-2xl border text-left transition-all ${
-                    sendAsset === 'USDT' ? 'bg-emerald-500/15 border-emerald-500 shadow-[0_0_15px_rgba(52,211,153,0.2)]' : 'bg-black/50 border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <span className="text-xs font-black text-white block">Tether USDT</span>
-                  <span className="text-[11px] font-mono text-emerald-400 font-bold">Balance: ${formatCurrency(usdtBalance)} USDT</span>
-                </button>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Asset</label>
+              <div className="p-3.5 rounded-2xl border border-[#FFD700] bg-[#FFD700]/10 flex items-center justify-between shadow-[0_0_15px_rgba(255,215,0,0.15)]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#FFD700] to-amber-500 text-black font-black flex items-center justify-center text-xs shadow-md">
+                    CM
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-white block">CM Coin (BEP-20)</span>
+                    <span className="text-[10px] text-gray-400">CM Smart Chain</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-gray-400 block uppercase font-bold">Available Balance</span>
+                  <span className="text-xs font-mono text-[#FFD700] font-black">{formatCurrency(currentBalance)} CM</span>
+                </div>
               </div>
             </div>
 
             {/* Recipient Address */}
             <div>
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Recipient Wallet Address or User UID</label>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Recipient Wallet Address, UID, or Email</label>
               <input
                 type="text"
                 required
-                placeholder="0x... or CM User UID"
+                placeholder="0x... or CM User UID / registered email"
                 value={recipient}
                 onChange={(e) => setRecipient(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white text-xs font-mono focus:border-[#FFD700] focus:outline-none"
@@ -375,12 +366,12 @@ export function Wallet() {
                 <button
                   type="button"
                   onClick={() => {
-                    const maxVal = sendAsset === 'CM' ? (currentBalance * 0.10).toFixed(2) : usdtBalance.toString();
+                    const maxVal = (currentBalance * 0.10).toFixed(2);
                     setAmount(maxVal);
                   }}
                   className="text-[10px] font-bold text-[#FFD700] hover:underline"
                 >
-                  {sendAsset === 'CM' ? `Use MAX 10% (${(currentBalance * 0.10).toFixed(2)} CM)` : 'Use MAX Balance'}
+                  Use MAX 10% ({(currentBalance * 0.10).toFixed(2)} CM)
                 </button>
               </div>
               <input
@@ -392,11 +383,9 @@ export function Wallet() {
                 onChange={(e) => setAmount(e.target.value)}
                 className="w-full px-4 py-3.5 rounded-xl bg-black/60 border border-white/15 text-white text-lg font-mono focus:border-[#FFD700] focus:outline-none font-bold"
               />
-              {sendAsset === 'CM' && (
-                <p className="text-[11px] text-amber-400 font-medium mt-1.5 flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">
-                  <span>🛡️ Transfer Policy: Maximum 10% of CM Coin balance can be sent per transaction (Limit: {(currentBalance * 0.10).toFixed(2)} CM).</span>
-                </p>
-              )}
+              <p className="text-[11px] text-amber-400 font-medium mt-1.5 flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">
+                <span>🛡️ Transfer Policy: Maximum 10% of CM Coin balance can be sent per transaction (Limit: {(currentBalance * 0.10).toFixed(2)} CM).</span>
+              </p>
             </div>
 
             {/* Fee summary */}
@@ -410,7 +399,7 @@ export function Wallet() {
               disabled={isSending}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-[#FFD700] via-amber-400 to-[#FFD700] text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,215,0,0.3)]"
             >
-              {isSending ? 'Broadcasting Transfer...' : `Send ${sendAsset} Instantly`}
+              {isSending ? 'Broadcasting Transfer...' : 'Send CM Coins Instantly'}
             </button>
           </form>
         </div>
@@ -426,16 +415,38 @@ export function Wallet() {
           <div className="max-w-md mx-auto relative z-10">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-xs font-black uppercase tracking-wider mb-2">
               <Sparkles className="w-3.5 h-3.5 text-[#FFD700]" />
-              <span>Official Deposit Gateway</span>
+              <span>Official CM Deposit Gateway</span>
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">Receive CM Coins & USDT</h2>
+            <h2 className="text-2xl font-black text-white tracking-tight">Receive CM Coins</h2>
             <p className="text-xs text-gray-400 mt-1">
-              Scan with any Web3 wallet or send from CM Network accounts with zero network fees.
+              Scan with any Web3 wallet or receive via your CM User UID with zero network fees.
             </p>
           </div>
 
-          <div className="relative z-10">
+          <div className="relative z-10 space-y-4">
             <PremiumReceiveQr walletAddress={walletAddress} />
+            
+            {/* CM User UID Sharing Card */}
+            <div className="max-w-sm mx-auto p-3.5 rounded-2xl bg-black/70 border border-[#FFD700]/30 flex items-center justify-between text-left">
+              <div>
+                <span className="text-[9px] text-gray-400 uppercase font-black tracking-widest block">
+                  Your CM User UID (Fast Receive)
+                </span>
+                <span className="text-xs font-mono text-white font-bold break-all">
+                  {user.uid}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(user.uid);
+                  toast.success('User UID copied!', { icon: '📋' });
+                }}
+                className="ml-2 px-3 py-1.5 rounded-xl bg-[#FFD700]/15 border border-[#FFD700]/40 text-[#FFD700] text-[10px] font-bold hover:bg-[#FFD700]/25 transition-all whitespace-nowrap"
+              >
+                Copy UID
+              </button>
+            </div>
           </div>
         </div>
       )}

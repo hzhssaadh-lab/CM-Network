@@ -212,18 +212,16 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
       return;
     }
 
-    if (sendAsset === 'CM') {
-      const maxAllowed = Number((currentBalance * 0.10).toFixed(4));
-      if (numAmount > maxAllowed + 0.0001) {
-        toast.error(`Transfer Limit: You can only send up to 10% of your CM balance (Max: ${(currentBalance * 0.10).toFixed(2)} CM)!`, {
-          icon: '⚠️'
-        });
-        return;
-      }
+    const maxAllowed = Number((currentBalance * 0.10).toFixed(4));
+    if (user.role !== 'admin' && numAmount > maxAllowed + 0.0001) {
+      toast.error(`Transfer Limit: You can only send up to 10% of your CM balance (Max: ${(currentBalance * 0.10).toFixed(2)} CM)!`, {
+        icon: '⚠️'
+      });
+      return;
     }
 
     setIsSending(true);
-    const res = await sendCryptoTransfer(sendRecipient, numAmount, sendAsset);
+    const res = await sendCryptoTransfer(sendRecipient, numAmount, 'CM');
     setIsSending(false);
 
     if (res.success) {
@@ -1069,7 +1067,7 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                 <div className="w-8 h-8 rounded-xl bg-[#FFD700]/10 text-[#FFD700] flex items-center justify-center">
                   <Send className="w-4 h-4" />
                 </div>
-                <h3 className="text-lg font-black text-white">Send Assets</h3>
+                <h3 className="text-lg font-black text-white">Send CM Coins</h3>
               </div>
               <button 
                 onClick={() => setShowSendModal(false)}
@@ -1080,38 +1078,33 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
             </div>
 
             <form onSubmit={handleSendTransaction} className="space-y-4">
-              {/* Asset Selector */}
+              {/* Asset (CM Coin Only) */}
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Asset</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSendAsset('CM')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      sendAsset === 'CM' ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-black/40 text-gray-300 border-white/10 hover:border-white/30'
-                    }`}
-                  >
-                    <span>CM Coin ({formatCurrency(currentBalance)})</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSendAsset('USDT')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      sendAsset === 'USDT' ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-black/40 text-gray-300 border-white/10 hover:border-white/30'
-                    }`}
-                  >
-                    <span>USDT (${formatCurrency(usdtBalance)})</span>
-                  </button>
+                <div className="p-3 rounded-xl border border-[#FFD700] bg-[#FFD700]/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#FFD700] to-amber-500 text-black font-black flex items-center justify-center text-[10px]">
+                      CM
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-white block">CM Coin (BEP-20)</span>
+                      <span className="text-[9px] text-gray-400">CM Smart Chain</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] text-gray-400 block uppercase font-bold">Balance</span>
+                    <span className="text-xs font-mono text-[#FFD700] font-black">{formatCurrency(currentBalance)} CM</span>
+                  </div>
                 </div>
               </div>
 
               {/* Recipient Address */}
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Recipient Address / UID</label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Recipient Address / UID / Email</label>
                 <input
                   type="text"
                   required
-                  placeholder="0x... or CM User UID"
+                  placeholder="0x... or CM User UID / registered email"
                   value={sendRecipient}
                   onChange={(e) => setSendRecipient(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white text-xs font-mono focus:border-[#FFD700] focus:outline-none"
@@ -1125,12 +1118,12 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      const maxVal = sendAsset === 'CM' ? (currentBalance * 0.10).toFixed(2) : usdtBalance.toString();
+                      const maxVal = (currentBalance * 0.10).toFixed(2);
                       setSendAmount(maxVal);
                     }}
                     className="text-[10px] font-bold text-[#FFD700] hover:underline"
                   >
-                    {sendAsset === 'CM' ? `Use MAX 10% (${(currentBalance * 0.10).toFixed(2)} CM)` : 'Use MAX'}
+                    Use MAX 10% ({(currentBalance * 0.10).toFixed(2)} CM)
                   </button>
                 </div>
                 <input
@@ -1142,11 +1135,9 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                   onChange={(e) => setSendAmount(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white text-base font-mono focus:border-[#FFD700] focus:outline-none font-bold"
                 />
-                {sendAsset === 'CM' && (
-                  <p className="text-[10px] text-amber-400 font-medium mt-1.5 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
-                    <span>🛡️ Limit: You can send a maximum of 10% of your CM balance ({(currentBalance * 0.10).toFixed(2)} CM).</span>
-                  </p>
-                )}
+                <p className="text-[10px] text-amber-400 font-medium mt-1.5 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
+                  <span>🛡️ Limit: You can send a maximum of 10% of your CM balance ({(currentBalance * 0.10).toFixed(2)} CM).</span>
+                </p>
               </div>
 
               {/* Fee notice */}
@@ -1160,7 +1151,7 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                 disabled={isSending}
                 className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#FFD700] to-amber-500 text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,215,0,0.3)]"
               >
-                {isSending ? 'Broadcasting...' : `Confirm & Send ${sendAsset}`}
+                {isSending ? 'Broadcasting...' : 'Confirm & Send CM Coins'}
               </button>
             </form>
           </div>
@@ -1168,7 +1159,7 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
       )}
 
       {/* =========================================================================
-          RECEIVE MODAL
+          RECEIVE MODAL (CM COIN ONLY)
          ========================================================================= */}
       {showReceiveModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
@@ -1180,12 +1171,34 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
               ✕
             </button>
 
-            <h3 className="text-xl font-black text-white mb-1">Receive CM Coins & USDT</h3>
+            <h3 className="text-xl font-black text-white mb-1">Receive CM Coins</h3>
             <p className="text-xs text-gray-400 mb-4">
-              Scan or copy your personal deposit address
+              Scan or copy your personal deposit address or User UID
             </p>
 
             <PremiumReceiveQr walletAddress={walletAddress} />
+
+            {/* CM User UID Quick Copy */}
+            <div className="mt-4 p-3 rounded-xl bg-black/70 border border-[#FFD700]/30 flex items-center justify-between text-left">
+              <div>
+                <span className="text-[9px] text-gray-400 uppercase font-black tracking-widest block">
+                  Your CM User UID
+                </span>
+                <span className="text-xs font-mono text-white font-bold break-all">
+                  {user.uid}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(user.uid);
+                  toast.success('User UID copied!', { icon: '📋' });
+                }}
+                className="ml-2 px-2.5 py-1 rounded-lg bg-[#FFD700]/15 border border-[#FFD700]/30 text-[#FFD700] text-[10px] font-bold hover:bg-[#FFD700]/25 transition-all whitespace-nowrap"
+              >
+                Copy UID
+              </button>
+            </div>
           </div>
         </div>
       )}
