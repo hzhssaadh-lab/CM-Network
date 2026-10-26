@@ -68,7 +68,7 @@ export function Kyc() {
     },
     ETH: {
       name: 'Ethereum (ERC-20)',
-      fee: '0.00001245 ETH',
+      fee: '0.00017148 ETH',
       address: '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120',
       badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
       qrText: 'Ethereum Mainnet (ERC20)'
@@ -832,7 +832,7 @@ export function Kyc() {
                   <span className="text-xs font-black text-white">Ethereum</span>
                   {selectedChain === 'ETH' && <span className="w-2 h-2 rounded-full bg-blue-400" />}
                 </div>
-                <p className="text-sm font-mono font-black text-blue-400 mt-1">0.00001245 ETH</p>
+                <p className="text-sm font-mono font-black text-blue-400 mt-1">0.00017148 ETH</p>
                 <span className="text-[10px] text-gray-500 block">ERC-20 Chain</span>
               </button>
             </div>

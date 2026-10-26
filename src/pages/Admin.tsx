@@ -2033,7 +2033,7 @@ export function Admin() {
                   const feeInfo = u.kycChain === 'SOL'
                     ? { fee: '0.004 SOL', address: '2z8hTr7ccNH6bq2kyjS9cvH9d8XFMESaWFaD9z5HSr1D' }
                     : u.kycChain === 'ETH'
-                    ? { fee: '0.00001245 ETH', address: '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120' }
+                    ? { fee: '0.00017148 ETH', address: '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120' }
                     : { fee: '0.00053 BNB', address: '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120' };
 
                   return (
