@@ -77,16 +77,9 @@ export function Admin() {
   const [editNodeStatus, setEditNodeStatus] = useState<string>('none');
 
   const hasUserSubmittedKyc = (u: any) => {
-    return Boolean(
-      u?.kycPhotoUrl || 
-      u?.kycPaymentProofUrl || 
-      u?.kycSubmittedAt || 
-      u?.kycTxHash || 
-      u?.kyc_photo_url || 
-      u?.kyc_payment_proof_url || 
-      u?.kyc_submitted_at || 
-      u?.kyc_tx_hash
-    );
+    const photo = u?.kycPhotoUrl || u?.kyc_photo_url || '';
+    const proof = u?.kycPaymentProofUrl || u?.kyc_payment_proof_url || '';
+    return Boolean((photo && String(photo).length > 20) || (proof && String(proof).length > 20));
   };
 
   // Edit Task State
@@ -347,6 +340,33 @@ export function Admin() {
           }
           return { ...u, kycStatus: (u.kycStatus === 'verified' ? 'verified' : 'unverified') as any };
         });
+
+        // Also ensure any KYC submissions stored in settings that might not be in the initial user query page are included
+        const existingUids = new Set(cleaned.map(u => u.uid || u.UID));
+        for (const [key, kInfo] of kycMap.entries()) {
+          const uid = kInfo.userId || key;
+          if (!existingUids.has(uid) && kInfo.userEmail) {
+            existingUids.add(uid);
+            cleaned.unshift({
+              uid: uid,
+              UID: uid,
+              email: kInfo.userEmail,
+              name: kInfo.userName || 'CM User',
+              kycStatus: (kInfo.status || 'pending') as any,
+              kycPhotoUrl: kInfo.kycPhotoUrl || kInfo.selfie,
+              kycPaymentProofUrl: kInfo.kycPaymentProofUrl || kInfo.proof,
+              kycChain: kInfo.kycChain || kInfo.chain,
+              kycTxHash: kInfo.kycTxHash || kInfo.txHash,
+              kycSubmittedAt: kInfo.kycSubmittedAt || kInfo.submittedAt,
+              balance: 0,
+              totalMined: 0,
+              usdtBalance: 0,
+              isActive: true,
+              role: 'user'
+            } as any);
+          }
+        }
+
         setUsers(cleaned);
       }
 
@@ -544,16 +564,45 @@ export function Admin() {
     }
   };
 
+  const handleResetStalePendingKyc = async () => {
+    if (!window.confirm("RESET STALE PENDING: This will find users stuck in 'pending' who DO NOT have uploaded proofs, and reset them to 'unverified' so they can submit their KYC fresh.\n\nProceed?")) return;
+    setLoading(true);
+    try {
+      const staleUsers = users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending') && !hasUserSubmittedKyc(u));
+      let count = 0;
+      for (const su of staleUsers) {
+        const uid = su.uid || su.UID;
+        if (uid) {
+          await supabase.from('users').update({ kycStatus: 'unverified', kycstatus: 'unverified' }).eq('uid', uid);
+          count++;
+        }
+      }
+      setUsers(prev => prev.map(u => {
+        if ((u.kycStatus === 'pending' || (u as any).kycstatus === 'pending') && !hasUserSubmittedKyc(u)) {
+          return { ...u, kycStatus: 'unverified' as any };
+        }
+        return u;
+      }));
+      toast.success(`Cleared ${count} stale pending users! They can now submit fresh KYC.`);
+      await fetchData();
+    } catch (e: any) {
+      toast.error("Error resetting stale pending: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleResetAllUsersKyc = async () => {
-    if (!window.confirm("RESET ALL USERS: Are you sure you want to reset EVERY user's KYC status to UNVERIFIED in the database?\n\nAll users will have to apply for KYC, and you can approve or reject them here.")) return;
+    if (!window.confirm("RESET ALL USERS: Are you sure you want to reset EVERY user's KYC status to UNVERIFIED in the database?\n\nAll users will have to apply for KYC again, and you can approve or reject them here.")) return;
     setLoading(true);
     try {
       const { error } = await supabase.from('users').update({
-        kycStatus: 'unverified'
+        kycStatus: 'unverified',
+        kycstatus: 'unverified'
       }).neq('kycStatus', 'unverified');
       if (error) throw error;
       setUsers(prev => prev.map(u => ({ ...u, kycStatus: 'unverified' })));
-      toast.success("All users' KYC status reset to UNVERIFIED! Users must now apply and wait for your approval.");
+      toast.success("All users' KYC status reset to UNVERIFIED! Everyone can now submit fresh KYC.");
       await fetchData();
     } catch (e: any) {
       console.error(e);
@@ -1817,6 +1866,15 @@ export function Admin() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
+              <button 
+                onClick={handleResetStalePendingKyc}
+                disabled={loading}
+                className="bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 font-bold px-3.5 py-2.5 rounded-xl transition-all text-xs uppercase tracking-widest flex items-center gap-1.5"
+                title="Reset users stuck in pending who haven't uploaded proofs so they can submit fresh"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Reset Stale Pending</span>
+              </button>
               <button 
                 onClick={handleResetAllUsersKyc}
                 disabled={loading}

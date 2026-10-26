@@ -219,13 +219,53 @@ export function Kyc() {
   };
 
   const userUid = user?.uid || (user as any)?.UID || '';
-  const cachedSubmission = userUid ? localStorage.getItem(`cm_kyc_submission_${userUid}`) : null;
-  const hasSubmitted = hasJustSubmitted || Boolean((user?.kycPhotoUrl && user?.kycPaymentProofUrl) || cachedSubmission);
+  const cachedSubmissionStr = userUid ? localStorage.getItem(`cm_kyc_submission_${userUid}`) : null;
+  let cachedValid = false;
+  if (cachedSubmissionStr) {
+    try {
+      const parsed = JSON.parse(cachedSubmissionStr);
+      if (
+        parsed &&
+        parsed.kycPhotoUrl &&
+        parsed.kycPaymentProofUrl &&
+        String(parsed.kycPhotoUrl).length > 20 &&
+        String(parsed.kycPaymentProofUrl).length > 20
+      ) {
+        cachedValid = true;
+      }
+    } catch (e) {}
+  }
+
+  const liveProofsValid = Boolean(
+    user?.kycPhotoUrl &&
+    user?.kycPaymentProofUrl &&
+    String(user.kycPhotoUrl).length > 20 &&
+    String(user.kycPaymentProofUrl).length > 20
+  );
+
+  // User has only submitted if they just submitted or have actual valid proof images
+  const hasSubmitted = hasJustSubmitted || (liveProofsValid || cachedValid);
 
   const isVerified = (user?.kycStatus === 'verified' || (user as any)?.kycstatus === 'verified');
   const isRejected = (user?.kycStatus === 'rejected' || (user as any)?.kycstatus === 'rejected') && !isReSubmitting;
-  // Under review ONLY if user actually submitted and is not verified/rejected
+  // Under review ONLY if user actually submitted real proofs and is not verified/rejected
   const isPending = !isVerified && !isRejected && hasSubmitted && !isReSubmitting;
+
+  const handleRestartKyc = async () => {
+    if (!window.confirm("Do you want to re-submit your KYC with a new selfie and payment screenshot?")) return;
+    if (userUid) {
+      localStorage.removeItem(`cm_kyc_submission_${userUid}`);
+    }
+    setSelfieData(null);
+    setProofData(null);
+    setTxHash('');
+    setHasJustSubmitted(false);
+    setIsReSubmitting(true);
+    try {
+      await updateUser({ kycStatus: 'unverified' });
+    } catch (e) {}
+    toast.success("Ready! You can now submit fresh KYC details and payment proof.", { icon: '🔄' });
+  };
 
   // Countdown to KYC Close (Closes after 10th - November 10, 2026 23:59:59)
   const kycCloseDeadline = new Date('2026-11-10T23:59:59').getTime();
@@ -596,16 +636,26 @@ export function Kyc() {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
+                type="button"
+                onClick={handleRestartKyc}
+                className="flex-1 py-3.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 shadow-sm"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Re-submit / Upload Fresh Proofs</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => navigate('/dashboard')}
                 className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#FFD700] to-amber-500 text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all text-center shadow-md"
               >
                 Return to Dashboard
               </button>
               <button
+                type="button"
                 onClick={() => navigate('/mining')}
                 className="flex-1 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs uppercase tracking-wider transition-all text-center"
               >
-                Mine CM Coins (0.5 CM / 12h)
+                Mine CM Coins
               </button>
             </div>
 

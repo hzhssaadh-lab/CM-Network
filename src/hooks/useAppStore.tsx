@@ -241,7 +241,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   try { kycDetails = JSON.parse(cached); } catch(e) {}
                 }
               }
-              if (kycDetails) {
+
+              const hasValidProofImages = Boolean(
+                kycDetails &&
+                (kycDetails.kycPhotoUrl || kycDetails.selfie) &&
+                String(kycDetails.kycPhotoUrl || kycDetails.selfie).length > 20 &&
+                (kycDetails.kycPaymentProofUrl || kycDetails.proof) &&
+                String(kycDetails.kycPaymentProofUrl || kycDetails.proof).length > 20
+              );
+
+              if (kycDetails && hasValidProofImages) {
                 u.kycPhotoUrl = kycDetails.kycPhotoUrl || kycDetails.selfie;
                 u.kycPaymentProofUrl = kycDetails.kycPaymentProofUrl || kycDetails.proof;
                 u.kycChain = kycDetails.kycChain || kycDetails.chain;
@@ -256,10 +265,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   u.kycStatus = 'pending';
                 }
               } else {
-                // If user has not submitted KYC details, they must be unverified so the submit form is shown
+                // If user has not submitted valid KYC proof images, they MUST be unverified so the submit form is shown!
                 if (u.kycStatus !== 'verified' && (u as any).kycstatus !== 'verified') {
                   u.kycStatus = 'unverified';
                   (u as any).kycstatus = 'unverified';
+                  u.kycPhotoUrl = undefined;
+                  u.kycPaymentProofUrl = undefined;
+                  // If DB row had stale pending, silently clean it up
+                  if ((u as any).kycStatus === 'pending' || (u as any).kycstatus === 'pending') {
+                    supabase.from('users').update({ kycStatus: 'unverified', kycstatus: 'unverified' }).eq('uid', sUser.id).then();
+                  }
                 }
               }
             } catch (err) {
