@@ -80,11 +80,13 @@ export function Admin() {
 
   const hasUserSubmittedKyc = (u: any) => {
     if (!u) return false;
-    const status = String(u.kycStatus || u.kycstatus || '').toLowerCase();
-    const photo = u?.kycPhotoUrl || u?.kyc_photo_url || '';
-    const proof = u?.kycPaymentProofUrl || u?.kyc_payment_proof_url || '';
-    const hasProof = Boolean((photo && String(photo).length > 20) || (proof && String(proof).length > 20));
-    const hasMeta = Boolean(u.kycSubmittedAt || u.kyc_submitted_at || u.kycChain || u.kyc_chain || u.kycTxHash || u.kyc_tx_hash);
+    const uid = u.uid || u.UID || '';
+    const proof = loadedKycProofs[uid] || {};
+    const status = String(u.kycStatus || u.kycstatus || proof.status || '').toLowerCase();
+    const photo = u?.kycPhotoUrl || u?.kyc_photo_url || proof.kycPhotoUrl || proof.selfie || '';
+    const proofImg = u?.kycPaymentProofUrl || u?.kyc_payment_proof_url || proof.kycPaymentProofUrl || proof.proof || '';
+    const hasProof = Boolean((photo && String(photo).length > 20) || (proofImg && String(proofImg).length > 20));
+    const hasMeta = Boolean(u.kycSubmittedAt || u.kyc_submitted_at || u.kycChain || u.kyc_chain || u.kycTxHash || u.kyc_tx_hash || proof.kycSubmittedAt || proof.kycChain || proof.kycTxHash);
     return status === 'pending' || hasProof || hasMeta;
   };
 
@@ -327,6 +329,13 @@ export function Admin() {
         .order('joinDate', { ascending: false, nullsFirst: false })
         .limit(2000);
 
+      // 3. Fetch all KYC application submissions stored in settings table (with selfie & payment receipts)
+      const { data: kycSettingsData } = await supabase
+        .from('settings')
+        .select('id, adsterraSnippet')
+        .like('id', 'kyc_%')
+        .limit(500);
+
       // Merge pending users with recent users so no pending application is ever omitted
       const userMap = new Map<string, UserProfile>();
 
@@ -347,48 +356,82 @@ export function Admin() {
         }
       }
 
+      // Populate KYC proofs and merge submission applicants
+      const proofsMap: Record<string, any> = {};
+      if (kycSettingsData && kycSettingsData.length > 0) {
+        for (const row of kycSettingsData) {
+          try {
+            const parsed = JSON.parse(row.adsterraSnippet || '{}');
+            const targetUid = (row.id.replace('kyc_', '') || parsed.userId || '').trim();
+            if (targetUid) {
+              proofsMap[targetUid] = parsed;
+
+              const existing = userMap.get(targetUid);
+              const subStatus = (parsed.status || 'pending').toLowerCase();
+              const hasProofs = Boolean(parsed.kycPhotoUrl || parsed.kycPaymentProofUrl || parsed.selfie || parsed.proof);
+
+              if (existing) {
+                // If user is currently unverified or pending, sync their active submission status and media
+                const updatedStatus = subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending';
+                if (existing.kycStatus !== 'verified' || subStatus === 'verified') {
+                  existing.kycStatus = updatedStatus as any;
+                  (existing as any).kycstatus = updatedStatus as any;
+                }
+                existing.kycPhotoUrl = parsed.kycPhotoUrl || parsed.selfie || existing.kycPhotoUrl;
+                existing.kycPaymentProofUrl = parsed.kycPaymentProofUrl || parsed.proof || existing.kycPaymentProofUrl;
+                existing.kycChain = parsed.kycChain || parsed.chain || existing.kycChain;
+                existing.kycTxHash = parsed.kycTxHash || parsed.txHash || existing.kycTxHash;
+                existing.kycSubmittedAt = parsed.kycSubmittedAt || parsed.submittedAt || existing.kycSubmittedAt;
+                userMap.set(targetUid, existing);
+              } else if (hasProofs || subStatus === 'pending') {
+                // User submitted KYC but wasn't in recent users list
+                userMap.set(targetUid, {
+                  uid: targetUid,
+                  email: parsed.userEmail || '',
+                  name: parsed.userName || (parsed.userEmail ? parsed.userEmail.split('@')[0] : 'Miner'),
+                  balance: 0,
+                  usdtBalance: 0,
+                  miningRate: 0.5,
+                  kycStatus: subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending',
+                  kycstatus: subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending',
+                  kycPhotoUrl: parsed.kycPhotoUrl || parsed.selfie,
+                  kycPaymentProofUrl: parsed.kycPaymentProofUrl || parsed.proof,
+                  kycChain: parsed.kycChain || parsed.chain || 'BNB',
+                  kycTxHash: parsed.kycTxHash || parsed.txHash,
+                  kycSubmittedAt: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
+                  joinDate: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
+                  referralCount: 0,
+                  role: 'user',
+                  isActive: true
+                } as any);
+              }
+            }
+          } catch (e) {
+            console.warn("KYC row parsing error:", row.id, e);
+          }
+        }
+        setLoadedKycProofs(prev => ({ ...prev, ...proofsMap }));
+      }
+
       const allUsers = Array.from(userMap.values());
       const cleaned = allUsers.map(u => {
-        const rawStatus = String((u as any).kycstatus || u.kycStatus || 'unverified').toLowerCase();
+        const uid = u.uid || (u as any).UID || '';
+        const proof = proofsMap[uid] || {};
+        const rawStatus = String(u.kycStatus || (u as any).kycstatus || proof.status || 'unverified').toLowerCase();
         const normStatus = (rawStatus === 'verified' ? 'verified' : rawStatus === 'pending' ? 'pending' : rawStatus === 'rejected' ? 'rejected' : 'unverified') as any;
         return {
           ...u,
           kycStatus: normStatus,
-          kycstatus: normStatus
+          kycstatus: normStatus,
+          kycPhotoUrl: u.kycPhotoUrl || proof.kycPhotoUrl || proof.selfie,
+          kycPaymentProofUrl: u.kycPaymentProofUrl || proof.kycPaymentProofUrl || proof.proof,
+          kycChain: u.kycChain || proof.kycChain || proof.chain,
+          kycTxHash: u.kycTxHash || proof.kycTxHash || proof.txHash,
+          kycSubmittedAt: u.kycSubmittedAt || proof.kycSubmittedAt || proof.submittedAt
         };
       });
 
       setUsers(cleaned);
-
-      // Auto-load proofs for pending applicants in small non-blocking background batches
-      const pendingUids = cleaned
-        .filter(u => u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')
-        .slice(0, 30)
-        .map(u => u.uid || (u as any).UID)
-        .filter(Boolean);
-
-      if (pendingUids.length > 0) {
-        setTimeout(async () => {
-          for (let i = 0; i < pendingUids.length; i += 3) {
-            const chunk = pendingUids.slice(i, i + 3);
-            const ids = chunk.map(id => `kyc_${id}`);
-            try {
-              const { data: kycData } = await supabase.from('settings').select('id, adsterraSnippet').in('id', ids);
-              if (kycData) {
-                const batchMap: Record<string, any> = {};
-                for (const row of kycData) {
-                  try {
-                    const parsed = JSON.parse(row.adsterraSnippet || '{}');
-                    const uid = row.id.replace('kyc_', '');
-                    batchMap[uid] = parsed;
-                  } catch (e) {}
-                }
-                setLoadedKycProofs(prev => ({ ...prev, ...batchMap }));
-              }
-            } catch (err) {}
-          }
-        }, 100);
-      }
     
       const { count: uCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       if (uCount !== null) setTotalUsersCount(uCount);
@@ -468,18 +511,25 @@ export function Admin() {
       }
 
       // Update in settings table
+      const proofData = loadedKycProofs[targetUid] || {};
       const kycInfo = (targetUser as any);
+      const photo = kycInfo.kycPhotoUrl || proofData.kycPhotoUrl || proofData.selfie;
+      const proofImg = kycInfo.kycPaymentProofUrl || proofData.kycPaymentProofUrl || proofData.proof;
+      const chain = kycInfo.kycChain || proofData.kycChain || proofData.chain || 'BNB';
+      const txHash = kycInfo.kycTxHash || proofData.kycTxHash || proofData.txHash;
+      const submittedAt = kycInfo.kycSubmittedAt || proofData.kycSubmittedAt || Date.now();
+
       await supabase.from('settings').upsert({
         id: `kyc_${targetUid}`,
         adsterraSnippet: JSON.stringify({
           userId: targetUid,
           userEmail: targetUser.email,
           userName: targetUser.name,
-          kycPhotoUrl: kycInfo.kycPhotoUrl,
-          kycPaymentProofUrl: kycInfo.kycPaymentProofUrl,
-          kycChain: kycInfo.kycChain,
-          kycTxHash: kycInfo.kycTxHash,
-          kycSubmittedAt: kycInfo.kycSubmittedAt || Date.now(),
+          kycPhotoUrl: photo,
+          kycPaymentProofUrl: proofImg,
+          kycChain: chain,
+          kycTxHash: txHash,
+          kycSubmittedAt: submittedAt,
           status: 'verified',
           approvedAt: Date.now()
         })
@@ -526,18 +576,25 @@ export function Admin() {
         }).ilike('email', targetUser.email);
       }
 
+      const proofData = loadedKycProofs[targetUid] || {};
       const kycInfo = (targetUser as any);
+      const photo = kycInfo.kycPhotoUrl || proofData.kycPhotoUrl || proofData.selfie;
+      const proofImg = kycInfo.kycPaymentProofUrl || proofData.kycPaymentProofUrl || proofData.proof;
+      const chain = kycInfo.kycChain || proofData.kycChain || proofData.chain || 'BNB';
+      const txHash = kycInfo.kycTxHash || proofData.kycTxHash || proofData.txHash;
+      const submittedAt = kycInfo.kycSubmittedAt || proofData.kycSubmittedAt || Date.now();
+
       await supabase.from('settings').upsert({
         id: `kyc_${targetUid}`,
         adsterraSnippet: JSON.stringify({
           userId: targetUid,
           userEmail: targetUser.email,
           userName: targetUser.name,
-          kycPhotoUrl: kycInfo.kycPhotoUrl,
-          kycPaymentProofUrl: kycInfo.kycPaymentProofUrl,
-          kycChain: kycInfo.kycChain,
-          kycTxHash: kycInfo.kycTxHash,
-          kycSubmittedAt: kycInfo.kycSubmittedAt,
+          kycPhotoUrl: photo,
+          kycPaymentProofUrl: proofImg,
+          kycChain: chain,
+          kycTxHash: txHash,
+          kycSubmittedAt: submittedAt,
           status: 'rejected',
           rejectionReason: reason,
           rejectedAt: Date.now()
