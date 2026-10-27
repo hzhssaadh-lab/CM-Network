@@ -50,7 +50,7 @@ export function Admin() {
 
   // KYC Section State
   const [kycSearchQuery, setKycSearchQuery] = useState('');
-  const [kycFilterStatus, setKycFilterStatus] = useState<'all' | 'pending' | 'verified' | 'rejected'>('pending');
+  const [kycFilterStatus, setKycFilterStatus] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
   const [selectedProofModal, setSelectedProofModal] = useState<{ title: string; imageUrl: string; user?: UserProfile } | null>(null);
 
   // Node Applications State
@@ -87,7 +87,7 @@ export function Admin() {
     const proofImg = u?.kycPaymentProofUrl || u?.kyc_payment_proof_url || proof.kycPaymentProofUrl || proof.proof || '';
     const hasProof = Boolean((photo && String(photo).length > 20) || (proofImg && String(proofImg).length > 20));
     const hasMeta = Boolean(u.kycSubmittedAt || u.kyc_submitted_at || u.kycChain || u.kyc_chain || u.kycTxHash || u.kyc_tx_hash || proof.kycSubmittedAt || proof.kycChain || proof.kycTxHash);
-    return status === 'pending' || hasProof || hasMeta;
+    return status === 'pending' || status === 'verified' || status === 'approved' || status === 'rejected' || hasProof || hasMeta;
   };
 
   const loadKycProofForUser = async (uid: string) => {
@@ -290,19 +290,21 @@ export function Admin() {
           
         if (data) {
           const cleaned = (data as UserProfile[]).map(u => {
-            const isExplicitlyApproved = u.kycStatus === 'verified' && Boolean((u as any).kycApprovedAt || (u as any).kyc_approved_at);
+            const uid = u.uid || (u as any).UID || '';
+            const proof = loadedKycProofs[uid] || {};
+            const rawStatus = String(u.kycStatus || (u as any).kycstatus || proof.status || '').toLowerCase();
             const hasSubmission = hasUserSubmittedKyc(u);
 
-            if (isExplicitlyApproved) {
-              return { ...u, kycStatus: 'verified' as any };
+            if (rawStatus === 'verified' || rawStatus === 'approved') {
+              return { ...u, kycStatus: 'verified' as any, kycstatus: 'verified' as any };
             }
-            if (hasSubmission && (u.kycStatus === 'pending' || !u.kycStatus)) {
-              return { ...u, kycStatus: 'pending' as any };
+            if (rawStatus === 'rejected') {
+              return { ...u, kycStatus: 'rejected' as any, kycstatus: 'rejected' as any };
             }
-            if (hasSubmission && u.kycStatus === 'rejected') {
-              return { ...u, kycStatus: 'rejected' as any };
+            if (rawStatus === 'pending' || hasSubmission) {
+              return { ...u, kycStatus: 'pending' as any, kycstatus: 'pending' as any };
             }
-            return { ...u, kycStatus: 'unverified' as any };
+            return { ...u, kycStatus: 'unverified' as any, kycstatus: 'unverified' as any };
           });
           setUsers(cleaned);
         }
@@ -316,11 +318,11 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      // 1. Fetch ALL users who have pending KYC directly from users table (fast, guaranteed complete)
-      const { data: pendingUsersData } = await supabase
+      // 1. Fetch ALL users who have submitted KYC (pending, verified, or rejected) directly from users table
+      const { data: kycUsersData } = await supabase
         .from('users')
         .select('*')
-        .or('kycstatus.eq.pending,kycStatus.eq.pending');
+        .or('kycstatus.eq.pending,kycStatus.eq.pending,kycstatus.eq.verified,kycStatus.eq.verified,kycstatus.eq.rejected,kycStatus.eq.rejected');
 
       // 2. Fetch recent users (limit 2000)
       const { data: userData } = await supabase
@@ -334,9 +336,9 @@ export function Admin() {
         .from('settings')
         .select('id, adsterraSnippet')
         .like('id', 'kyc_%')
-        .limit(500);
+        .limit(1000);
 
-      // Merge pending users with recent users so no pending application is ever omitted
+      // Merge kycUsers with recent users so no application (pending, verified, or rejected) is ever omitted
       const userMap = new Map<string, UserProfile>();
 
       if (userData) {
@@ -346,12 +348,12 @@ export function Admin() {
         }
       }
 
-      if (pendingUsersData) {
-        for (const pu of pendingUsersData as UserProfile[]) {
-          const uid = pu.uid || (pu as any).UID;
+      if (kycUsersData) {
+        for (const ku of kycUsersData as UserProfile[]) {
+          const uid = ku.uid || (ku as any).UID;
           if (uid) {
             const existing = userMap.get(uid);
-            userMap.set(uid, { ...existing, ...pu });
+            userMap.set(uid, { ...existing, ...ku });
           }
         }
       }
@@ -371,19 +373,20 @@ export function Admin() {
               const hasProofs = Boolean(parsed.kycPhotoUrl || parsed.kycPaymentProofUrl || parsed.selfie || parsed.proof);
 
               if (existing) {
-                // If user is currently unverified or pending, sync their active submission status and media
+                // Sync active submission status and media
                 const updatedStatus = subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending';
-                if (existing.kycStatus !== 'verified' || subStatus === 'verified') {
-                  existing.kycStatus = updatedStatus as any;
-                  (existing as any).kycstatus = updatedStatus as any;
-                }
+                existing.kycStatus = updatedStatus as any;
+                (existing as any).kycstatus = updatedStatus as any;
                 existing.kycPhotoUrl = parsed.kycPhotoUrl || parsed.selfie || existing.kycPhotoUrl;
                 existing.kycPaymentProofUrl = parsed.kycPaymentProofUrl || parsed.proof || existing.kycPaymentProofUrl;
                 existing.kycChain = parsed.kycChain || parsed.chain || existing.kycChain;
                 existing.kycTxHash = parsed.kycTxHash || parsed.txHash || existing.kycTxHash;
                 existing.kycSubmittedAt = parsed.kycSubmittedAt || parsed.submittedAt || existing.kycSubmittedAt;
+                (existing as any).rejectionReason = parsed.rejectionReason || (existing as any).rejectionReason;
+                (existing as any).kycApprovedAt = parsed.approvedAt || (existing as any).kycApprovedAt;
+                (existing as any).kycRejectedAt = parsed.rejectedAt || (existing as any).kycRejectedAt;
                 userMap.set(targetUid, existing);
-              } else if (hasProofs || subStatus === 'pending') {
+              } else if (hasProofs || subStatus === 'pending' || subStatus === 'verified' || subStatus === 'rejected') {
                 // User submitted KYC but wasn't in recent users list
                 userMap.set(targetUid, {
                   uid: targetUid,
@@ -399,6 +402,9 @@ export function Admin() {
                   kycChain: parsed.kycChain || parsed.chain || 'BNB',
                   kycTxHash: parsed.kycTxHash || parsed.txHash,
                   kycSubmittedAt: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
+                  rejectionReason: parsed.rejectionReason,
+                  kycApprovedAt: parsed.approvedAt,
+                  kycRejectedAt: parsed.rejectedAt,
                   joinDate: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
                   referralCount: 0,
                   role: 'user',
@@ -418,16 +424,25 @@ export function Admin() {
         const uid = u.uid || (u as any).UID || '';
         const proof = proofsMap[uid] || {};
         const rawStatus = String(u.kycStatus || (u as any).kycstatus || proof.status || 'unverified').toLowerCase();
-        const normStatus = (rawStatus === 'verified' ? 'verified' : rawStatus === 'pending' ? 'pending' : rawStatus === 'rejected' ? 'rejected' : 'unverified') as any;
+        const normStatus = (rawStatus === 'verified' || rawStatus === 'approved') 
+          ? 'verified' 
+          : rawStatus === 'rejected' 
+          ? 'rejected' 
+          : (rawStatus === 'pending' || hasUserSubmittedKyc(u) || proof.kycPhotoUrl) 
+          ? 'pending' 
+          : 'unverified';
         return {
           ...u,
-          kycStatus: normStatus,
-          kycstatus: normStatus,
+          kycStatus: normStatus as any,
+          kycstatus: normStatus as any,
           kycPhotoUrl: u.kycPhotoUrl || proof.kycPhotoUrl || proof.selfie,
           kycPaymentProofUrl: u.kycPaymentProofUrl || proof.kycPaymentProofUrl || proof.proof,
           kycChain: u.kycChain || proof.kycChain || proof.chain,
           kycTxHash: u.kycTxHash || proof.kycTxHash || proof.txHash,
-          kycSubmittedAt: u.kycSubmittedAt || proof.kycSubmittedAt || proof.submittedAt
+          kycSubmittedAt: u.kycSubmittedAt || proof.kycSubmittedAt || proof.submittedAt,
+          kycApprovedAt: (u as any).kycApprovedAt || proof.approvedAt,
+          kycRejectedAt: (u as any).kycRejectedAt || proof.rejectedAt,
+          rejectionReason: (u as any).rejectionReason || proof.rejectionReason
         };
       });
 
@@ -1979,6 +1994,22 @@ export function Admin() {
                 {users.filter(u => ['pending', 'verified', 'rejected'].includes((u.kycStatus || (u as any).kycstatus || '').toLowerCase()) || hasUserSubmittedKyc(u)).length}
               </p>
             </div>
+            <div className="p-4 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+              <span className="text-[10px] text-emerald-400 uppercase font-black tracking-wider block flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Approved ({users.filter(u => (u.kycStatus === 'verified' || (u as any).kycstatus === 'verified')).length})
+              </span>
+              <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
+                {users.filter(u => (u.kycStatus === 'verified' || (u as any).kycstatus === 'verified')).length}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-black/60 border border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+              <span className="text-[10px] text-red-400 uppercase font-black tracking-wider block flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 text-red-400" /> Rejected ({users.filter(u => (u.kycStatus === 'rejected' || (u as any).kycstatus === 'rejected')).length})
+              </span>
+              <p className="text-2xl font-black text-red-400 font-mono mt-1">
+                {users.filter(u => (u.kycStatus === 'rejected' || (u as any).kycstatus === 'rejected')).length}
+              </p>
+            </div>
             <div className="p-4 rounded-2xl bg-black/60 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]">
               <span className="text-[10px] text-amber-400 uppercase font-black tracking-wider block flex items-center gap-1">
                 <Clock className="w-3 h-3 text-amber-400" /> Pending Review
@@ -1987,36 +2018,20 @@ export function Admin() {
                 {users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')).length}
               </p>
             </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-emerald-500/40">
-              <span className="text-[10px] text-emerald-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Verified Users
-              </span>
-              <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
-                {users.filter(u => u.kycStatus === 'verified').length}
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-black/60 border border-red-500/40">
-              <span className="text-[10px] text-red-400 uppercase font-black tracking-wider block flex items-center gap-1">
-                <AlertCircle className="w-3 h-3 text-red-400" /> Rejected
-              </span>
-              <p className="text-2xl font-black text-red-400 font-mono mt-1">
-                {users.filter(u => (u.kycStatus === 'rejected' || (u as any).kycstatus === 'rejected')).length}
-              </p>
-            </div>
           </div>
 
           {/* Filters & Search */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
               <button
-                onClick={() => setKycFilterStatus('pending')}
+                onClick={() => setKycFilterStatus('all')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  kycFilterStatus === 'pending' 
-                    ? 'bg-amber-500 text-black shadow' 
+                  kycFilterStatus === 'all' 
+                    ? 'bg-white text-black shadow' 
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                Pending ({users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')).length})
+                All Submissions ({users.filter(u => ['pending', 'verified', 'rejected'].includes((u.kycStatus || (u as any).kycstatus || '').toLowerCase()) || hasUserSubmittedKyc(u)).length})
               </button>
               <button
                 onClick={() => setKycFilterStatus('verified')}
@@ -2026,7 +2041,7 @@ export function Admin() {
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                Verified ({users.filter(u => u.kycStatus === 'verified').length})
+                ✓ Approved ({users.filter(u => (u.kycStatus === 'verified' || (u as any).kycstatus === 'verified')).length})
               </button>
               <button
                 onClick={() => setKycFilterStatus('rejected')}
@@ -2036,17 +2051,17 @@ export function Admin() {
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                Rejected ({users.filter(u => (u.kycStatus === 'rejected' || (u as any).kycstatus === 'rejected')).length})
+                ✕ Rejected ({users.filter(u => (u.kycStatus === 'rejected' || (u as any).kycstatus === 'rejected')).length})
               </button>
               <button
-                onClick={() => setKycFilterStatus('all')}
+                onClick={() => setKycFilterStatus('pending')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  kycFilterStatus === 'all' 
-                    ? 'bg-white text-black shadow' 
+                  kycFilterStatus === 'pending' 
+                    ? 'bg-amber-500 text-black shadow' 
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                All Submissions
+                ⏳ Pending ({users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')).length})
               </button>
             </div>
 
@@ -2174,6 +2189,59 @@ export function Admin() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Status Notice Banner */}
+                      {u.kycStatus === 'rejected' && (
+                        <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
+                          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-bold text-red-400 uppercase tracking-wider block">
+                              KYC Application Status: Rejected
+                            </span>
+                            <p className="text-xs text-red-300">
+                              Reason: {proofData.rejectionReason || (u as any).rejectionReason || (u as any).kycRejectionReason || 'Fee verification or selfie unclear'}
+                            </p>
+                            {(proofData.rejectedAt || (u as any).kycRejectedAt) && (
+                              <span className="text-[10px] text-gray-500 font-mono block mt-1">
+                                Rejected on: {new Date(proofData.rejectedAt || (u as any).kycRejectedAt).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {u.kycStatus === 'verified' && (
+                        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-3">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
+                              KYC Status: Approved & Verified
+                            </span>
+                            <p className="text-xs text-emerald-300">
+                              User identity confirmed. Node operator eligibility and P2P trading unlocked.
+                            </p>
+                            {(proofData.approvedAt || (u as any).kycApprovedAt) && (
+                              <span className="text-[10px] text-gray-500 font-mono block mt-1">
+                                Approved on: {new Date(proofData.approvedAt || (u as any).kycApprovedAt).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {u.kycStatus === 'pending' && (
+                        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+                          <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
+                              KYC Status: Pending Admin Verification
+                            </span>
+                            <p className="text-xs text-amber-300/80 mt-0.5">
+                              Please review live selfie photo and gas fee transaction screenshot below to verify user.
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Proofs Grid: Front Camera Selfie vs Payment Screenshot */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2304,29 +2372,40 @@ export function Admin() {
                       {/* Action Decision Buttons */}
                       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-white/5">
                         <span className="text-xs text-gray-500">
-                          Review decision will update the user&apos;s KYC status across the entire network in real time.
+                          {u.kycStatus === 'verified' ? (
+                            <span className="text-emerald-400 font-medium">✓ User KYC is currently Approved & Active across the network.</span>
+                          ) : u.kycStatus === 'rejected' ? (
+                            <span className="text-red-400 font-medium">✕ User KYC is currently Rejected. You can re-approve or reset.</span>
+                          ) : (
+                            <span>Review decision will update the user&apos;s KYC status across the entire network in real time.</span>
+                          )}
                         </span>
                         <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
                           <button
                             onClick={() => handleResetKyc(u)}
                             className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-bold transition-colors"
+                            title="Reset KYC status back to unverified"
                           >
                             Reset
                           </button>
-                          <button
-                            onClick={() => handleRejectKyc(u)}
-                            className="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Reject KYC</span>
-                          </button>
-                          <button
-                            onClick={() => handleApproveKyc(u)}
-                            className="px-5 py-2 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 flex items-center gap-1.5"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Approve KYC ✓</span>
-                          </button>
+                          {u.kycStatus !== 'rejected' && (
+                            <button
+                              onClick={() => handleRejectKyc(u)}
+                              className="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Reject KYC</span>
+                            </button>
+                          )}
+                          {u.kycStatus !== 'verified' && (
+                            <button
+                              onClick={() => handleApproveKyc(u)}
+                              className="px-5 py-2 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 flex items-center gap-1.5"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>{u.kycStatus === 'rejected' ? 'Re-Approve KYC ✓' : 'Approve KYC ✓'}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
