@@ -111,7 +111,38 @@ export function Kyc() {
     }
   };
 
-  const capturePhoto = () => {
+  const compressImage = (dataUrl: string, maxWidth = 800, maxHeight = 800, quality = 0.65): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
     const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth || 640;
@@ -119,8 +150,9 @@ export function Kyc() {
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setSelfieData(dataUrl);
+      const rawDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const compressed = await compressImage(rawDataUrl, 800, 800, 0.65);
+      setSelfieData(compressed);
       toast.success('Front camera selfie captured! ✓', { icon: '📸' });
     }
     stopCamera();
@@ -144,14 +176,17 @@ export function Kyc() {
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const result = event.target?.result as string;
-      if (target === 'selfie') {
-        setSelfieData(result);
-        toast.success('Front camera photo uploaded! ✓');
-      } else {
-        setProofData(result);
-        toast.success('Payment screenshot uploaded! ✓');
+      if (result) {
+        const compressed = await compressImage(result, 800, 800, 0.65);
+        if (target === 'selfie') {
+          setSelfieData(compressed);
+          toast.success('Front camera photo uploaded! ✓');
+        } else {
+          setProofData(compressed);
+          toast.success('Payment screenshot uploaded! ✓');
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -175,6 +210,7 @@ export function Kyc() {
 
       const kycData = {
         kycStatus: 'pending' as const,
+        kycstatus: 'pending' as const,
         kycSubmittedAt: now,
         kycPhotoUrl: selfieData,
         kycChain: selectedChain,

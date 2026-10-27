@@ -75,11 +75,35 @@ export function Admin() {
   const [editMiningRate, setEditMiningRate] = useState('');
   const [editKycStatus, setEditKycStatus] = useState<string>('unverified');
   const [editNodeStatus, setEditNodeStatus] = useState<string>('none');
+  const [loadedKycProofs, setLoadedKycProofs] = useState<Record<string, any>>({});
+  const [loadingKycProofs, setLoadingKycProofs] = useState<Record<string, boolean>>({});
 
   const hasUserSubmittedKyc = (u: any) => {
+    if (!u) return false;
+    const status = String(u.kycStatus || u.kycstatus || '').toLowerCase();
     const photo = u?.kycPhotoUrl || u?.kyc_photo_url || '';
     const proof = u?.kycPaymentProofUrl || u?.kyc_payment_proof_url || '';
-    return Boolean((photo && String(photo).length > 20) || (proof && String(proof).length > 20));
+    const hasProof = Boolean((photo && String(photo).length > 20) || (proof && String(proof).length > 20));
+    const hasMeta = Boolean(u.kycSubmittedAt || u.kyc_submitted_at || u.kycChain || u.kyc_chain || u.kycTxHash || u.kyc_tx_hash);
+    return status === 'pending' || hasProof || hasMeta;
+  };
+
+  const loadKycProofForUser = async (uid: string) => {
+    if (!uid || loadedKycProofs[uid] || loadingKycProofs[uid]) return;
+    setLoadingKycProofs(prev => ({ ...prev, [uid]: true }));
+    try {
+      const { data } = await supabase.from('settings').select('id, adsterraSnippet').eq('id', 'kyc_' + uid).maybeSingle();
+      if (data?.adsterraSnippet) {
+        try {
+          const parsed = JSON.parse(data.adsterraSnippet);
+          setLoadedKycProofs(prev => ({ ...prev, [uid]: parsed }));
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.warn('Could not load proof for user', uid, err);
+    } finally {
+      setLoadingKycProofs(prev => ({ ...prev, [uid]: false }));
+    }
   };
 
   // Edit Task State
@@ -290,86 +314,82 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      // Fetch all KYC submissions stored in settings table
-      const { data: kycSettings } = await supabase.from('settings').select('*').like('id', 'kyc_%');
-      const kycMap = new Map<string, any>();
-      if (kycSettings) {
-        for (const r of kycSettings) {
-          try {
-            const parsed = JSON.parse(r.adsterraSnippet || '{}');
-            const uid = r.id.replace('kyc_', '');
-            kycMap.set(uid, parsed);
-            if (parsed.userEmail) {
-              kycMap.set(parsed.userEmail.trim().toLowerCase(), parsed);
-            }
-          } catch (e) {}
-        }
-      }
+      // 1. Fetch ALL users who have pending KYC directly from users table (fast, guaranteed complete)
+      const { data: pendingUsersData } = await supabase
+        .from('users')
+        .select('*')
+        .or('kycstatus.eq.pending,kycStatus.eq.pending');
 
-      const { data: userData } = await supabase.from('users').select('*').order('joinDate', { ascending: false, nullsFirst: false }).limit(2000);
+      // 2. Fetch recent users (limit 2000)
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .order('joinDate', { ascending: false, nullsFirst: false })
+        .limit(2000);
+
+      // Merge pending users with recent users so no pending application is ever omitted
+      const userMap = new Map<string, UserProfile>();
+
       if (userData) {
-        const cleaned = (userData as UserProfile[]).map(u => {
-          const kycInfo = kycMap.get(u.uid) || kycMap.get(u.UID) || kycMap.get(u.email?.trim().toLowerCase());
-          if (kycInfo) {
-            u.kycPhotoUrl = kycInfo.kycPhotoUrl || kycInfo.selfie;
-            u.kycPaymentProofUrl = kycInfo.kycPaymentProofUrl || kycInfo.proof;
-            u.kycChain = kycInfo.kycChain || kycInfo.chain;
-            u.kycTxHash = kycInfo.kycTxHash || kycInfo.txHash;
-            u.kycSubmittedAt = kycInfo.kycSubmittedAt || kycInfo.submittedAt;
-            if (kycInfo.status === 'verified') {
-              u.kycStatus = 'verified' as any;
-              (u as any).kycApprovedAt = kycInfo.approvedAt || Date.now();
-            } else if (kycInfo.status === 'rejected') {
-              u.kycStatus = 'rejected' as any;
-            } else if (u.kycStatus !== 'verified') {
-              u.kycStatus = 'pending' as any;
-            }
-          }
-
-          const isExplicitlyApproved = u.kycStatus === 'verified' && Boolean((u as any).kycApprovedAt || (u as any).kyc_approved_at || kycInfo?.status === 'verified');
-          const hasSubmission = hasUserSubmittedKyc(u);
-
-          if (isExplicitlyApproved) {
-            return { ...u, kycStatus: 'verified' as any };
-          }
-          if (hasSubmission && (u.kycStatus === 'pending' || !u.kycStatus || u.kycStatus === 'unverified')) {
-            return { ...u, kycStatus: 'pending' as any };
-          }
-          if (hasSubmission && u.kycStatus === 'rejected') {
-            return { ...u, kycStatus: 'rejected' as any };
-          }
-          return { ...u, kycStatus: (u.kycStatus === 'verified' ? 'verified' : 'unverified') as any };
-        });
-
-        // Also ensure any KYC submissions stored in settings that might not be in the initial user query page are included
-        const existingUids = new Set(cleaned.map(u => u.uid || u.UID));
-        for (const [key, kInfo] of kycMap.entries()) {
-          const uid = kInfo.userId || key;
-          if (!existingUids.has(uid) && kInfo.userEmail) {
-            existingUids.add(uid);
-            cleaned.unshift({
-              uid: uid,
-              UID: uid,
-              email: kInfo.userEmail,
-              name: kInfo.userName || 'CM User',
-              kycStatus: (kInfo.status || 'pending') as any,
-              kycPhotoUrl: kInfo.kycPhotoUrl || kInfo.selfie,
-              kycPaymentProofUrl: kInfo.kycPaymentProofUrl || kInfo.proof,
-              kycChain: kInfo.kycChain || kInfo.chain,
-              kycTxHash: kInfo.kycTxHash || kInfo.txHash,
-              kycSubmittedAt: kInfo.kycSubmittedAt || kInfo.submittedAt,
-              balance: 0,
-              totalMined: 0,
-              usdtBalance: 0,
-              isActive: true,
-              role: 'user'
-            } as any);
-          }
+        for (const u of userData as UserProfile[]) {
+          const uid = u.uid || (u as any).UID;
+          if (uid) userMap.set(uid, u);
         }
-
-        setUsers(cleaned);
       }
 
+      if (pendingUsersData) {
+        for (const pu of pendingUsersData as UserProfile[]) {
+          const uid = pu.uid || (pu as any).UID;
+          if (uid) {
+            const existing = userMap.get(uid);
+            userMap.set(uid, { ...existing, ...pu });
+          }
+        }
+      }
+
+      const allUsers = Array.from(userMap.values());
+      const cleaned = allUsers.map(u => {
+        const rawStatus = String((u as any).kycstatus || u.kycStatus || 'unverified').toLowerCase();
+        const normStatus = (rawStatus === 'verified' ? 'verified' : rawStatus === 'pending' ? 'pending' : rawStatus === 'rejected' ? 'rejected' : 'unverified') as any;
+        return {
+          ...u,
+          kycStatus: normStatus,
+          kycstatus: normStatus
+        };
+      });
+
+      setUsers(cleaned);
+
+      // Auto-load proofs for pending applicants in small non-blocking background batches
+      const pendingUids = cleaned
+        .filter(u => u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')
+        .slice(0, 30)
+        .map(u => u.uid || (u as any).UID)
+        .filter(Boolean);
+
+      if (pendingUids.length > 0) {
+        setTimeout(async () => {
+          for (let i = 0; i < pendingUids.length; i += 3) {
+            const chunk = pendingUids.slice(i, i + 3);
+            const ids = chunk.map(id => `kyc_${id}`);
+            try {
+              const { data: kycData } = await supabase.from('settings').select('id, adsterraSnippet').in('id', ids);
+              if (kycData) {
+                const batchMap: Record<string, any> = {};
+                for (const row of kycData) {
+                  try {
+                    const parsed = JSON.parse(row.adsterraSnippet || '{}');
+                    const uid = row.id.replace('kyc_', '');
+                    batchMap[uid] = parsed;
+                  } catch (e) {}
+                }
+                setLoadedKycProofs(prev => ({ ...prev, ...batchMap }));
+              }
+            } catch (err) {}
+          }
+        }, 100);
+      }
+    
       const { count: uCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       if (uCount !== null) setTotalUsersCount(uCount);
 
@@ -1532,9 +1552,9 @@ export function Admin() {
         >
           <ShieldCheck className="w-4 h-4" />
           <span>KYC Verifications</span>
-          {users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length > 0 && (
+          {users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')).length > 0 && (
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-400 text-black font-black animate-pulse">
-              {users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length}
+              {users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')).length}
             </span>
           )}
         </button>
@@ -1899,7 +1919,7 @@ export function Admin() {
             <div className="p-4 rounded-2xl bg-black/60 border border-white/10">
               <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Total Submissions</span>
               <p className="text-2xl font-black text-white font-mono mt-1">
-                {users.filter(u => hasUserSubmittedKyc(u) || u.kycStatus === 'verified').length}
+                {users.filter(u => ['pending', 'verified', 'rejected'].includes((u.kycStatus || (u as any).kycstatus || '').toLowerCase()) || hasUserSubmittedKyc(u)).length}
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-black/60 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]">
@@ -1907,7 +1927,7 @@ export function Admin() {
                 <Clock className="w-3 h-3 text-amber-400" /> Pending Review
               </span>
               <p className="text-2xl font-black text-amber-400 font-mono mt-1">
-                {users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length}
+                {users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')).length}
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-black/60 border border-emerald-500/40">
@@ -1923,7 +1943,7 @@ export function Admin() {
                 <AlertCircle className="w-3 h-3 text-red-400" /> Rejected
               </span>
               <p className="text-2xl font-black text-red-400 font-mono mt-1">
-                {users.filter(u => u.kycStatus === 'rejected' && hasUserSubmittedKyc(u)).length}
+                {users.filter(u => (u.kycStatus === 'rejected' || (u as any).kycstatus === 'rejected')).length}
               </p>
             </div>
           </div>
@@ -1939,7 +1959,7 @@ export function Admin() {
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                Pending ({users.filter(u => u.kycStatus === 'pending' && hasUserSubmittedKyc(u)).length})
+                Pending ({users.filter(u => (u.kycStatus === 'pending' || (u as any).kycstatus === 'pending')).length})
               </button>
               <button
                 onClick={() => setKycFilterStatus('verified')}
@@ -1959,7 +1979,7 @@ export function Admin() {
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                Rejected ({users.filter(u => u.kycStatus === 'rejected' && hasUserSubmittedKyc(u)).length})
+                Rejected ({users.filter(u => (u.kycStatus === 'rejected' || (u as any).kycstatus === 'rejected')).length})
               </button>
               <button
                 onClick={() => setKycFilterStatus('all')}
@@ -1987,18 +2007,18 @@ export function Admin() {
           {/* Submissions List */}
           {(() => {
             const kycUsers = users.filter(u => {
-              const applied = hasUserSubmittedKyc(u);
-              // Crucial: Only show users if they have submitted proof/selfie or are verified
-              if (!applied && u.kycStatus !== 'verified') return false;
+              const status = (u.kycStatus || (u as any).kycstatus || 'unverified').toLowerCase();
+              const applied = hasUserSubmittedKyc(u) || status === 'pending' || status === 'verified' || status === 'rejected';
+              if (!applied && status === 'unverified') return false;
 
               if (kycFilterStatus === 'pending') {
-                if (u.kycStatus !== 'pending' || !applied) return false;
+                if (status !== 'pending') return false;
               } else if (kycFilterStatus === 'verified') {
-                if (u.kycStatus !== 'verified') return false;
+                if (status !== 'verified') return false;
               } else if (kycFilterStatus === 'rejected') {
-                if (u.kycStatus !== 'rejected' || !applied) return false;
+                if (status !== 'rejected') return false;
               } else {
-                if (!applied && u.kycStatus !== 'verified') return false;
+                if (status === 'unverified' && !hasUserSubmittedKyc(u)) return false;
               }
 
               if (kycSearchQuery.trim()) {
@@ -2030,7 +2050,16 @@ export function Admin() {
             return (
               <div className="space-y-4">
                 {kycUsers.map((u) => {
-                  const feeInfo = u.kycChain === 'SOL'
+                  const uidKey = u.uid || (u as any).UID || '';
+                  const proofData = loadedKycProofs[uidKey] || {};
+                  const photoUrl = u.kycPhotoUrl || (u as any).kyc_photo_url || proofData.kycPhotoUrl || proofData.selfie;
+                  const paymentProofUrl = u.kycPaymentProofUrl || (u as any).kyc_payment_proof_url || proofData.kycPaymentProofUrl || proofData.proof;
+                  const chain = u.kycChain || (u as any).kyc_chain || proofData.kycChain || proofData.chain || 'BNB';
+                  const txHash = u.kycTxHash || (u as any).kyc_tx_hash || proofData.kycTxHash || proofData.txHash;
+                  const submittedAt = u.kycSubmittedAt || (u as any).kyc_submitted_at || proofData.kycSubmittedAt || proofData.submittedAt;
+                  const isProofLoading = loadingKycProofs[uidKey];
+
+                  const feeInfo = chain === 'SOL'
                     ? { fee: '0.004 SOL', address: '2z8hTr7ccNH6bq2kyjS9cvH9d8XFMESaWFaD9z5HSr1D' }
                     : u.kycChain === 'ETH'
                     ? { fee: '0.00017148 ETH', address: '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120' }
@@ -2063,9 +2092,9 @@ export function Admin() {
                             <div className="text-xs text-gray-400 font-mono mt-0.5 flex items-center gap-3 flex-wrap">
                               <span>Email: {u.email}</span>
                               <span>UID: {u.uid}</span>
-                              {u.kycSubmittedAt && (
+                              {(submittedAt || u.kycSubmittedAt) && (
                                 <span className="text-gray-500">
-                                  Submitted: {new Date(u.kycSubmittedAt).toLocaleString()}
+                                  Submitted: {submittedAt ? new Date(submittedAt).toLocaleString() : 'Recently'}
                                 </span>
                               )}
                             </div>
@@ -2097,9 +2126,9 @@ export function Admin() {
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               📸 Front Camera Live Selfie
                             </span>
-                            {u.kycPhotoUrl && (
+                            {(photoUrl || u.kycPhotoUrl) && (
                               <button
-                                onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Front Camera Selfie`, imageUrl: u.kycPhotoUrl!, user: u })}
+                                onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Front Camera Selfie`, imageUrl: (photoUrl || u.kycPhotoUrl)!, user: u })}
                                 className="text-[10px] text-emerald-400 font-bold hover:underline flex items-center gap-1"
                               >
                                 <ZoomIn className="w-3 h-3" /> Zoom Photo
@@ -2107,13 +2136,13 @@ export function Admin() {
                             )}
                           </div>
 
-                          {u.kycPhotoUrl ? (
+                          {photoUrl ? (
                             <div 
-                              onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Front Camera Selfie`, imageUrl: u.kycPhotoUrl!, user: u })}
+                              onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Front Camera Selfie`, imageUrl: photoUrl, user: u })}
                               className="relative h-44 rounded-xl overflow-hidden border border-white/10 group cursor-pointer bg-black/80 flex items-center justify-center"
                             >
                               <img 
-                                src={u.kycPhotoUrl} 
+                                src={photoUrl} 
                                 alt="Live Selfie" 
                                 className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
                               />
@@ -2123,9 +2152,22 @@ export function Admin() {
                                 </span>
                               </div>
                             </div>
+                          ) : isProofLoading ? (
+                            <div className="h-44 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center text-xs text-amber-400 gap-2">
+                              <span className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                              <span>Loading photo from secure storage...</span>
+                            </div>
                           ) : (
-                            <div className="h-44 rounded-xl border border-dashed border-white/10 flex items-center justify-center text-xs text-gray-500">
-                              No selfie photo uploaded
+                            <div className="h-44 rounded-xl border border-dashed border-white/10 flex flex-col items-center justify-center text-xs text-gray-500 gap-2">
+                              <span>No selfie photo in local cache</span>
+                              {uidKey && (
+                                <button 
+                                  onClick={() => loadKycProofForUser(uidKey)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold transition-all"
+                                >
+                                  Load From Storage
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2136,9 +2178,9 @@ export function Admin() {
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               🧾 Fee Receipt & Gas Transfer
                             </span>
-                            {u.kycPaymentProofUrl && (
+                            {(paymentProofUrl || u.kycPaymentProofUrl) && (
                               <button
-                                onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Fee Payment Screenshot`, imageUrl: u.kycPaymentProofUrl!, user: u })}
+                                onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Fee Payment Screenshot`, imageUrl: (paymentProofUrl || u.kycPaymentProofUrl)!, user: u })}
                                 className="text-[10px] text-emerald-400 font-bold hover:underline flex items-center gap-1"
                               >
                                 <ZoomIn className="w-3 h-3" /> Zoom Screenshot
@@ -2150,7 +2192,7 @@ export function Admin() {
                           <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5 text-[11px] space-y-1 font-mono">
                             <div className="flex justify-between">
                               <span className="text-gray-400">Selected Chain:</span>
-                              <span className="text-emerald-400 font-bold">{u.kycChain || 'BNB'}</span>
+                              <span className="text-emerald-400 font-bold">{chain || 'BNB'}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-400">Required Gas Fee:</span>
@@ -2159,19 +2201,19 @@ export function Admin() {
                             <div className="flex justify-between items-center pt-1 border-t border-white/5">
                               <span className="text-gray-400">TXID Hash:</span>
                               <span className="text-[#FFD700] truncate max-w-[180px]">
-                                {u.kycTxHash || 'Not provided'}
+                                {txHash || 'Not provided'}
                               </span>
                             </div>
                           </div>
 
                           {/* Screenshot image */}
-                          {u.kycPaymentProofUrl ? (
+                          {paymentProofUrl ? (
                             <div 
-                              onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Fee Payment Screenshot`, imageUrl: u.kycPaymentProofUrl!, user: u })}
+                              onClick={() => setSelectedProofModal({ title: `${u.name || u.email}'s Fee Payment Screenshot`, imageUrl: paymentProofUrl, user: u })}
                               className="relative h-28 rounded-xl overflow-hidden border border-white/10 group cursor-pointer bg-black/80 flex items-center justify-center"
                             >
                               <img 
-                                src={u.kycPaymentProofUrl} 
+                                src={paymentProofUrl} 
                                 alt="Payment Proof" 
                                 className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
                               />
@@ -2181,9 +2223,22 @@ export function Admin() {
                                 </span>
                               </div>
                             </div>
+                          ) : isProofLoading ? (
+                            <div className="h-28 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center text-xs text-amber-400 gap-2">
+                              <span className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                              <span>Loading receipt proof...</span>
+                            </div>
                           ) : (
-                            <div className="h-28 rounded-xl border border-dashed border-white/10 flex items-center justify-center text-xs text-gray-500">
-                              No payment screenshot uploaded
+                            <div className="h-28 rounded-xl border border-dashed border-white/10 flex flex-col items-center justify-center text-xs text-gray-500 gap-2">
+                              <span>No payment screenshot in cache</span>
+                              {uidKey && (
+                                <button 
+                                  onClick={() => loadKycProofForUser(uidKey)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold transition-all"
+                                >
+                                  Load From Storage
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
