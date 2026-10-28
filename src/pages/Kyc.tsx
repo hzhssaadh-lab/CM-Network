@@ -279,12 +279,11 @@ export function Kyc() {
     String(user.kycPaymentProofUrl).length > 20
   );
 
-  // User has only submitted if they just submitted or have actual valid proof images
-  const hasSubmitted = hasJustSubmitted || (liveProofsValid || cachedValid);
-
-  const isVerified = (user?.kycStatus === 'verified' || (user as any)?.kycstatus === 'verified');
-  const isRejected = (user?.kycStatus === 'rejected' || (user as any)?.kycstatus === 'rejected') && !isReSubmitting;
-  // Under review ONLY if user actually submitted real proofs and is not verified/rejected
+  const rawStatus = String(user?.kycStatus || (user as any)?.kycstatus || '').toLowerCase().trim();
+  const isVerified = rawStatus === 'verified' || rawStatus === 'approved';
+  const isRejected = rawStatus === 'rejected' && !isReSubmitting;
+  // User is under review if marked pending in DB or has just submitted or has stored proofs
+  const hasSubmitted = hasJustSubmitted || liveProofsValid || cachedValid || rawStatus === 'pending';
   const isPending = !isVerified && !isRejected && hasSubmitted && !isReSubmitting;
 
   const handleRestartKyc = async () => {

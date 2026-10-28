@@ -318,27 +318,42 @@ export function Admin() {
 
   const fetchData = async () => {
     try {
-      // 1. Fetch ALL users who have submitted KYC (pending, verified, or rejected) directly from users table
-      const { data: kycUsersData } = await supabase
-        .from('users')
-        .select('*')
-        .or('kycstatus.eq.pending,kycStatus.eq.pending,kycstatus.eq.verified,kycStatus.eq.verified,kycstatus.eq.rejected,kycStatus.eq.rejected');
+      // 1. Fetch all KYC submission IDs from settings table (instant, light query, never times out)
+      const { data: kycIdRows } = await supabase
+        .from('settings')
+        .select('id')
+        .like('id', 'kyc_%')
+        .limit(2000);
 
-      // 2. Fetch recent users (limit 2000)
+      const kycApplicantUids: string[] = [];
+      if (kycIdRows) {
+        for (const row of kycIdRows) {
+          const uid = (row.id || '').replace('kyc_', '').trim();
+          if (uid) kycApplicantUids.push(uid);
+        }
+      }
+
+      // 2. Fetch all applicant users specifically by their UIDs so none are missed
+      let applicantUsers: UserProfile[] = [];
+      if (kycApplicantUids.length > 0) {
+        for (let i = 0; i < kycApplicantUids.length; i += 50) {
+          const chunk = kycApplicantUids.slice(i, i + 50);
+          const { data: chunkUsers } = await supabase
+            .from('users')
+            .select('*')
+            .in('uid', chunk);
+          if (chunkUsers) applicantUsers.push(...(chunkUsers as UserProfile[]));
+        }
+      }
+
+      // 3. Fetch recent users (limit 2000)
       const { data: userData } = await supabase
         .from('users')
         .select('*')
         .order('joinDate', { ascending: false, nullsFirst: false })
         .limit(2000);
 
-      // 3. Fetch all KYC application submissions stored in settings table (with selfie & payment receipts)
-      const { data: kycSettingsData } = await supabase
-        .from('settings')
-        .select('id, adsterraSnippet')
-        .like('id', 'kyc_%')
-        .limit(1000);
-
-      // Merge kycUsers with recent users so no application (pending, verified, or rejected) is ever omitted
+      // Merge applicant users with recent users so no user is ever omitted
       const userMap = new Map<string, UserProfile>();
 
       if (userData) {
@@ -348,74 +363,91 @@ export function Admin() {
         }
       }
 
-      if (kycUsersData) {
-        for (const ku of kycUsersData as UserProfile[]) {
-          const uid = ku.uid || (ku as any).UID;
+      if (applicantUsers.length > 0) {
+        for (const au of applicantUsers) {
+          const uid = au.uid || (au as any).UID;
           if (uid) {
             const existing = userMap.get(uid);
-            userMap.set(uid, { ...existing, ...ku });
+            userMap.set(uid, { ...existing, ...au });
           }
         }
       }
 
-      // Populate KYC proofs and merge submission applicants
+      // 4. Fetch KYC settings details in small batches of 5 so PostgREST never times out
       const proofsMap: Record<string, any> = {};
-      if (kycSettingsData && kycSettingsData.length > 0) {
-        for (const row of kycSettingsData) {
-          try {
-            const parsed = JSON.parse(row.adsterraSnippet || '{}');
-            const targetUid = (row.id.replace('kyc_', '') || parsed.userId || '').trim();
-            if (targetUid) {
-              proofsMap[targetUid] = parsed;
-
-              const existing = userMap.get(targetUid);
-              const subStatus = (parsed.status || 'pending').toLowerCase();
-              const hasProofs = Boolean(parsed.kycPhotoUrl || parsed.kycPaymentProofUrl || parsed.selfie || parsed.proof);
-
-              if (existing) {
-                // Sync active submission status and media
-                const updatedStatus = subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending';
-                existing.kycStatus = updatedStatus as any;
-                (existing as any).kycstatus = updatedStatus as any;
-                existing.kycPhotoUrl = parsed.kycPhotoUrl || parsed.selfie || existing.kycPhotoUrl;
-                existing.kycPaymentProofUrl = parsed.kycPaymentProofUrl || parsed.proof || existing.kycPaymentProofUrl;
-                existing.kycChain = parsed.kycChain || parsed.chain || existing.kycChain;
-                existing.kycTxHash = parsed.kycTxHash || parsed.txHash || existing.kycTxHash;
-                existing.kycSubmittedAt = parsed.kycSubmittedAt || parsed.submittedAt || existing.kycSubmittedAt;
-                (existing as any).rejectionReason = parsed.rejectionReason || (existing as any).rejectionReason;
-                (existing as any).kycApprovedAt = parsed.approvedAt || (existing as any).kycApprovedAt;
-                (existing as any).kycRejectedAt = parsed.rejectedAt || (existing as any).kycRejectedAt;
-                userMap.set(targetUid, existing);
-              } else if (hasProofs || subStatus === 'pending' || subStatus === 'verified' || subStatus === 'rejected') {
-                // User submitted KYC but wasn't in recent users list
-                userMap.set(targetUid, {
-                  uid: targetUid,
-                  email: parsed.userEmail || '',
-                  name: parsed.userName || (parsed.userEmail ? parsed.userEmail.split('@')[0] : 'Miner'),
-                  balance: 0,
-                  usdtBalance: 0,
-                  miningRate: 0.5,
-                  kycStatus: subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending',
-                  kycstatus: subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending',
-                  kycPhotoUrl: parsed.kycPhotoUrl || parsed.selfie,
-                  kycPaymentProofUrl: parsed.kycPaymentProofUrl || parsed.proof,
-                  kycChain: parsed.kycChain || parsed.chain || 'BNB',
-                  kycTxHash: parsed.kycTxHash || parsed.txHash,
-                  kycSubmittedAt: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
-                  rejectionReason: parsed.rejectionReason,
-                  kycApprovedAt: parsed.approvedAt,
-                  kycRejectedAt: parsed.rejectedAt,
-                  joinDate: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
-                  referralCount: 0,
-                  role: 'user',
-                  isActive: true
-                } as any);
-              }
-            }
-          } catch (e) {
-            console.warn("KYC row parsing error:", row.id, e);
-          }
+      if (kycIdRows && kycIdRows.length > 0) {
+        const chunkIdsList: string[][] = [];
+        for (let i = 0; i < kycIdRows.length; i += 5) {
+          chunkIdsList.push(kycIdRows.slice(i, i + 5).map(r => r.id));
         }
+
+        await Promise.all(
+          chunkIdsList.map(async (batch) => {
+            try {
+              const { data: batchRows } = await supabase
+                .from('settings')
+                .select('id, adsterraSnippet')
+                .in('id', batch);
+
+              if (batchRows) {
+                for (const row of batchRows) {
+                  try {
+                    const parsed = JSON.parse(row.adsterraSnippet || '{}');
+                    const targetUid = (row.id.replace('kyc_', '') || parsed.userId || '').trim();
+                    if (targetUid) {
+                      proofsMap[targetUid] = parsed;
+
+                      const existing = userMap.get(targetUid);
+                      const subStatus = (parsed.status || 'pending').toLowerCase();
+                      const updatedStatus = subStatus === 'verified' ? 'verified' : subStatus === 'rejected' ? 'rejected' : 'pending';
+
+                      if (existing) {
+                        existing.kycStatus = updatedStatus as any;
+                        (existing as any).kycstatus = updatedStatus as any;
+                        existing.kycPhotoUrl = parsed.kycPhotoUrl || parsed.selfie || existing.kycPhotoUrl;
+                        existing.kycPaymentProofUrl = parsed.kycPaymentProofUrl || parsed.proof || existing.kycPaymentProofUrl;
+                        existing.kycChain = parsed.kycChain || parsed.chain || existing.kycChain;
+                        existing.kycTxHash = parsed.kycTxHash || parsed.txHash || existing.kycTxHash;
+                        existing.kycSubmittedAt = parsed.kycSubmittedAt || parsed.submittedAt || existing.kycSubmittedAt;
+                        (existing as any).rejectionReason = parsed.rejectionReason || (existing as any).rejectionReason;
+                        (existing as any).kycApprovedAt = parsed.approvedAt || (existing as any).kycApprovedAt;
+                        (existing as any).kycRejectedAt = parsed.rejectedAt || (existing as any).kycRejectedAt;
+                        userMap.set(targetUid, existing);
+                      } else {
+                        userMap.set(targetUid, {
+                          uid: targetUid,
+                          email: parsed.userEmail || '',
+                          name: parsed.userName || (parsed.userEmail ? parsed.userEmail.split('@')[0] : 'Miner'),
+                          balance: 0,
+                          usdtBalance: 0,
+                          miningRate: 0.5,
+                          kycStatus: updatedStatus as any,
+                          kycstatus: updatedStatus as any,
+                          kycPhotoUrl: parsed.kycPhotoUrl || parsed.selfie,
+                          kycPaymentProofUrl: parsed.kycPaymentProofUrl || parsed.proof,
+                          kycChain: parsed.kycChain || parsed.chain || 'BNB',
+                          kycTxHash: parsed.kycTxHash || parsed.txHash,
+                          kycSubmittedAt: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
+                          rejectionReason: parsed.rejectionReason,
+                          kycApprovedAt: parsed.approvedAt,
+                          kycRejectedAt: parsed.rejectedAt,
+                          joinDate: parsed.kycSubmittedAt || parsed.submittedAt || Date.now(),
+                          referralCount: 0,
+                          role: 'user',
+                          isActive: true
+                        } as any);
+                      }
+                    }
+                  } catch (err) {
+                    console.warn("KYC row parsing error:", row.id, err);
+                  }
+                }
+              }
+            } catch (batchErr) {
+              console.warn("KYC batch fetch error:", batchErr);
+            }
+          })
+        );
         setLoadedKycProofs(prev => ({ ...prev, ...proofsMap }));
       }
 
@@ -428,7 +460,7 @@ export function Admin() {
           ? 'verified' 
           : rawStatus === 'rejected' 
           ? 'rejected' 
-          : (rawStatus === 'pending' || hasUserSubmittedKyc(u) || proof.kycPhotoUrl) 
+          : (rawStatus === 'pending' || hasUserSubmittedKyc(u) || proof.kycPhotoUrl || proofsMap[uid]) 
           ? 'pending' 
           : 'unverified';
         return {
@@ -482,12 +514,82 @@ export function Admin() {
     setLoading(false);
   };
 
+  const handleQuickSetKyc = async (targetUser: UserProfile, targetStatus: 'verified' | 'unverified' | 'pending' | 'rejected') => {
+    const targetUid = targetUser.uid || (targetUser as any).UID;
+    if (!targetUid) return;
+
+    // 1. Instant optimistic state update in UI
+    setUsers(prev => prev.map(u => (u.uid === targetUid || (u as any).UID === targetUid) ? {
+      ...u,
+      kycStatus: targetStatus as any,
+      kycstatus: targetStatus as any
+    } : u));
+
+    toast.success(`User set to ${targetStatus.toUpperCase()} instantly! ✓`);
+
+    try {
+      // 2. Persist to DB users table (both casing variants)
+      const updateData: any = {
+        kycStatus: targetStatus,
+        kycstatus: targetStatus
+      };
+      await supabase.from('users').update(updateData).eq('uid', targetUid);
+      if (targetUser.email) {
+        await supabase.from('users').update(updateData).ilike('email', targetUser.email);
+      }
+
+      // 3. Sync to settings table
+      if (targetStatus === 'verified') {
+        let proofData = loadedKycProofs[targetUid] || {};
+        if (!proofData.kycPhotoUrl && !proofData.selfie) {
+          try {
+            const { data: row } = await supabase.from('settings').select('id, adsterraSnippet').eq('id', `kyc_${targetUid}`).maybeSingle();
+            if (row?.adsterraSnippet) proofData = JSON.parse(row.adsterraSnippet);
+          } catch (e) {}
+        }
+        const approvedPayload = {
+          userId: targetUid,
+          userEmail: targetUser.email || proofData.userEmail,
+          userName: targetUser.name || proofData.userName,
+          kycPhotoUrl: proofData.kycPhotoUrl || proofData.selfie,
+          kycPaymentProofUrl: proofData.kycPaymentProofUrl || proofData.proof,
+          kycChain: proofData.kycChain || proofData.chain || 'BNB',
+          kycTxHash: proofData.kycTxHash || proofData.txHash,
+          kycSubmittedAt: proofData.kycSubmittedAt || Date.now(),
+          status: 'verified',
+          approvedAt: Date.now()
+        };
+        await supabase.from('settings').upsert({
+          id: `kyc_${targetUid}`,
+          adsterraSnippet: JSON.stringify(approvedPayload)
+        });
+        setLoadedKycProofs(prev => ({ ...prev, [targetUid]: approvedPayload }));
+      } else if (targetStatus === 'unverified') {
+        await supabase.from('settings').delete().eq('id', `kyc_${targetUid}`);
+        setLoadedKycProofs(prev => {
+          const next = { ...prev };
+          delete next[targetUid];
+          return next;
+        });
+      }
+    } catch (err: any) {
+      console.error("Failed to quick update KYC:", err);
+      toast.error("Failed to persist KYC: " + err.message);
+    }
+  };
+
   const handleSaveUser = async () => {
     if (!editingUser) return;
     try {
       const newBal = parseFloat(editBalance) || 0;
       const newUsdt = parseFloat(editUsdtBalance) || 0;
-      await supabase.from('users').update({
+      const targetUid = editingUser.uid || (editingUser as any).UID;
+      const isVerified = editKycStatus === 'verified';
+      const isUnverified = editKycStatus === 'unverified';
+
+      // 1. Instant optimistic update in UI
+      setUsers(prev => prev.map(u => (u.uid === targetUid || (u as any).UID === targetUid) ? {
+        ...u,
         balance: newBal,
         "CM Coins": newBal,
         cm_coins: newBal,
@@ -496,12 +598,80 @@ export function Admin() {
         usdtbalance: newUsdt,
         miningRate: parseFloat(editMiningRate) || 0,
         kycStatus: editKycStatus as any,
+        kycstatus: editKycStatus as any,
         nodeStatus: editNodeStatus as any,
-      }).eq('uid', editingUser.uid);
+      } : u));
+
       setEditingUser(null);
-      fetchData();
+      toast.success("User updated instantly! ✓");
+
+      // 2. Persist to DB users table
+      const updateData: any = {
+        balance: newBal,
+        "CM Coins": newBal,
+        cm_coins: newBal,
+        usdtBalance: newUsdt,
+        "USDT": newUsdt,
+        usdtbalance: newUsdt,
+        miningRate: parseFloat(editMiningRate) || 0,
+        kycStatus: editKycStatus as any,
+        kycstatus: editKycStatus as any,
+        nodeStatus: editNodeStatus as any,
+      };
+
+      await supabase.from('users').update(updateData).eq('uid', targetUid);
+      if (editingUser.email) {
+        await supabase.from('users').update(updateData).ilike('email', editingUser.email);
+      }
+
+      // 3. Persist KYC status to settings table
+      if (isVerified) {
+        let proofData = loadedKycProofs[targetUid] || {};
+        if (!proofData.kycPhotoUrl && !proofData.selfie) {
+          try {
+            const { data: row } = await supabase.from('settings').select('id, adsterraSnippet').eq('id', `kyc_${targetUid}`).maybeSingle();
+            if (row?.adsterraSnippet) proofData = JSON.parse(row.adsterraSnippet);
+          } catch (e) {}
+        }
+        const approvedPayload = {
+          userId: targetUid,
+          userEmail: editingUser.email || proofData.userEmail,
+          userName: editingUser.name || proofData.userName,
+          kycPhotoUrl: proofData.kycPhotoUrl || proofData.selfie,
+          kycPaymentProofUrl: proofData.kycPaymentProofUrl || proofData.proof,
+          kycChain: proofData.kycChain || proofData.chain || 'BNB',
+          kycTxHash: proofData.kycTxHash || proofData.txHash,
+          kycSubmittedAt: proofData.kycSubmittedAt || Date.now(),
+          status: 'verified',
+          approvedAt: Date.now()
+        };
+        await supabase.from('settings').upsert({
+          id: `kyc_${targetUid}`,
+          adsterraSnippet: JSON.stringify(approvedPayload)
+        });
+        setLoadedKycProofs(prev => ({ ...prev, [targetUid]: approvedPayload }));
+      } else if (isUnverified) {
+        await supabase.from('settings').delete().eq('id', `kyc_${targetUid}`);
+        setLoadedKycProofs(prev => {
+          const next = { ...prev };
+          delete next[targetUid];
+          return next;
+        });
+      } else if (editKycStatus === 'rejected') {
+        let proofData = loadedKycProofs[targetUid] || {};
+        const rejPayload = {
+          ...proofData,
+          userId: targetUid,
+          status: 'rejected',
+          rejectedAt: Date.now()
+        };
+        await supabase.from('settings').upsert({
+          id: `kyc_${targetUid}`,
+          adsterraSnippet: JSON.stringify(rejPayload)
+        });
+      }
+
       fetchUsdtHolders();
-      toast.success("User updated successfully!");
     } catch (e: any) {
       console.error(e);
       toast.error("Failed to update user: " + e.message);
@@ -516,39 +686,52 @@ export function Admin() {
         await supabase.from('users').update({
           kycStatus: 'verified',
           kycstatus: 'verified'
-        }).eq('uid', targetUid);
+        } as any).eq('uid', targetUid);
       }
       if (targetUser.email) {
         await supabase.from('users').update({
           kycStatus: 'verified',
           kycstatus: 'verified'
-        }).ilike('email', targetUser.email);
+        } as any).ilike('email', targetUser.email);
       }
 
-      // Update in settings table
-      const proofData = loadedKycProofs[targetUid] || {};
+      // Ensure we preserve existing proof images if not in memory
+      let proofData = loadedKycProofs[targetUid];
+      if (!proofData || (!proofData.kycPhotoUrl && !proofData.selfie)) {
+        try {
+          const { data: existingKycRow } = await supabase.from('settings').select('id, adsterraSnippet').eq('id', `kyc_${targetUid}`).maybeSingle();
+          if (existingKycRow?.adsterraSnippet) {
+            proofData = JSON.parse(existingKycRow.adsterraSnippet);
+          }
+        } catch (e) {}
+      }
+      proofData = proofData || {};
+
       const kycInfo = (targetUser as any);
-      const photo = kycInfo.kycPhotoUrl || proofData.kycPhotoUrl || proofData.selfie;
-      const proofImg = kycInfo.kycPaymentProofUrl || proofData.kycPaymentProofUrl || proofData.proof;
-      const chain = kycInfo.kycChain || proofData.kycChain || proofData.chain || 'BNB';
-      const txHash = kycInfo.kycTxHash || proofData.kycTxHash || proofData.txHash;
-      const submittedAt = kycInfo.kycSubmittedAt || proofData.kycSubmittedAt || Date.now();
+      const photo = proofData.kycPhotoUrl || proofData.selfie || kycInfo.kycPhotoUrl;
+      const proofImg = proofData.kycPaymentProofUrl || proofData.proof || kycInfo.kycPaymentProofUrl;
+      const chain = proofData.kycChain || proofData.chain || kycInfo.kycChain || 'BNB';
+      const txHash = proofData.kycTxHash || proofData.txHash || kycInfo.kycTxHash;
+      const submittedAt = proofData.kycSubmittedAt || proofData.submittedAt || kycInfo.kycSubmittedAt || Date.now();
+
+      const approvedPayload = {
+        userId: targetUid,
+        userEmail: targetUser.email || proofData.userEmail,
+        userName: targetUser.name || proofData.userName,
+        kycPhotoUrl: photo,
+        kycPaymentProofUrl: proofImg,
+        kycChain: chain,
+        kycTxHash: txHash,
+        kycSubmittedAt: submittedAt,
+        status: 'verified',
+        approvedAt: Date.now()
+      };
 
       await supabase.from('settings').upsert({
         id: `kyc_${targetUid}`,
-        adsterraSnippet: JSON.stringify({
-          userId: targetUid,
-          userEmail: targetUser.email,
-          userName: targetUser.name,
-          kycPhotoUrl: photo,
-          kycPaymentProofUrl: proofImg,
-          kycChain: chain,
-          kycTxHash: txHash,
-          kycSubmittedAt: submittedAt,
-          status: 'verified',
-          approvedAt: Date.now()
-        })
+        adsterraSnippet: JSON.stringify(approvedPayload)
       });
+      setLoadedKycProofs(prev => ({ ...prev, [targetUid]: approvedPayload }));
 
       await supabase.from('transactions').insert([{
         id: 'tx_kyc_' + Date.now(),
@@ -561,8 +744,8 @@ export function Admin() {
         description: 'Identity KYC verified by protocol administrator'
       }]);
 
-      setUsers(prev => prev.map(u => (u.uid === targetUid || u.email === targetUser.email) ? { ...u, kycStatus: 'verified', kycApprovedAt: Date.now() } : u));
-      toast.success(`KYC Approved for ${targetUser.name || targetUser.email || targetUid}!`);
+      setUsers(prev => prev.map(u => (u.uid === targetUid || u.email === targetUser.email) ? { ...u, kycStatus: 'verified', kycstatus: 'verified' as any, kycApprovedAt: Date.now() } : u));
+      toast.success(`KYC Approved for ${targetUser.name || targetUser.email || targetUid}! ✓`);
       await fetchData();
     } catch (e: any) {
       console.error("KYC approve error:", e);
@@ -582,41 +765,54 @@ export function Admin() {
         await supabase.from('users').update({
           kycStatus: 'rejected',
           kycstatus: 'rejected'
-        }).eq('uid', targetUid);
+        } as any).eq('uid', targetUid);
       }
       if (targetUser.email) {
         await supabase.from('users').update({
           kycStatus: 'rejected',
           kycstatus: 'rejected'
-        }).ilike('email', targetUser.email);
+        } as any).ilike('email', targetUser.email);
       }
 
-      const proofData = loadedKycProofs[targetUid] || {};
+      let proofData = loadedKycProofs[targetUid];
+      if (!proofData || (!proofData.kycPhotoUrl && !proofData.selfie)) {
+        try {
+          const { data: existingKycRow } = await supabase.from('settings').select('id, adsterraSnippet').eq('id', `kyc_${targetUid}`).maybeSingle();
+          if (existingKycRow?.adsterraSnippet) {
+            proofData = JSON.parse(existingKycRow.adsterraSnippet);
+          }
+        } catch (e) {}
+      }
+      proofData = proofData || {};
+
       const kycInfo = (targetUser as any);
-      const photo = kycInfo.kycPhotoUrl || proofData.kycPhotoUrl || proofData.selfie;
-      const proofImg = kycInfo.kycPaymentProofUrl || proofData.kycPaymentProofUrl || proofData.proof;
-      const chain = kycInfo.kycChain || proofData.kycChain || proofData.chain || 'BNB';
-      const txHash = kycInfo.kycTxHash || proofData.kycTxHash || proofData.txHash;
-      const submittedAt = kycInfo.kycSubmittedAt || proofData.kycSubmittedAt || Date.now();
+      const photo = proofData.kycPhotoUrl || proofData.selfie || kycInfo.kycPhotoUrl;
+      const proofImg = proofData.kycPaymentProofUrl || proofData.proof || kycInfo.kycPaymentProofUrl;
+      const chain = proofData.kycChain || proofData.chain || kycInfo.kycChain || 'BNB';
+      const txHash = proofData.kycTxHash || proofData.txHash || kycInfo.kycTxHash;
+      const submittedAt = proofData.kycSubmittedAt || proofData.submittedAt || kycInfo.kycSubmittedAt || Date.now();
+
+      const rejectedPayload = {
+        userId: targetUid,
+        userEmail: targetUser.email || proofData.userEmail,
+        userName: targetUser.name || proofData.userName,
+        kycPhotoUrl: photo,
+        kycPaymentProofUrl: proofImg,
+        kycChain: chain,
+        kycTxHash: txHash,
+        kycSubmittedAt: submittedAt,
+        status: 'rejected',
+        rejectionReason: reason,
+        rejectedAt: Date.now()
+      };
 
       await supabase.from('settings').upsert({
         id: `kyc_${targetUid}`,
-        adsterraSnippet: JSON.stringify({
-          userId: targetUid,
-          userEmail: targetUser.email,
-          userName: targetUser.name,
-          kycPhotoUrl: photo,
-          kycPaymentProofUrl: proofImg,
-          kycChain: chain,
-          kycTxHash: txHash,
-          kycSubmittedAt: submittedAt,
-          status: 'rejected',
-          rejectionReason: reason,
-          rejectedAt: Date.now()
-        })
+        adsterraSnippet: JSON.stringify(rejectedPayload)
       });
+      setLoadedKycProofs(prev => ({ ...prev, [targetUid]: rejectedPayload }));
 
-      setUsers(prev => prev.map(u => (u.uid === targetUid || u.email === targetUser.email) ? { ...u, kycStatus: 'rejected' } : u));
+      setUsers(prev => prev.map(u => (u.uid === targetUid || u.email === targetUser.email) ? { ...u, kycStatus: 'rejected', kycstatus: 'rejected' as any, rejectionReason: reason } : u));
       toast.success(`KYC Rejected for ${targetUser.name || targetUser.email || targetUid}.`);
       await fetchData();
     } catch (e: any) {
@@ -1824,37 +2020,71 @@ export function Admin() {
                   <td className="p-3">
                     <div className="flex flex-col gap-1 items-start">
                       {u.kycStatus === 'verified' ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Verified
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Verified
+                          </span>
+                          <button
+                            onClick={() => handleQuickSetKyc(u, 'unverified')}
+                            className="text-[9px] bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold px-1.5 py-0.5 rounded border border-red-500/20 transition-colors"
+                            title="Unverify user instantly"
+                          >
+                            Unverify
+                          </button>
+                        </div>
                       ) : u.kycStatus === 'pending' ? (
                         <div className="flex items-center gap-1 flex-wrap">
                           <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 animate-pulse">
                             <Clock className="w-3 h-3" /> Pending
                           </span>
                           <button
-                            onClick={() => handleApproveKyc(u)}
-                            className="text-[9px] bg-emerald-500 text-black font-black px-1.5 py-0.5 rounded hover:bg-emerald-400 transition-colors"
-                            title="Approve KYC"
+                            onClick={() => handleQuickSetKyc(u, 'verified')}
+                            className="text-[9px] bg-emerald-500 text-black font-black px-1.5 py-0.5 rounded hover:bg-emerald-400 transition-colors shadow-sm"
+                            title="Approve & Verify user"
                           >
-                            ✓
+                            ✓ Verify
                           </button>
                           <button
-                            onClick={() => handleRejectKyc(u)}
-                            className="text-[9px] bg-red-500/20 text-red-400 font-black px-1.5 py-0.5 rounded hover:bg-red-500/30 transition-colors"
-                            title="Reject KYC"
+                            onClick={() => handleQuickSetKyc(u, 'unverified')}
+                            className="text-[9px] bg-white/10 text-gray-400 font-bold px-1.5 py-0.5 rounded hover:bg-white/20 transition-colors"
+                            title="Reset to Unverified"
                           >
-                            ✕
+                            Reset
                           </button>
                         </div>
                       ) : u.kycStatus === 'rejected' ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                          Rejected
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                            Rejected
+                          </span>
+                          <button
+                            onClick={() => handleQuickSetKyc(u, 'verified')}
+                            className="text-[9px] bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 transition-colors"
+                            title="Verify user"
+                          >
+                            Verify
+                          </button>
+                          <button
+                            onClick={() => handleQuickSetKyc(u, 'unverified')}
+                            className="text-[9px] bg-white/10 text-gray-400 font-bold px-1.5 py-0.5 rounded hover:bg-white/20 transition-colors"
+                            title="Reset to Unverified"
+                          >
+                            Reset
+                          </button>
+                        </div>
                       ) : (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-white/5 text-gray-400">
-                          Unverified
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-white/5 text-gray-400">
+                            Unverified
+                          </span>
+                          <button
+                            onClick={() => handleQuickSetKyc(u, 'verified')}
+                            className="text-[9px] bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30 transition-colors"
+                            title="Verify User instantly"
+                          >
+                            + Verify
+                          </button>
+                        </div>
                       )}
                     </div>
                   </td>
@@ -3677,21 +3907,77 @@ export function Admin() {
             <h3 className="text-xl font-bold mb-6">Edit {editingUser.name}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-widest text-gray-500 font-bold mb-2">CM Balance</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs uppercase tracking-widest text-[#FFD700] font-bold">CM Balance</label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditBalance(prev => Math.max(0, (parseFloat(prev) || 0) - 100).toFixed(4))}
+                      className="px-1.5 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold"
+                      title="Remove 100 CM"
+                    >
+                      -100
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditBalance(prev => ((parseFloat(prev) || 0) + 100).toFixed(4))}
+                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-bold"
+                      title="Add 100 CM"
+                    >
+                      +100
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditBalance(prev => ((parseFloat(prev) || 0) + 500).toFixed(4))}
+                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-bold"
+                      title="Add 500 CM"
+                    >
+                      +500
+                    </button>
+                  </div>
+                </div>
                 <input 
                   type="number" 
                   value={editBalance} 
                   onChange={(e) => setEditBalance(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-xl p-3 focus:border-[#FFD700] outline-none transition-colors"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl p-3 focus:border-[#FFD700] outline-none transition-colors font-mono font-bold text-[#FFD700]"
                 />
               </div>
               <div>
-                <label className="block text-xs uppercase tracking-widest text-green-500 font-bold mb-2">USDT Balance</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs uppercase tracking-widest text-green-500 font-bold">USDT Balance</label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditUsdtBalance(prev => Math.max(0, (parseFloat(prev) || 0) - 5).toFixed(4))}
+                      className="px-1.5 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold"
+                      title="Remove 5 USDT"
+                    >
+                      -5
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditUsdtBalance(prev => ((parseFloat(prev) || 0) + 5).toFixed(4))}
+                      className="px-1.5 py-0.5 rounded bg-green-500/10 hover:bg-green-500/20 text-green-400 text-[10px] font-bold"
+                      title="Add 5 USDT"
+                    >
+                      +5
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditUsdtBalance(prev => ((parseFloat(prev) || 0) + 20).toFixed(4))}
+                      className="px-1.5 py-0.5 rounded bg-green-500/10 hover:bg-green-500/20 text-green-400 text-[10px] font-bold"
+                      title="Add 20 USDT"
+                    >
+                      +20
+                    </button>
+                  </div>
+                </div>
                 <input 
                   type="number" 
                   value={editUsdtBalance} 
                   onChange={(e) => setEditUsdtBalance(e.target.value)}
-                  className="w-full bg-black/50 border border-green-500/30 rounded-xl p-3 focus:border-green-500 outline-none transition-colors text-white"
+                  className="w-full bg-black/50 border border-green-500/30 rounded-xl p-3 focus:border-green-500 outline-none transition-colors text-white font-mono font-bold"
                   step="0.0001"
                 />
               </div>

@@ -244,40 +244,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }
               }
 
-              const hasValidProofImages = Boolean(
-                kycDetails &&
-                (kycDetails.kycPhotoUrl || kycDetails.selfie) &&
-                String(kycDetails.kycPhotoUrl || kycDetails.selfie).length > 20 &&
-                (kycDetails.kycPaymentProofUrl || kycDetails.proof) &&
-                String(kycDetails.kycPaymentProofUrl || kycDetails.proof).length > 20
-              );
+              // Check status from users table (case-insensitive)
+              const rawDbStatus = String(u.kycStatus || (u as any).kycstatus || '').toLowerCase().trim();
+              const isDbVerified = rawDbStatus === 'verified' || rawDbStatus === 'approved';
+              const isDbRejected = rawDbStatus === 'rejected';
 
-              if (kycDetails && hasValidProofImages) {
-                u.kycPhotoUrl = kycDetails.kycPhotoUrl || kycDetails.selfie;
-                u.kycPaymentProofUrl = kycDetails.kycPaymentProofUrl || kycDetails.proof;
-                u.kycChain = kycDetails.kycChain || kycDetails.chain;
-                u.kycTxHash = kycDetails.kycTxHash || kycDetails.txHash;
-                u.kycSubmittedAt = kycDetails.kycSubmittedAt || kycDetails.submittedAt;
-                if (kycDetails.status === 'verified') {
+              if (kycDetails) {
+                u.kycPhotoUrl = kycDetails.kycPhotoUrl || kycDetails.selfie || u.kycPhotoUrl;
+                u.kycPaymentProofUrl = kycDetails.kycPaymentProofUrl || kycDetails.proof || u.kycPaymentProofUrl;
+                u.kycChain = kycDetails.kycChain || kycDetails.chain || u.kycChain;
+                u.kycTxHash = kycDetails.kycTxHash || kycDetails.txHash || u.kycTxHash;
+                u.kycSubmittedAt = kycDetails.kycSubmittedAt || kycDetails.submittedAt || u.kycSubmittedAt;
+
+                if (kycDetails.status === 'verified' || isDbVerified) {
                   u.kycStatus = 'verified';
-                  (u as any).kycApprovedAt = kycDetails.approvedAt || Date.now();
-                } else if (kycDetails.status === 'rejected') {
+                  (u as any).kycstatus = 'verified';
+                  (u as any).kycApprovedAt = kycDetails.approvedAt || (u as any).kycApprovedAt || Date.now();
+                } else if (kycDetails.status === 'rejected' || isDbRejected) {
                   u.kycStatus = 'rejected';
-                } else if (u.kycStatus !== 'verified') {
+                  (u as any).kycstatus = 'rejected';
+                  (u as any).rejectionReason = kycDetails.rejectionReason || (u as any).rejectionReason;
+                  (u as any).kycRejectedAt = kycDetails.rejectedAt || (u as any).kycRejectedAt || Date.now();
+                } else {
                   u.kycStatus = 'pending';
+                  (u as any).kycstatus = 'pending';
                 }
+              } else if (isDbVerified) {
+                u.kycStatus = 'verified';
+                (u as any).kycstatus = 'verified';
+              } else if (isDbRejected) {
+                u.kycStatus = 'rejected';
+                (u as any).kycstatus = 'rejected';
+              } else if (rawDbStatus === 'pending') {
+                u.kycStatus = 'pending';
+                (u as any).kycstatus = 'pending';
               } else {
-                // If user has not submitted valid KYC proof images, they MUST be unverified so the submit form is shown!
-                if (u.kycStatus !== 'verified' && (u as any).kycstatus !== 'verified') {
-                  u.kycStatus = 'unverified';
-                  (u as any).kycstatus = 'unverified';
-                  u.kycPhotoUrl = undefined;
-                  u.kycPaymentProofUrl = undefined;
-                  // If DB row had stale pending, silently clean it up
-                  if ((u as any).kycStatus === 'pending' || (u as any).kycstatus === 'pending') {
-                    supabase.from('users').update({ kycStatus: 'unverified', kycstatus: 'unverified' }).eq('uid', sUser.id).then();
-                  }
-                }
+                u.kycStatus = 'unverified';
+                (u as any).kycstatus = 'unverified';
               }
             } catch (err) {
               console.warn("KYC hydration error:", err);
