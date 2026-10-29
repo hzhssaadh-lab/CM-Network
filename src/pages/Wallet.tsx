@@ -210,6 +210,23 @@ export function Wallet() {
     return cmTransfers.filter(t => t.direction === 'sent').reduce((sum, t) => sum + t.amount, 0);
   }, [cmTransfers]);
 
+  // Monthly transfer tracking: Maximum 10% of CM balance in one month
+  const sentThisMonth = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return cmTransfers
+      .filter(t => t.direction === 'sent' && t.timestamp >= startOfMonth)
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [cmTransfers]);
+
+  const maxMonthlyAllowed = useMemo(() => {
+    return Number((currentBalance * 0.10).toFixed(4));
+  }, [currentBalance]);
+
+  const remainingMonthlyQuota = useMemo(() => {
+    return Math.max(0, Number((maxMonthlyAllowed - sentThisMonth).toFixed(4)));
+  }, [maxMonthlyAllowed, sentThisMonth]);
+
   const handleCopyAddress = () => {
     navigator.clipboard.writeText(walletAddress);
     setCopiedAddress(true);
@@ -239,11 +256,16 @@ export function Wallet() {
       return;
     }
 
-    const maxAllowed = Number((currentBalance * 0.10).toFixed(4));
-    if (user.role !== 'admin' && numAmount > maxAllowed + 0.0001) {
-      toast.error(`Transfer Limit: You can only send up to 10% of your CM balance (Max: ${(currentBalance * 0.10).toFixed(2)} CM)!`, {
-        icon: '⚠️'
-      });
+    if (user.role !== 'admin' && numAmount > remainingMonthlyQuota + 0.0001) {
+      if (remainingMonthlyQuota <= 0) {
+        toast.error(`Monthly limit reached: You have already sent ${sentThisMonth.toFixed(2)} CM this month (Max 10% limit: ${maxMonthlyAllowed.toFixed(2)} CM).`, {
+          icon: '⚠️'
+        });
+      } else {
+        toast.error(`Monthly Transfer Limit: You can only send up to 10% of your CM balance in one month. Remaining quota: ${remainingMonthlyQuota.toFixed(2)} CM!`, {
+          icon: '⚠️'
+        });
+      }
       return;
     }
 
@@ -504,12 +526,11 @@ export function Wallet() {
                 <button
                   type="button"
                   onClick={() => {
-                    const maxVal = (currentBalance * 0.10).toFixed(2);
-                    setAmount(maxVal);
+                    setAmount(remainingMonthlyQuota.toFixed(2));
                   }}
                   className="text-[10px] font-bold text-[#FFD700] hover:underline"
                 >
-                  Use MAX 10% ({(currentBalance * 0.10).toFixed(2)} CM)
+                  Use Monthly Quota ({remainingMonthlyQuota.toFixed(2)} CM)
                 </button>
               </div>
               <input
@@ -521,9 +542,26 @@ export function Wallet() {
                 onChange={(e) => setAmount(e.target.value)}
                 className="w-full px-4 py-3.5 rounded-xl bg-black/60 border border-white/15 text-white text-lg font-mono focus:border-[#FFD700] focus:outline-none font-bold"
               />
-              <p className="text-[11px] text-amber-400 font-medium mt-1.5 flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">
-                <span>🛡️ Transfer Policy: Maximum 10% of CM Coin balance can be sent per transaction (Limit: {(currentBalance * 0.10).toFixed(2)} CM).</span>
-              </p>
+              <div className="text-[11px] text-amber-400 font-medium mt-1.5 space-y-1.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                <div className="flex items-center justify-between font-bold">
+                  <span>🛡️ Monthly Transfer Policy:</span>
+                  <span className="text-white font-mono">Max 10% in 1 Month</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-white/5 font-mono text-[10px]">
+                  <div className="bg-white/5 p-1.5 rounded-lg">
+                    <span className="text-gray-400 block text-[9px] uppercase">10% Limit</span>
+                    <span className="text-white font-bold">{maxMonthlyAllowed.toFixed(2)} CM</span>
+                  </div>
+                  <div className="bg-white/5 p-1.5 rounded-lg">
+                    <span className="text-gray-400 block text-[9px] uppercase">Sent This Mo.</span>
+                    <span className="text-amber-300 font-bold">{sentThisMonth.toFixed(2)} CM</span>
+                  </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 p-1.5 rounded-lg">
+                    <span className="text-emerald-400 block text-[9px] uppercase">Remaining</span>
+                    <span className="text-emerald-400 font-bold">{remainingMonthlyQuota.toFixed(2)} CM</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Fee summary */}

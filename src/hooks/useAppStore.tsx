@@ -1382,10 +1382,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: `Insufficient CM Coin balance. You currently have ${currentBal.toFixed(2)} CM.` };
     }
 
-    // Transfer limit: 10%
-    const maxAllowed = Number((currentBal * 0.10).toFixed(4));
-    if (user.role !== 'admin' && numAmount > maxAllowed + 0.0001) {
-      return { success: false, message: `Transfer limit exceeded: Maximum 10% of CM balance (${maxAllowed.toFixed(2)} CM) allowed per transfer.` };
+    // Monthly transfer limit: Maximum 10% of total CM balance in one month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    let alreadySentThisMonth = 0;
+    try {
+      const { data: monthTxs } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('senderUid', user.uid)
+        .in('type', ['transfer_sent', 'send'])
+        .gte('timestamp', startOfMonth);
+      if (monthTxs && monthTxs.length > 0) {
+        alreadySentThisMonth = monthTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+      }
+    } catch (e) {
+      console.warn("Could not query monthly transfers:", e);
+    }
+
+    const totalMonthlyLimit = Number((currentBal * 0.10).toFixed(4));
+    const remainingMonthlyQuota = Math.max(0, Number((totalMonthlyLimit - alreadySentThisMonth).toFixed(4)));
+
+    if (user.role !== 'admin') {
+      if (alreadySentThisMonth >= totalMonthlyLimit - 0.0001) {
+        return { 
+          success: false, 
+          message: `Monthly transfer limit reached: You can only send up to 10% of your CM balance per month (${totalMonthlyLimit.toFixed(2)} CM). You have already sent ${alreadySentThisMonth.toFixed(2)} CM this month.` 
+        };
+      }
+
+      if (numAmount > remainingMonthlyQuota + 0.0001) {
+        return { 
+          success: false, 
+          message: `Transfer limit exceeded: Maximum 10% of CM balance allowed in one month. Remaining quota for this month is ${remainingMonthlyQuota.toFixed(2)} CM (Total monthly limit: ${totalMonthlyLimit.toFixed(2)} CM).` 
+        };
+      }
     }
 
     const trimmed = (recipientInput || '').trim().replace(/^["']|["']$/g, '');
