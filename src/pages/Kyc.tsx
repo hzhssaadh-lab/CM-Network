@@ -21,7 +21,8 @@ import {
   ArrowRight,
   Info,
   CheckCircle,
-  Eye
+  Eye,
+  HelpCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
@@ -53,10 +54,15 @@ import {
   evaluateFaceFrameQuality, 
   analyzeFrameDifference 
 } from '../lib/biometricLiveness';
+import { KycStatusCard } from '../components/KycStatusCard';
+import { HowToVerifyModal } from '../components/HowToVerifyModal';
 
 export function Kyc() {
   const { user, updateUser } = useApp();
   const navigate = useNavigate();
+
+  // How to Verify Modal State
+  const [showHowToVerifyModal, setShowHowToVerifyModal] = useState(false);
 
   // KYC Global Admin Configuration
   const [kycConfig, setKycConfig] = useState({
@@ -669,7 +675,16 @@ export function Kyc() {
             </p>
           </div>
 
-          <div className="shrink-0">
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowHowToVerifyModal(true)}
+              className="px-3.5 py-2.5 rounded-2xl bg-[#FFD700]/15 hover:bg-[#FFD700]/25 text-[#FFD700] border border-[#FFD700]/30 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>How to Verify?</span>
+            </button>
+
             {isKycFullyApproved ? (
               <div className="px-4 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs font-black flex items-center gap-2 shadow-lg">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -699,6 +714,15 @@ export function Kyc() {
           </div>
         </div>
       </div>
+
+      {/* KYC Status Dashboard Component (Pending, Approved, Rejected, Payment Required) */}
+      <KycStatusCard 
+        kycRecord={kycState}
+        userKycStatus={user?.kycStatus}
+        onRetry={handleRetryKyc}
+        onStartVerification={handleStartFaceVerification}
+        onPayFee={handlePayKycFee}
+      />
 
       {/* KYC Progress Tracker Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1160,6 +1184,13 @@ export function Kyc() {
           </button>
         </div>
       )}
+
+      {/* How To Verify Modal */}
+      <HowToVerifyModal
+        isOpen={showHowToVerifyModal}
+        onClose={() => setShowHowToVerifyModal(false)}
+        feeUsdt={kycConfig.feeUsdt}
+      />
 
     </div>
   );
