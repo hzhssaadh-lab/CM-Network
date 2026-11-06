@@ -112,53 +112,103 @@ export function Kyc() {
       const config = await getKycGlobalConfig();
       setKycConfig(config);
 
-      // Check settings table for user's KYC record
-      const { data } = await supabase
-        .from('settings')
-        .select('id, adsterraSnippet')
-        .eq('id', `kyc_${userUid}`)
-        .maybeSingle();
+      let foundRecord: KycRecord | null = null;
 
-      if (data?.adsterraSnippet) {
-        try {
-          const parsed = JSON.parse(data.adsterraSnippet);
+      // 1. Fetch from dedicated kyc_verifications Supabase table
+      try {
+        const { data: dbKyc, error: dbErr } = await supabase
+          .from('kyc_verifications')
+          .select('*')
+          .eq('user_id', userUid)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!dbErr && dbKyc) {
           const legacyVerified = user?.kycStatus === 'verified' || (user as any)?.kycstatus === 'verified';
           const legacyRejected = user?.kycStatus === 'rejected' || (user as any)?.kycstatus === 'rejected';
 
-          let resolvedStatus: AutomaticKycStatus = parsed.autoKycStatus || parsed.status || 'PAYMENT_REQUIRED';
+          let resolvedStatus: AutomaticKycStatus = (dbKyc.kyc_status as AutomaticKycStatus) || 'PAYMENT_REQUIRED';
           if (legacyVerified) resolvedStatus = 'KYC_APPROVED';
           else if (legacyRejected) resolvedStatus = 'KYC_REJECTED';
 
-          const record: KycRecord = {
+          foundRecord = {
             userId: userUid,
             userEmail: user?.email,
             userName: user?.name,
             status: resolvedStatus,
-            paymentTxHash: parsed.paymentTxHash || parsed.kycTxHash,
-            paymentAmount: parsed.paymentAmount || config.feeUsdt,
-            paymentWallet: parsed.paymentWallet || parsed.wallet,
-            paymentConfirmedAt: parsed.paymentConfirmedAt,
-            verificationSessionId: parsed.verificationSessionId,
-            livenessStatus: parsed.livenessStatus,
-            livenessScore: parsed.livenessScore,
-            failureReason: parsed.failureReason,
-            createdAt: parsed.createdAt || Date.now(),
-            updatedAt: parsed.updatedAt || Date.now(),
-            approvedAt: parsed.approvedAt,
-            rejectedAt: parsed.rejectedAt,
+            paymentStatus: (dbKyc.payment_status as any) || (resolvedStatus === 'KYC_APPROVED' || dbKyc.payment_tx_hash ? 'PAYMENT_CONFIRMED' : 'PAYMENT_REQUIRED'),
+            paymentTxHash: dbKyc.payment_tx_hash,
+            paymentAmount: Number(dbKyc.payment_amount) || config.feeUsdt,
+            paymentWallet: dbKyc.wallet_address,
+            paymentConfirmedAt: dbKyc.payment_status === 'PAYMENT_CONFIRMED' ? (dbKyc.updated_at ? new Date(dbKyc.updated_at).getTime() : Date.now()) : undefined,
+            verificationSessionId: dbKyc.provider_reference,
+            livenessStatus: dbKyc.liveness_status,
+            livenessScore: dbKyc.liveness_score ? Number(dbKyc.liveness_score) / 100 : undefined,
+            failureReason: dbKyc.failure_reason,
+            createdAt: dbKyc.created_at ? new Date(dbKyc.created_at).getTime() : Date.now(),
+            updatedAt: dbKyc.updated_at ? new Date(dbKyc.updated_at).getTime() : Date.now(),
+            approvedAt: resolvedStatus === 'KYC_APPROVED' ? (dbKyc.updated_at ? new Date(dbKyc.updated_at).getTime() : Date.now()) : undefined,
+            rejectedAt: resolvedStatus === 'KYC_REJECTED' ? (dbKyc.updated_at ? new Date(dbKyc.updated_at).getTime() : Date.now()) : undefined,
           };
-
-          setKycState(record);
-          if (record.paymentTxHash) setTxHashInput(record.paymentTxHash);
-        } catch {
-          // parse error
         }
+      } catch (err) {
+        // Fallback to settings table
+      }
+
+      // 2. Fallback to settings table if not in kyc_verifications
+      if (!foundRecord) {
+        const { data } = await supabase
+          .from('settings')
+          .select('id, adsterraSnippet')
+          .eq('id', `kyc_${userUid}`)
+          .maybeSingle();
+
+        if (data?.adsterraSnippet) {
+          try {
+            const parsed = JSON.parse(data.adsterraSnippet);
+            const legacyVerified = user?.kycStatus === 'verified' || (user as any)?.kycstatus === 'verified';
+            const legacyRejected = user?.kycStatus === 'rejected' || (user as any)?.kycstatus === 'rejected';
+
+            let resolvedStatus: AutomaticKycStatus = parsed.autoKycStatus || parsed.status || 'PAYMENT_REQUIRED';
+            if (legacyVerified) resolvedStatus = 'KYC_APPROVED';
+            else if (legacyRejected) resolvedStatus = 'KYC_REJECTED';
+
+            foundRecord = {
+              userId: userUid,
+              userEmail: user?.email,
+              userName: user?.name,
+              status: resolvedStatus,
+              paymentStatus: parsed.paymentStatus || (resolvedStatus === 'KYC_APPROVED' || parsed.paymentConfirmedAt ? 'PAYMENT_CONFIRMED' : 'PAYMENT_REQUIRED'),
+              paymentTxHash: parsed.paymentTxHash || parsed.kycTxHash,
+              paymentAmount: parsed.paymentAmount || config.feeUsdt,
+              paymentWallet: parsed.paymentWallet || parsed.wallet,
+              paymentConfirmedAt: parsed.paymentConfirmedAt,
+              verificationSessionId: parsed.verificationSessionId,
+              livenessStatus: parsed.livenessStatus,
+              livenessScore: parsed.livenessScore,
+              failureReason: parsed.failureReason,
+              createdAt: parsed.createdAt || Date.now(),
+              updatedAt: parsed.updatedAt || Date.now(),
+              approvedAt: parsed.approvedAt,
+              rejectedAt: parsed.rejectedAt,
+            };
+          } catch {
+            // parse error
+          }
+        }
+      }
+
+      if (foundRecord) {
+        setKycState(foundRecord);
+        if (foundRecord.paymentTxHash) setTxHashInput(foundRecord.paymentTxHash);
       } else {
         const legacyVerified = user?.kycStatus === 'verified' || (user as any)?.kycstatus === 'verified';
         const initialStatus: AutomaticKycStatus = legacyVerified ? 'KYC_APPROVED' : 'PAYMENT_REQUIRED';
         setKycState({
           userId: userUid,
           status: initialStatus,
+          paymentStatus: legacyVerified ? 'PAYMENT_CONFIRMED' : 'PAYMENT_REQUIRED',
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });
@@ -174,15 +224,30 @@ export function Kyc() {
     fetchKycState();
   }, [fetchKycState]);
 
-  // 2. Persist updated KYC Record into settings table and sync state
+  // 2. Persist updated KYC Record into kyc_verifications table & settings table
   const saveKycRecord = async (updates: Partial<KycRecord>) => {
     if (!userUid) return;
     try {
+      const isPaymentVerified = Boolean(
+        updates.paymentConfirmedAt ||
+        kycState?.paymentConfirmedAt ||
+        updates.paymentStatus === 'PAYMENT_CONFIRMED' ||
+        kycState?.paymentStatus === 'PAYMENT_CONFIRMED' ||
+        ['PAYMENT_CONFIRMED', 'KYC_UNLOCKED', 'FACE_VERIFIED', 'KYC_APPROVED'].includes(updates.status || kycState?.status || '')
+      );
+
+      const resolvedPaymentStatus = isPaymentVerified
+        ? 'PAYMENT_CONFIRMED'
+        : (updates.paymentTxHash || kycState?.paymentTxHash)
+        ? 'PAYMENT_PENDING'
+        : (updates.paymentStatus || kycState?.paymentStatus || 'PAYMENT_REQUIRED');
+
       const updated: KycRecord = {
         userId: userUid,
         userEmail: user?.email,
         userName: user?.name,
         status: updates.status || kycState?.status || 'PAYMENT_REQUIRED',
+        paymentStatus: resolvedPaymentStatus,
         paymentTxHash: updates.paymentTxHash !== undefined ? updates.paymentTxHash : kycState?.paymentTxHash,
         paymentAmount: updates.paymentAmount !== undefined ? updates.paymentAmount : kycState?.paymentAmount || kycConfig.feeUsdt,
         paymentWallet: updates.paymentWallet !== undefined ? updates.paymentWallet : kycState?.paymentWallet,
@@ -199,19 +264,69 @@ export function Kyc() {
 
       setKycState(updated);
 
-      // Save to settings table
+      // A. Save to dedicated kyc_verifications Supabase table
+      try {
+        const kycDbPayload = {
+          user_id: userUid,
+          payment_tx_hash: updated.paymentTxHash || null,
+          payment_amount: updated.paymentAmount || kycConfig.feeUsdt,
+          payment_status: resolvedPaymentStatus,
+          kyc_status: updated.status,
+          provider_reference: updated.verificationSessionId || null,
+          wallet_address: updated.paymentWallet || null,
+          liveness_score: updated.livenessScore ? Math.round(updated.livenessScore * 100) : null,
+          liveness_status: updated.livenessStatus || null,
+          failure_reason: updated.failureReason || null,
+          updated_at: new Date().toISOString()
+        };
+
+        const { data: existingKyc } = await supabase
+          .from('kyc_verifications')
+          .select('id')
+          .eq('user_id', userUid)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingKyc?.id) {
+          await supabase.from('kyc_verifications').update(kycDbPayload).eq('id', existingKyc.id);
+        } else {
+          await supabase.from('kyc_verifications').insert([{
+            ...kycDbPayload,
+            created_at: new Date().toISOString()
+          }]);
+        }
+      } catch (dbErr) {
+        console.warn('Could not persist to kyc_verifications table:', dbErr);
+      }
+
+      // B. Save to settings table (dual-persistence fallback)
       await supabase.from('settings').upsert({
         id: `kyc_${userUid}`,
         adsterraSnippet: JSON.stringify(updated),
       });
 
-      // Synchronize high-level kycStatus with legacy UserProfile table
+      // C. Synchronize high-level kycStatus with legacy UserProfile table
       if (updated.status === 'KYC_APPROVED') {
-        await updateUser({ kycStatus: 'verified' });
+        await updateUser({ 
+          kycStatus: 'verified',
+          autoKycStatus: 'KYC_APPROVED',
+          paymentTxHash: updated.paymentTxHash,
+          paymentAmount: updated.paymentAmount,
+          paymentWallet: updated.paymentWallet
+        });
       } else if (updated.status === 'KYC_REJECTED') {
-        await updateUser({ kycStatus: 'rejected' });
-      } else if (['PAYMENT_CONFIRMED', 'KYC_UNLOCKED', 'FACE_VERIFIED'].includes(updated.status)) {
-        await updateUser({ kycStatus: 'pending' });
+        await updateUser({ 
+          kycStatus: 'rejected',
+          autoKycStatus: 'KYC_REJECTED'
+        });
+      } else if (['PAYMENT_CONFIRMED', 'KYC_UNLOCKED', 'FACE_VERIFIED', 'MANUAL_REVIEW'].includes(updated.status)) {
+        await updateUser({ 
+          kycStatus: 'pending',
+          autoKycStatus: updated.status,
+          paymentTxHash: updated.paymentTxHash,
+          paymentAmount: updated.paymentAmount,
+          paymentWallet: updated.paymentWallet
+        });
       }
     } catch (e: any) {
       console.error('Failed to save KYC record:', e);

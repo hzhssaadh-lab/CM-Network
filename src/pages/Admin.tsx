@@ -782,6 +782,17 @@ export function Admin() {
       });
       setLoadedKycProofs(prev => ({ ...prev, [targetUid]: approvedPayload }));
 
+      // Sync with dedicated kyc_verifications table
+      try {
+        await supabase.from('kyc_verifications').update({
+          kyc_status: 'KYC_APPROVED',
+          payment_status: 'PAYMENT_CONFIRMED',
+          updated_at: new Date().toISOString()
+        }).eq('user_id', targetUid);
+      } catch (dbErr) {
+        console.warn('Could not update kyc_verifications on approve:', dbErr);
+      }
+
       await supabase.from('transactions').insert([{
         id: 'tx_kyc_' + Date.now(),
         type: 'kyc_verified',
@@ -861,6 +872,17 @@ export function Admin() {
       });
       setLoadedKycProofs(prev => ({ ...prev, [targetUid]: rejectedPayload }));
 
+      // Sync with dedicated kyc_verifications table
+      try {
+        await supabase.from('kyc_verifications').update({
+          kyc_status: 'KYC_REJECTED',
+          failure_reason: reason,
+          updated_at: new Date().toISOString()
+        }).eq('user_id', targetUid);
+      } catch (dbErr) {
+        console.warn('Could not update kyc_verifications on reject:', dbErr);
+      }
+
       setUsers(prev => prev.map(u => (u.uid === targetUid || u.email === targetUser.email) ? { ...u, kycStatus: 'rejected', kycstatus: 'rejected' as any, rejectionReason: reason } : u));
       toast.success(`KYC Rejected for ${targetUser.name || targetUser.email || targetUid}.`);
       await fetchData();
@@ -883,6 +905,13 @@ export function Admin() {
           kycstatus: 'unverified'
         }).eq('uid', targetUid);
         await supabase.from('settings').delete().eq('id', `kyc_${targetUid}`);
+
+        // Also delete from kyc_verifications table
+        try {
+          await supabase.from('kyc_verifications').delete().eq('user_id', targetUid);
+        } catch (dbErr) {
+          console.warn('Could not delete from kyc_verifications on reset:', dbErr);
+        }
       }
       if (targetUser.email) {
         await supabase.from('users').update({

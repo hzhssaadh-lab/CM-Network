@@ -121,6 +121,23 @@ export async function verifyBscUsdtPayment(
 
   // Anti-Replay check: verify if another user has already verified with this hash
   try {
+    // 1. Check in kyc_verifications Supabase table
+    const { data: existingKyc } = await supabase
+      .from('kyc_verifications')
+      .select('user_id, payment_tx_hash, payment_status')
+      .ilike('payment_tx_hash', cleanTxHash)
+      .neq('user_id', expectedUserUid)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingKyc && (existingKyc.payment_status === 'PAYMENT_CONFIRMED' || existingKyc.payment_tx_hash)) {
+      return {
+        verified: false,
+        error: 'Security alert: This transaction hash has already been used by another account. Transaction replay is strictly forbidden.'
+      };
+    }
+
+    // 2. Check in settings table (backward compatibility)
     const { data: existingRows } = await supabase
       .from('settings')
       .select('id, adsterraSnippet')
@@ -134,7 +151,7 @@ export async function verifyBscUsdtPayment(
           try {
             const parsed = JSON.parse(row.adsterraSnippet);
             const usedHash = (parsed.paymentTxHash || parsed.kycTxHash || '').trim().toLowerCase();
-            if (usedHash === cleanTxHash.toLowerCase() && (parsed.paymentConfirmedAt || parsed.status === 'verified' || parsed.kycStatus === 'verified')) {
+            if (usedHash === cleanTxHash.toLowerCase() && (parsed.paymentConfirmedAt || parsed.status === 'verified' || parsed.kycStatus === 'verified' || parsed.paymentStatus === 'PAYMENT_CONFIRMED')) {
               return {
                 verified: false,
                 error: 'Security alert: This transaction hash has already been used by another account. Transaction replay is strictly forbidden.'

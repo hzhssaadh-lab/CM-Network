@@ -24,7 +24,7 @@ export const OFFICIAL_USDT_BEP20_CONTRACT = '0x55d398326f99059fF775485246999027B
 export const OFFICIAL_RECEIVING_WALLET = '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120';
 
 // Default KYC Fee in USDT BEP-20 (Configurable by Admin)
-export const DEFAULT_KYC_USDT_FEE = 1.0; // 1 USDT BEP-20
+export const DEFAULT_KYC_USDT_FEE = 0.5; // 0.5 USDT BEP-20 (0.5$)
 
 // Standard ERC-20 Minimal ABI for transfer & balance
 export const ERC20_ABI = [
@@ -54,7 +54,8 @@ export interface KycRecord {
   userId: string;
   userEmail?: string;
   userName?: string;
-  status: AutomaticKycStatus;
+  status: AutomaticKycStatus; // kyc_status
+  paymentStatus?: 'PAYMENT_REQUIRED' | 'PAYMENT_PENDING' | 'PAYMENT_CONFIRMED' | 'FAILED'; // payment_status
   
   // Payment Verification fields
   paymentTxHash?: string;
