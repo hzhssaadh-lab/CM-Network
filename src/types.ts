@@ -15,11 +15,28 @@ export interface UserProfile {
   joinDate: number;
   dailyStreak: number;
   kycStatus: 'pending' | 'verified' | 'rejected' | 'unverified';
+  autoKycStatus?: 
+    | 'NOT_STARTED'
+    | 'PAYMENT_REQUIRED'
+    | 'PAYMENT_PENDING'
+    | 'PAYMENT_CONFIRMED'
+    | 'KYC_UNLOCKED'
+    | 'FACE_VERIFICATION_PENDING'
+    | 'FACE_VERIFIED'
+    | 'VERIFICATION_FAILED'
+    | 'MANUAL_REVIEW'
+    | 'KYC_APPROVED'
+    | 'KYC_REJECTED';
   kycSubmittedAt?: number;
   kycPhotoUrl?: string;
   kycChain?: 'BNB' | 'ETH' | 'SOL';
   kycPaymentProofUrl?: string;
   kycTxHash?: string;
+  paymentTxHash?: string;
+  paymentAmount?: number;
+  paymentWallet?: string;
+  livenessStatus?: 'pending' | 'passed' | 'failed' | 'manual_review';
+  livenessScore?: number;
   nodeStatus?: 'none' | 'applied' | 'approved' | 'rejected';
   nodeAppliedAt?: number;
   role: 'user' | 'admin';

@@ -255,12 +255,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 u.kycChain = kycDetails.kycChain || kycDetails.chain || u.kycChain;
                 u.kycTxHash = kycDetails.kycTxHash || kycDetails.txHash || u.kycTxHash;
                 u.kycSubmittedAt = kycDetails.kycSubmittedAt || kycDetails.submittedAt || u.kycSubmittedAt;
+                u.autoKycStatus = kycDetails.autoKycStatus || (kycDetails.status === 'verified' ? 'KYC_APPROVED' : kycDetails.status === 'rejected' ? 'KYC_REJECTED' : 'PAYMENT_REQUIRED');
+                u.paymentTxHash = kycDetails.paymentTxHash;
+                u.paymentAmount = kycDetails.paymentAmount;
+                u.paymentWallet = kycDetails.paymentWallet;
+                u.livenessStatus = kycDetails.livenessStatus;
+                u.livenessScore = kycDetails.livenessScore;
 
-                if (kycDetails.status === 'verified' || isDbVerified) {
+                if (kycDetails.status === 'verified' || isDbVerified || kycDetails.autoKycStatus === 'KYC_APPROVED') {
                   u.kycStatus = 'verified';
                   (u as any).kycstatus = 'verified';
                   (u as any).kycApprovedAt = kycDetails.approvedAt || (u as any).kycApprovedAt || Date.now();
-                } else if (kycDetails.status === 'rejected' || isDbRejected) {
+                } else if (kycDetails.status === 'rejected' || isDbRejected || kycDetails.autoKycStatus === 'KYC_REJECTED') {
                   u.kycStatus = 'rejected';
                   (u as any).kycstatus = 'rejected';
                   (u as any).rejectionReason = kycDetails.rejectionReason || (u as any).rejectionReason;
@@ -272,15 +278,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               } else if (isDbVerified) {
                 u.kycStatus = 'verified';
                 (u as any).kycstatus = 'verified';
+                u.autoKycStatus = 'KYC_APPROVED';
               } else if (isDbRejected) {
                 u.kycStatus = 'rejected';
                 (u as any).kycstatus = 'rejected';
+                u.autoKycStatus = 'KYC_REJECTED';
               } else if (rawDbStatus === 'pending') {
                 u.kycStatus = 'pending';
                 (u as any).kycstatus = 'pending';
+                u.autoKycStatus = 'PAYMENT_PENDING';
               } else {
                 u.kycStatus = 'unverified';
                 (u as any).kycstatus = 'unverified';
+                u.autoKycStatus = 'PAYMENT_REQUIRED';
               }
             } catch (err) {
               console.warn("KYC hydration error:", err);
@@ -657,6 +667,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       delete payload.kyc_payment_proof_url;
       delete payload.kyc_submitted_at;
       delete payload.kyc_tx_hash;
+      delete payload.autoKycStatus;
+      delete payload.paymentTxHash;
+      delete payload.paymentAmount;
+      delete payload.paymentWallet;
+      delete payload.livenessStatus;
+      delete payload.livenessScore;
 
       const { error } = await supabase
         .from('users')

@@ -987,40 +987,74 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
             </div>
           </div>
 
-          {/* KYC Status & Action Banner */}
-          <div className="p-4 rounded-2xl bg-black/60 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center space-x-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                isKycVerified ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
-                (user.kycStatus === 'pending' && (user.kycSubmittedAt || user.kycPhotoUrl)) ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' :
-                'bg-white/5 text-gray-400 border border-white/10'
-              }`}>
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white">Identity Verification (KYC)</span>
-                  {isKycVerified ? (
-                    <span className="text-[10px] text-emerald-400 font-bold">Verified ✓</span>
-                  ) : (user.kycStatus === 'pending' && (user.kycSubmittedAt || user.kycPhotoUrl)) ? (
-                    <span className="text-[10px] text-amber-400 font-bold">Pending Review ⏳</span>
-                  ) : (
-                    <span className="text-[10px] text-gray-400 font-bold">Not Verified</span>
-                  )}
+          {/* Automatic KYC Status & Action Card */}
+          <div className="p-4 rounded-2xl bg-black/60 border border-white/10 flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-3">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                  isKycVerified ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
+                  user.autoKycStatus === 'MANUAL_REVIEW' || user.kycStatus === 'pending' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' :
+                  user.autoKycStatus === 'PAYMENT_CONFIRMED' || user.autoKycStatus === 'FACE_VERIFICATION_PENDING' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
+                  user.autoKycStatus === 'KYC_REJECTED' || user.autoKycStatus === 'VERIFICATION_FAILED' ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' :
+                  'bg-white/5 text-gray-400 border border-white/10'
+                }`}>
+                  <ShieldCheck className="w-5 h-5" />
                 </div>
-                <p className="text-[11px] text-gray-400">
-                  {isKycVerified 
-                    ? 'Verified miner profile. Node & P2P eligible.' 
-                    : 'Front camera selfie & BNB/ETH/SOL network verification fee.'}
-                </p>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-white">Identity Verification (KYC)</span>
+                    {isKycVerified ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">Verified ✓</span>
+                    ) : user.autoKycStatus === 'PAYMENT_CONFIRMED' || user.autoKycStatus === 'FACE_VERIFICATION_PENDING' ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-400 font-bold border border-blue-500/30">Payment Confirmed • Camera Unlocked</span>
+                    ) : user.autoKycStatus === 'MANUAL_REVIEW' || user.kycStatus === 'pending' ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">In Manual Review ⏳</span>
+                    ) : user.autoKycStatus === 'VERIFICATION_FAILED' || user.autoKycStatus === 'KYC_REJECTED' ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-400 font-bold border border-rose-500/30">Verification Failed</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-yellow-500/20 text-yellow-400 font-bold border border-yellow-500/30">USDT BEP-20 Payment Required</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {isKycVerified 
+                      ? 'Verified miner profile. Node & P2P eligible.' 
+                      : user.autoKycStatus === 'PAYMENT_CONFIRMED'
+                      ? 'Payment confirmed on BNB Chain. Live camera face verification ready.'
+                      : 'Automated USDT BEP-20 payment + live biometric face verification.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate('/kyc')}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#FFD700] text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow shrink-0"
+              >
+                {isKycVerified ? 'View KYC Status' : user.autoKycStatus === 'PAYMENT_CONFIRMED' ? 'Start Face Verification' : 'Verify KYC'}
+              </button>
+            </div>
+
+            {/* KYC Details Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/5 text-[11px]">
+              <div className="p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-[10px] text-gray-500 block uppercase font-bold">Network</span>
+                <span className="text-gray-300 font-medium">BNB Smart Chain</span>
+              </div>
+              <div className="p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-[10px] text-gray-500 block uppercase font-bold">Payment Status</span>
+                <span className={user.paymentTxHash ? 'text-emerald-400 font-mono font-bold' : 'text-gray-400 font-medium'}>
+                  {user.paymentTxHash ? 'Confirmed' : 'Pending'}
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-[10px] text-gray-500 block uppercase font-bold">Fee Token</span>
+                <span className="text-yellow-400 font-mono font-bold">USDT BEP-20</span>
+              </div>
+              <div className="p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-[10px] text-gray-500 block uppercase font-bold">Biometric Liveness</span>
+                <span className={isKycVerified ? 'text-emerald-400 font-medium' : user.autoKycStatus === 'PAYMENT_CONFIRMED' ? 'text-blue-400 font-medium' : 'text-gray-500 font-medium'}>
+                  {isKycVerified ? 'Verified' : user.autoKycStatus === 'PAYMENT_CONFIRMED' ? 'Ready' : 'Locked'}
+                </span>
               </div>
             </div>
-            <button
-              onClick={() => navigate('/kyc')}
-              className="px-4 py-2 rounded-xl bg-[#FFD700] text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow shrink-0"
-            >
-              {isKycVerified ? 'View KYC' : 'Verify KYC'}
-            </button>
           </div>
 
           {/* Node Operator Program Section */}
