@@ -1082,7 +1082,7 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                   <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-300 font-black uppercase tracking-wider border border-purple-500/30 animate-pulse">Coming Soon</span>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  Exclusive Web3 digital collectibles, cloud mining hashrate multipliers, and Genesis Node passes.
+                  Total 300 NFTs (100 Premium for 200+ verified referrals, 200 Community). CM Dragon, CM Markhor, CM Penguin & more.
                 </p>
               </div>
             </div>
