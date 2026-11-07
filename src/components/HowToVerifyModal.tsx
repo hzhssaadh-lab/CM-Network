@@ -76,7 +76,7 @@ export const HowToVerifyModal: React.FC<HowToVerifyModalProps> = ({
           <div className="space-y-0.5">
             <span className="font-bold text-white block">Important Network Requirement:</span>
             <span>
-              Use exclusively <strong>BNB Smart Chain (BEP-20)</strong>. Do NOT send via Ethereum (ERC-20) or Tron (TRC-20) networks. Make sure you have a small amount of BNB (approx $0.05–$0.10) in your wallet for network gas.
+              Supported networks: <strong>BNB Smart Chain (BEP-20)</strong> or <strong>Solana (SPL)</strong>. Do NOT send via Ethereum (ERC-20) or Tron (TRC-20) networks. Make sure you have a small amount of BNB or SOL for network gas.
             </span>
           </div>
         </div>
@@ -105,19 +105,16 @@ export const HowToVerifyModal: React.FC<HowToVerifyModalProps> = ({
               <h4 className="text-sm font-black text-white">Send the {feeUsdt} USDT (BEP-20) KYC Fee</h4>
             </div>
             
-            <div className="pl-9 space-y-2 text-xs text-gray-400">
+            <div className="pl-9 space-y-3 text-xs text-gray-400">
               <p>
-                <strong>Method A (Recommended):</strong> Click <strong>&quot;Pay {feeUsdt} USDT Fee&quot;</strong>. Trust Wallet will open automatically with the exact payment amount and recipient pre-filled. Simply review and approve.
-              </p>
-              <p>
-                <strong>Method B (Manual Transfer):</strong> If paying from an external wallet or exchange, transfer exactly <strong>{feeUsdt} USDT</strong> to the official CM Network address below:
+                <strong>Method A (BNB Smart Chain):</strong> Click <strong>&quot;Pay {feeUsdt} USDT Fee&quot;</strong> via connected Trust Wallet or send {feeUsdt} USDT BEP-20 to the official BSC address:
               </p>
 
-              {/* Copy Address Box */}
+              {/* Copy BSC Address Box */}
               <div className="p-3 rounded-xl bg-black/80 border border-white/10 space-y-1.5 font-mono text-[11px]">
                 <div className="flex items-center justify-between text-gray-500 text-[10px]">
-                  <span>OFFICIAL RECEIVING WALLET:</span>
-                  <span className="text-emerald-400 font-bold">BNB Chain BEP-20</span>
+                  <span>BSC RECEIVING WALLET (USDT BEP-20):</span>
+                  <span className="text-[#FFD700] font-bold">BNB Chain (ID: 56)</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[#FFD700] truncate">{OFFICIAL_RECEIVING_WALLET}</span>
@@ -127,6 +124,28 @@ export const HowToVerifyModal: React.FC<HowToVerifyModalProps> = ({
                   >
                     {copiedWallet ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                     <span>{copiedWallet ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <p className="pt-1">
+                <strong>Method B (Solana Network):</strong> Transfer exactly <strong>{feeUsdt} USDT (SPL)</strong> from Phantom, Solflare, or Trust Wallet to the official Solana address below:
+              </p>
+
+              {/* Copy Solana Address Box */}
+              <div className="p-3 rounded-xl bg-black/80 border border-purple-500/30 space-y-1.5 font-mono text-[11px]">
+                <div className="flex items-center justify-between text-gray-500 text-[10px]">
+                  <span>SOLANA RECEIVING WALLET (USDT SPL):</span>
+                  <span className="text-purple-400 font-bold">Solana Mainnet</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-purple-300 truncate">2z8hTr7ccNH6bq2kyjS9cvH9d8XFMESaWFaD9z5HSr1D</span>
+                  <button
+                    onClick={() => copyToClipboard('2z8hTr7ccNH6bq2kyjS9cvH9d8XFMESaWFaD9z5HSr1D', 'contract')}
+                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold flex items-center gap-1 shrink-0 border border-white/10"
+                  >
+                    {copiedContract ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedContract ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
               </div>

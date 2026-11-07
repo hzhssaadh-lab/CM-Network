@@ -29,7 +29,7 @@ import {
   Settings as SettingsIcon
 } from 'lucide-react';
 import { ALLOWED_ADMIN_EMAILS, ADMIN_SECRET_PASSWORD } from '../components/AdminSecretModal';
-import { DEFAULT_KYC_USDT_FEE, OFFICIAL_RECEIVING_WALLET, KycGlobalConfig } from '../lib/kycConfig';
+import { DEFAULT_KYC_USDT_FEE, OFFICIAL_RECEIVING_WALLET, OFFICIAL_SOLANA_RECEIVING_WALLET, KycGlobalConfig } from '../lib/kycConfig';
 import { getKycGlobalConfig, saveKycGlobalConfig } from '../lib/bscPaymentVerifier';
 
 export function Admin() {
@@ -60,6 +60,7 @@ export function Admin() {
   // Automatic KYC Configuration State
   const [kycFeeUsdt, setKycFeeUsdt] = useState<string>(DEFAULT_KYC_USDT_FEE.toString());
   const [kycReceivingWallet, setKycReceivingWallet] = useState<string>(OFFICIAL_RECEIVING_WALLET);
+  const [kycSolanaWallet, setKycSolanaWallet] = useState<string>(OFFICIAL_SOLANA_RECEIVING_WALLET);
   const [kycMaxRetries, setKycMaxRetries] = useState<number>(3);
   const [kycAnnouncement, setKycAnnouncement] = useState<string>('');
   const [savingKycConfig, setSavingKycConfig] = useState<boolean>(false);
@@ -151,6 +152,7 @@ export function Admin() {
       if (cfg) {
         setKycFeeUsdt(cfg.feeUsdt !== undefined ? cfg.feeUsdt.toString() : DEFAULT_KYC_USDT_FEE.toString());
         setKycReceivingWallet(cfg.receivingWallet || OFFICIAL_RECEIVING_WALLET);
+        setKycSolanaWallet(cfg.solanaReceivingWallet || OFFICIAL_SOLANA_RECEIVING_WALLET);
         setKycMaxRetries(cfg.maxRetryAttempts || 3);
         setKycAnnouncement(cfg.maintenanceNotice || '');
       }
@@ -165,6 +167,7 @@ export function Admin() {
       const updated: Partial<KycGlobalConfig> = {
         feeUsdt: parseFloat(kycFeeUsdt) || DEFAULT_KYC_USDT_FEE,
         receivingWallet: kycReceivingWallet.trim() || OFFICIAL_RECEIVING_WALLET,
+        solanaReceivingWallet: kycSolanaWallet.trim() || OFFICIAL_SOLANA_RECEIVING_WALLET,
         maxRetryAttempts: Number(kycMaxRetries) || 3,
         maintenanceNotice: kycAnnouncement.trim(),
         updatedAt: Date.now()
@@ -2301,12 +2304,12 @@ export function Admin() {
                 <SettingsIcon className="w-4 h-4 text-emerald-400" />
                 <h4 className="text-sm font-black text-white uppercase tracking-wider">KYC Protocol Configuration</h4>
               </div>
-              <span className="text-[11px] text-gray-400 font-mono">Chain ID: 56 (BNB Smart Chain Mainnet)</span>
+              <span className="text-[11px] text-gray-400 font-mono">BSC (56) + Solana (Mainnet-Beta)</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1.5">KYC Fee (USDT BEP-20)</label>
+                <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1.5">KYC Fee (USDT)</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -2322,13 +2325,24 @@ export function Admin() {
               </div>
 
               <div>
-                <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1.5">Official Receiving Wallet</label>
+                <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1.5">Official BSC Wallet (BEP-20)</label>
                 <input
                   type="text"
                   value={kycReceivingWallet}
                   onChange={(e) => setKycReceivingWallet(e.target.value)}
                   className="w-full bg-black/80 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white focus:border-emerald-500 outline-none truncate"
                   placeholder="0x..."
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-purple-400 uppercase font-bold block mb-1.5">Official Solana Wallet (SPL)</label>
+                <input
+                  type="text"
+                  value={kycSolanaWallet}
+                  onChange={(e) => setKycSolanaWallet(e.target.value)}
+                  className="w-full bg-black/80 border border-purple-500/30 rounded-xl px-3 py-2 text-xs font-mono text-purple-300 focus:border-purple-500 outline-none truncate"
+                  placeholder="2z8h..."
                 />
               </div>
 
@@ -2341,15 +2355,15 @@ export function Admin() {
                     max="10"
                     value={kycMaxRetries}
                     onChange={(e) => setKycMaxRetries(Number(e.target.value))}
-                    className="w-24 bg-black/80 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white focus:border-emerald-500 outline-none"
+                    className="w-20 bg-black/80 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white focus:border-emerald-500 outline-none"
                   />
                   <button
                     onClick={handleSaveKycConfig}
                     disabled={savingKycConfig}
-                    className="flex-1 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    className="flex-1 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>{savingKycConfig ? 'Saving...' : 'Save Settings'}</span>
+                    <span>{savingKycConfig ? 'Saving...' : 'Save'}</span>
                   </button>
                 </div>
               </div>

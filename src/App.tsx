@@ -13,8 +13,10 @@ import { Leaderboard } from './pages/Leaderboard';
 import { Squads } from './pages/Squads';
 import { P2P } from './pages/P2P';
 import { Kyc } from './pages/Kyc';
+import { Nfts } from './pages/Nfts';
 import { Maintenance } from './pages/Maintenance';
 import { SocialPopup } from './components/SocialPopup';
+import { KycStatusReminderPopup } from './components/KycStatusReminderPopup';
 import { OFFICIAL_SOCIALS } from './components/SocialChannels';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
@@ -127,6 +129,7 @@ function AppContent() {
     <div className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto p-4 sm:p-8 relative">
       <Toaster position="top-center" toastOptions={{ style: { background: '#333', color: '#fff', borderRadius: '16px' } }} />
       {!isAdminRoute && <SocialPopup />}
+      {!isAdminRoute && <KycStatusReminderPopup />}
       {!isAdminRoute && <Header />}
       
       <main className={`flex-1 w-full flex flex-col pt-4 ${isAdminRoute ? 'pb-8' : 'pb-32'}`}>
@@ -138,6 +141,8 @@ function AppContent() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/p2p" element={<P2P />} />
           <Route path="/kyc" element={<Kyc />} />
+          <Route path="/nfts" element={<Nfts />} />
+          <Route path="/nft" element={<Nfts />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/leaderboard" element={<Leaderboard />} />

@@ -23,7 +23,8 @@ import {
   Camera,
   Edit2,
   ShieldCheck,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Gem
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
@@ -354,6 +355,15 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
             >
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>KYC</span>
+            </button>
+            <button
+              onClick={() => navigate('/nfts')}
+              className="px-4 py-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+              title="CM Network NFTs (Coming Soon)"
+            >
+              <Gem className="w-3.5 h-3.5 text-purple-400" />
+              <span>NFTs</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-[9px] font-black uppercase text-purple-300 border border-purple-500/30">Soon</span>
             </button>
           </div>
 
@@ -1055,6 +1065,36 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* NFT Ecosystem Highlight Card */}
+          <div 
+            onClick={() => navigate('/nfts')}
+            className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-black to-indigo-950/40 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer hover:border-purple-400/60 transition-all hover:scale-[1.01] group shadow-lg"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-11 h-11 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Gem className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors">CM Network NFT Ecosystem</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-300 font-black uppercase tracking-wider border border-purple-500/30 animate-pulse">Coming Soon</span>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Exclusive Web3 digital collectibles, cloud mining hashrate multipliers, and Genesis Node passes.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/nfts');
+              }}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:brightness-110 text-white font-black text-xs uppercase tracking-wider transition-all shadow shrink-0"
+            >
+              Explore NFTs (Coming Soon)
+            </button>
           </div>
 
           {/* Node Operator Program Section */}

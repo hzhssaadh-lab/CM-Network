@@ -168,7 +168,7 @@ export const KycStatusCard: React.FC<KycStatusCardProps> = ({
             <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
             <div>
               <strong className="font-bold text-white block mb-0.5">USDT Fee Payment Verified</strong>
-              Payment of {paymentAmount} USDT BEP-20 is confirmed on BNB Smart Chain. You are authorized to begin Live Biometric Face Verification.
+              Payment of {paymentAmount} USDT is confirmed on-chain (BNB Smart Chain or Solana). You are authorized to begin Live Biometric Face Verification.
             </div>
           </div>
         ) : (
@@ -176,7 +176,7 @@ export const KycStatusCard: React.FC<KycStatusCardProps> = ({
             <Lock className="w-4 h-4 text-[#FFD700] shrink-0 mt-0.5" />
             <div>
               <strong className="font-bold text-white block mb-0.5">Strict Payment-First KYC</strong>
-              A one-time verification fee of {paymentAmount} USDT BEP-20 must be paid from Trust Wallet or MetaMask to unlock real-time live biometric face verification.
+              A one-time verification fee of {paymentAmount} USDT must be paid via USDT BEP-20 (BSC) or USDT SPL (Solana) to unlock real-time live biometric face verification.
             </div>
           </div>
         )}
@@ -210,7 +210,7 @@ export const KycStatusCard: React.FC<KycStatusCardProps> = ({
             KYC Protocol Fee
           </span>
           <p className="text-xs font-mono font-bold text-[#FFD700]">
-            {paymentAmount} USDT <span className="text-[10px] text-gray-500">BEP-20</span>
+            {paymentAmount} USDT <span className="text-[10px] text-gray-500">BEP-20 / SPL</span>
           </p>
         </div>
 

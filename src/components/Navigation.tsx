@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Zap, Wallet, Users, User, Shield, Trophy, Flag, PlaySquare, ArrowRightLeft } from 'lucide-react';
+import { Home, Zap, Wallet, Users, User, Shield, Trophy, Flag, PlaySquare, ArrowRightLeft, Gem } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../hooks/useAppStore';
 
@@ -10,6 +10,7 @@ export function Navigation() {
     { to: '/dashboard', icon: Home, label: 'DASHBOARD' },
     { to: '/p2p', icon: ArrowRightLeft, label: 'P2P' },
     { to: '/tasks', icon: Zap, label: 'TASKS' },
+    { to: '/nfts', icon: Gem, label: 'NFTS' },
     { to: '/wallet', icon: Wallet, label: 'WALLET' },
     { to: '/friends', icon: Users, label: 'FRIENDS' },
     { to: '/profile', icon: User, label: 'PROFILE' },

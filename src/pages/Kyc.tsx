@@ -22,7 +22,9 @@ import {
   Info,
   CheckCircle,
   Eye,
-  HelpCircle
+  HelpCircle,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
@@ -30,6 +32,8 @@ import {
   BSC_CONFIG, 
   OFFICIAL_USDT_BEP20_CONTRACT, 
   OFFICIAL_RECEIVING_WALLET, 
+  OFFICIAL_SOLANA_RECEIVING_WALLET,
+  OFFICIAL_SOLANA_USDT_MINT,
   DEFAULT_KYC_USDT_FEE,
   AutomaticKycStatus,
   KycRecord
@@ -39,6 +43,7 @@ import {
   verifyBscUsdtPayment, 
   VerificationResult 
 } from '../lib/bscPaymentVerifier';
+import { verifySolanaPayment } from '../lib/solanaPaymentVerifier';
 import { 
   connectWallet, 
   switchToBscNetwork, 
@@ -84,6 +89,23 @@ export function Kyc() {
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [walletBalances, setWalletBalances] = useState<{ bnb: number; usdt: number }>({ bnb: 0, usdt: 0 });
   const [copiedWallet, setCopiedWallet] = useState(false);
+  const [copiedSolanaWallet, setCopiedSolanaWallet] = useState(false);
+  const [selectedNetwork, setSelectedNetwork] = useState<'BSC' | 'SOLANA'>('BSC');
+
+  // KYC Method Selection: 'fast' (Instant Automatic) or 'manual' (24-Hour Review)
+  const [kycMethod, setKycMethod] = useState<'fast' | 'manual'>('fast');
+
+  // Manual KYC Form State (24-Hour Review Flow)
+  const [manualChain, setManualChain] = useState<'BSC' | 'SOLANA'>('BSC');
+  const [manualTxHash, setManualTxHash] = useState(user?.kycTxHash || '');
+  const [manualSelfie, setManualSelfie] = useState<string | null>(user?.kycPhotoUrl || null);
+  const [manualProof, setManualProof] = useState<string | null>(user?.kycPaymentProofUrl || null);
+  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+  const [reviewCountdown, setReviewCountdown] = useState<{ hours: number; minutes: number; seconds: number }>({
+    hours: 23,
+    minutes: 59,
+    seconds: 59
+  });
 
   // Payment Execution & On-Chain Verification State
   const [isPaying, setIsPaying] = useState(false);
@@ -229,6 +251,25 @@ export function Kyc() {
   useEffect(() => {
     fetchKycState();
   }, [fetchKycState]);
+
+  // Live 24-Hour Review countdown timer
+  useEffect(() => {
+    const submittedAt = user?.kycSubmittedAt || Date.now();
+    const reviewEndTime = submittedAt + 24 * 60 * 60 * 1000;
+
+    const tick = () => {
+      const now = Date.now();
+      const diff = Math.max(0, reviewEndTime - now);
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setReviewCountdown({ hours, minutes, seconds });
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [user?.kycSubmittedAt]);
 
   // 2. Persist updated KYC Record into kyc_verifications table & settings table
   const saveKycRecord = async (updates: Partial<KycRecord>) => {
@@ -420,24 +461,33 @@ export function Kyc() {
     }
   };
 
-  // 5. Automatic Blockchain Verification via BSC RPC
+  // 5. Automatic Blockchain Verification via BSC or Solana RPC
   const handleVerifyPaymentHash = async (hashToVerify?: string) => {
     const hash = (hashToVerify || txHashInput || '').trim();
     if (!hash) {
-      toast.error('Please enter or provide a transaction hash.');
+      toast.error('Please enter or provide a transaction hash or Solana signature.');
       return;
     }
 
     setIsVerifyingTx(true);
     try {
-      toast('Querying BNB Smart Chain validators for confirmation...', { icon: '🔍' });
+      const isSolana = (!hash.startsWith('0x') && hash.length > 50) || selectedNetwork === 'SOLANA';
+      toast(
+        isSolana
+          ? 'Querying Solana Mainnet-Beta validators for signature confirmation...'
+          : 'Querying BNB Smart Chain validators for confirmation...',
+        { icon: '🔍' }
+      );
 
-      const result = await verifyBscUsdtPayment(hash, userUid, kycConfig.feeUsdt);
+      const result = isSolana
+        ? await verifySolanaPayment(hash, userUid, kycConfig.feeUsdt)
+        : await verifyBscUsdtPayment(hash, userUid, kycConfig.feeUsdt);
+
       setTxVerificationDetails(result);
 
       if (result.verified) {
         confetti({ particleCount: 50, spread: 60 });
-        toast.success(`USDT Payment Confirmed on-chain! Face verification unlocked. ✓`, {
+        toast.success(`USDT Payment Confirmed on-chain (${result.network || 'Mainnet'})! Face verification unlocked. ✓`, {
           icon: '🎉',
           duration: 5000,
         });
@@ -465,9 +515,82 @@ export function Kyc() {
     }
   };
 
+  // Manual KYC Handlers (Method 2: 24-Hour Review & Approval)
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (val: string | null) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('File size too large. Please select an image under 8MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setter(reader.result as string);
+      toast.success('Image loaded successfully! ✓');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleManualKycSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualTxHash.trim()) {
+      toast.error('Please enter the transaction hash or Solana signature for your $0.5 USDT payment.');
+      return;
+    }
+    if (!manualSelfie) {
+      toast.error('Please upload your front camera selfie photo.');
+      return;
+    }
+
+    setIsSubmittingManual(true);
+    try {
+      toast('Submitting your KYC application for 24-Hour Review...', { icon: '⏳' });
+
+      const receivingWallet = manualChain === 'BSC' 
+        ? kycConfig.receivingWallet 
+        : OFFICIAL_SOLANA_RECEIVING_WALLET;
+
+      // Update user profile
+      await updateUser({
+        kycStatus: 'pending',
+        autoKycStatus: 'MANUAL_REVIEW',
+        kycPhotoUrl: manualSelfie,
+        kycPaymentProofUrl: manualProof || undefined,
+        kycTxHash: manualTxHash.trim(),
+        kycChain: manualChain,
+        kycSubmittedAt: Date.now(),
+      });
+
+      // Save to kyc_verifications table
+      await saveKycRecord({
+        status: 'MANUAL_REVIEW',
+        paymentTxHash: manualTxHash.trim(),
+        paymentAmount: kycConfig.feeUsdt,
+        paymentWallet: receivingWallet,
+        failureReason: undefined,
+      });
+
+      confetti({ particleCount: 50, spread: 60 });
+      toast.success(
+        'Manual KYC Application Submitted! Your application will be reviewed and approved within 24 hours. ✓',
+        { duration: 6000, icon: '⏳' }
+      );
+    } catch (err: any) {
+      console.error('Manual KYC submission failed:', err);
+      toast.error(`Submission error: ${err?.message || 'Failed to submit.'}`);
+    } finally {
+      setIsSubmittingManual(false);
+    }
+  };
+
   // 6. Start Live Face Verification & Randomized Challenge Liveness Detection
   const handleStartFaceVerification = async () => {
-    // STRICT PAYMENT-FIRST GATE
+    // STRICT PAYMENT-FIRST GATE: Under no circumstance can face verification start without confirmed on-chain payment
     const isPaymentConfirmed =
       kycState?.status === 'PAYMENT_CONFIRMED' ||
       kycState?.status === 'KYC_UNLOCKED' ||
@@ -476,10 +599,10 @@ export function Kyc() {
       kycState?.status === 'KYC_APPROVED' ||
       Boolean(kycState?.paymentConfirmedAt);
 
-    if (!isPaymentConfirmed && user?.role !== 'admin') {
-      toast.error('Payment Required: You must pay the KYC fee in USDT BEP-20 and verify on-chain first!', {
+    if (!isPaymentConfirmed) {
+      toast.error(`Payment Required: You must complete the $${kycConfig.feeUsdt} USDT KYC payment (USDT BEP-20 or USDT Solana) and verify on-chain first!`, {
         icon: '🔒',
-        duration: 4000,
+        duration: 5000,
       });
       return;
     }
@@ -809,8 +932,89 @@ export function Kyc() {
         </div>
       )}
 
-      {/* STEP 1: PAYMENT CONFIGURATION & TRUST WALLET TRANSFER */}
-      <div className="bg-[#0f0e0c] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6">
+      {/* TWO KYC VERIFICATION METHODS: Fast Instant vs Standard 24-Hour */}
+      {!isKycFullyApproved && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black uppercase tracking-wider text-gray-300">
+              Select KYC Verification Method
+            </h3>
+            <span className="text-[10px] text-gray-400 font-mono">2 Verification Options</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Method A: Fast Automatic KYC */}
+            <div
+              onClick={() => setKycMethod('fast')}
+              className={`p-5 rounded-3xl border cursor-pointer transition-all ${
+                kycMethod === 'fast'
+                  ? 'bg-gradient-to-br from-[#1c1808] to-black border-[#FFD700] shadow-[0_0_25px_rgba(255,215,0,0.25)]'
+                  : 'bg-black/50 border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <Zap className="w-3 h-3 fill-emerald-400 text-emerald-400" />
+                  <span>Fast / Instant KYC ⚡</span>
+                </span>
+                <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                  kycMethod === 'fast' ? 'border-[#FFD700] bg-[#FFD700]' : 'border-gray-500'
+                }`}>
+                  {kycMethod === 'fast' && <span className="w-2 h-2 rounded-full bg-black" />}
+                </span>
+              </div>
+              <h4 className="text-sm sm:text-base font-black text-white mt-2.5">
+                Instant Automatic Verification
+              </h4>
+              <p className="text-xs text-gray-400 mt-1">
+                USDT Payment on-chain + Live Biometric Oval Face Camera. Automatically approved in 60 seconds!
+              </p>
+              <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px] font-bold">
+                <span className="text-gray-500">Approval Time:</span>
+                <span className="text-emerald-400">⚡ Instant (60 Seconds)</span>
+              </div>
+            </div>
+
+            {/* Method B: Standard Manual KYC (24-Hour Review) */}
+            <div
+              onClick={() => setKycMethod('manual')}
+              className={`p-5 rounded-3xl border cursor-pointer transition-all ${
+                kycMethod === 'manual'
+                  ? 'bg-gradient-to-br from-[#181126] to-black border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.25)]'
+                  : 'bg-black/50 border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-purple-400" />
+                  <span>Standard KYC (24 Hours) ⏳</span>
+                </span>
+                <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                  kycMethod === 'manual' ? 'border-purple-400 bg-purple-500' : 'border-gray-500'
+                }`}>
+                  {kycMethod === 'manual' && <span className="w-2 h-2 rounded-full bg-white" />}
+                </span>
+              </div>
+              <h4 className="text-sm sm:text-base font-black text-white mt-2.5">
+                Standard Manual Verification
+              </h4>
+              <p className="text-xs text-gray-400 mt-1">
+                Send $0.5 USDT fee, upload front selfie & payment receipt screenshot. Reviewed & approved within 24 hours.
+              </p>
+              <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px] font-bold">
+                <span className="text-gray-500">Approval Time:</span>
+                <span className="text-purple-300">⏳ Within 24 Hours</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* METHOD 1: FAST AUTOMATIC KYC (INSTANT APPROVAL) */}
+      {kycMethod === 'fast' && (
+        <>
+          {/* STEP 1: PAYMENT CONFIGURATION & TRUST WALLET TRANSFER */}
+          <div className="bg-[#0f0e0c] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6">
         <div className="flex items-center justify-between border-b border-white/5 pb-4 flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <span className="w-8 h-8 rounded-full bg-[#FFD700] text-black font-black text-xs flex items-center justify-center">
@@ -818,10 +1022,10 @@ export function Kyc() {
             </span>
             <div>
               <h3 className="text-lg font-black text-white">
-                USDT BEP-20 Payment via Trust Wallet
+                USDT Payment (BNB Smart Chain BEP-20 / Solana SPL)
               </h3>
               <p className="text-xs text-gray-400">
-                Payment must be made in USDT on BNB Smart Chain (Chain ID: 56).
+                Payment must be made in USDT (${kycConfig.feeUsdt}) on BNB Smart Chain or Solana Network.
               </p>
             </div>
           </div>
@@ -829,153 +1033,274 @@ export function Kyc() {
           {isPaymentUnlocked && (
             <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
-              <span>Paid & Confirmed on BSC</span>
+              <span>Paid & Confirmed On-Chain</span>
             </span>
           )}
         </div>
 
-        {/* Payment Specifications Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* Token & Network Spec */}
-          <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-3">
-            <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
-              Official Blockchain Protocol
-            </span>
-            <div className="space-y-1.5 text-xs font-mono">
-              <div className="flex justify-between">
-                <span className="text-gray-400 font-sans">Network:</span>
-                <span className="text-[#FFD700] font-bold">BNB Smart Chain (Mainnet)</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400 font-sans">Chain ID:</span>
-                <span className="text-white font-bold">{kycConfig.chainId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400 font-sans">Payment Token:</span>
-                <span className="text-emerald-400 font-bold">USDT (BEP-20)</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400 font-sans">Required Fee:</span>
-                <span className="text-[#FFD700] font-black text-sm">{kycConfig.feeUsdt} USDT</span>
-              </div>
-            </div>
+        {/* Network Selection Tabs */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-black/60 border border-white/10">
+          <span className="text-xs font-bold text-gray-300">Select USDT Payment Network:</span>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setSelectedNetwork('BSC')}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                selectedNetwork === 'BSC'
+                  ? 'bg-[#FFD700] text-black shadow-[0_0_15px_rgba(255,215,0,0.3)]'
+                  : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+              }`}
+            >
+              <span>🟡</span>
+              <span>BNB Chain (BEP-20)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedNetwork('SOLANA')}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                selectedNetwork === 'SOLANA'
+                  ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                  : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+              }`}
+            >
+              <span>🟣</span>
+              <span>Solana (SPL)</span>
+            </button>
           </div>
-
-          {/* Official Receiving Wallet */}
-          <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
-                Official Receiving Wallet
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(kycConfig.receivingWallet);
-                  setCopiedWallet(true);
-                  toast.success('Official receiving wallet copied!');
-                  setTimeout(() => setCopiedWallet(false), 2000);
-                }}
-                className="text-[10px] text-[#FFD700] hover:underline flex items-center gap-1"
-              >
-                {copiedWallet ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedWallet ? 'Copied' : 'Copy'}</span>
-              </button>
-            </div>
-            <p className="font-mono text-xs text-white break-all bg-white/5 p-2 rounded-xl border border-white/5">
-              {kycConfig.receivingWallet}
-            </p>
-            <span className="text-[10px] text-gray-500 block">
-              USDT Contract: {kycConfig.usdtContract.slice(0, 10)}...{kycConfig.usdtContract.slice(-8)}
-            </span>
-          </div>
-
         </div>
 
-        {/* Trust Wallet Interactive Actions */}
-        {!isPaymentUnlocked && (
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-[#17140c] via-[#100f0b] to-[#17140c] border border-[#FFD700]/30 space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-black text-white flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-[#FFD700]" />
-                  <span>Trust Wallet & Web3 Connection</span>
-                </h4>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Connect your Trust Wallet or Web3 browser to approve the {kycConfig.feeUsdt} USDT BEP-20 fee.
-                </p>
+        {/* BSC NETWORK DETAILS */}
+        {selectedNetwork === 'BSC' && (
+          <>
+            {/* Payment Specifications Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Token & Network Spec */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-3">
+                <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
+                  Official Blockchain Protocol
+                </span>
+                <div className="space-y-1.5 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Network:</span>
+                    <span className="text-[#FFD700] font-bold">BNB Smart Chain (Mainnet)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Chain ID:</span>
+                    <span className="text-white font-bold">{kycConfig.chainId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Payment Token:</span>
+                    <span className="text-emerald-400 font-bold">USDT (BEP-20)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Required Fee:</span>
+                    <span className="text-[#FFD700] font-black text-sm">{kycConfig.feeUsdt} USDT</span>
+                  </div>
+                </div>
               </div>
 
-              {!walletAddress ? (
-                <button
-                  type="button"
-                  onClick={handleConnectWallet}
-                  disabled={isConnectingWallet}
-                  className="px-5 py-2.5 rounded-xl bg-[#FFD700] hover:bg-[#F2C800] text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95 shadow shrink-0"
-                >
-                  <Wallet className="w-3.5 h-3.5" />
-                  <span>{isConnectingWallet ? 'Connecting...' : 'Connect Trust Wallet'}</span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono">
-                    <span className="text-emerald-400 font-bold">● Connected: </span>
-                    <span className="text-white">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
-                  </div>
+              {/* Official Receiving Wallet */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
+                    Official BSC Receiving Wallet
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setWalletAddress(null)}
-                    className="text-[10px] text-gray-400 hover:text-white underline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(kycConfig.receivingWallet);
+                      setCopiedWallet(true);
+                      toast.success('Official BSC receiving wallet copied!');
+                      setTimeout(() => setCopiedWallet(false), 2000);
+                    }}
+                    className="text-[10px] text-[#FFD700] hover:underline flex items-center gap-1"
                   >
-                    Disconnect
+                    {copiedWallet ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedWallet ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
-              )}
+                <p className="font-mono text-xs text-white break-all bg-white/5 p-2 rounded-xl border border-white/5">
+                  {kycConfig.receivingWallet}
+                </p>
+                <span className="text-[10px] text-gray-500 block">
+                  USDT Contract: {kycConfig.usdtContract.slice(0, 10)}...{kycConfig.usdtContract.slice(-8)}
+                </span>
+              </div>
             </div>
 
-            {/* If wallet is connected: show balances and Pay button */}
-            {walletAddress && (
-              <div className="pt-3 border-t border-white/10 space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
-                  <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 font-sans block">USDT Balance:</span>
-                    <span className="text-emerald-400 font-black">{walletBalances.usdt.toFixed(2)} USDT</span>
+            {/* Trust Wallet Interactive Actions */}
+            {!isPaymentUnlocked && (
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-[#17140c] via-[#100f0b] to-[#17140c] border border-[#FFD700]/30 space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-[#FFD700]" />
+                      <span>Trust Wallet & Web3 Connection</span>
+                    </h4>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Connect your Trust Wallet or Web3 browser to approve the {kycConfig.feeUsdt} USDT BEP-20 fee.
+                    </p>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 font-sans block">BNB (Gas):</span>
-                    <span className="text-[#FFD700] font-black">{walletBalances.bnb.toFixed(4)} BNB</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 col-span-2 sm:col-span-1">
-                    <span className="text-[10px] text-gray-400 font-sans block">Network:</span>
-                    <span className="text-white font-bold">{walletChainId === 56 ? 'BSC Mainnet ✓' : 'Switching to 56...'}</span>
-                  </div>
+
+                  {!walletAddress ? (
+                    <button
+                      type="button"
+                      onClick={handleConnectWallet}
+                      disabled={isConnectingWallet}
+                      className="px-5 py-2.5 rounded-xl bg-[#FFD700] hover:bg-[#F2C800] text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95 shadow shrink-0"
+                    >
+                      <Wallet className="w-3.5 h-3.5" />
+                      <span>{isConnectingWallet ? 'Connecting...' : 'Connect Trust Wallet'}</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono">
+                        <span className="text-emerald-400 font-bold">● Connected: </span>
+                        <span className="text-white">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWalletAddress(null)}
+                        className="text-[10px] text-gray-400 hover:text-white underline"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handlePayKycFee}
-                  disabled={isPaying}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 text-black font-black text-xs sm:text-sm uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Zap className="w-4 h-4 fill-black" />
-                  <span>
-                    {isPaying ? 'Awaiting Trust Wallet Approval...' : `Pay ${kycConfig.feeUsdt} USDT KYC Fee with Trust Wallet`}
-                  </span>
-                </button>
+                {/* If wallet is connected: show balances and Pay button */}
+                {walletAddress && (
+                  <div className="pt-3 border-t border-white/10 space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
+                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
+                        <span className="text-[10px] text-gray-400 font-sans block">USDT Balance:</span>
+                        <span className="text-emerald-400 font-black">{walletBalances.usdt.toFixed(2)} USDT</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
+                        <span className="text-[10px] text-gray-400 font-sans block">BNB (Gas):</span>
+                        <span className="text-[#FFD700] font-black">{walletBalances.bnb.toFixed(4)} BNB</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 col-span-2 sm:col-span-1">
+                        <span className="text-[10px] text-gray-400 font-sans block">Network:</span>
+                        <span className="text-white font-bold">{walletChainId === 56 ? 'BSC Mainnet ✓' : 'Switching to 56...'}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handlePayKycFee}
+                      disabled={isPaying}
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 text-black font-black text-xs sm:text-sm uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Zap className="w-4 h-4 fill-black" />
+                      <span>
+                        {isPaying ? 'Awaiting Trust Wallet Approval...' : `Pay ${kycConfig.feeUsdt} USDT KYC Fee with Trust Wallet`}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
+          </>
+        )}
+
+        {/* SOLANA NETWORK DETAILS */}
+        {selectedNetwork === 'SOLANA' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Solana Protocol Spec */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-purple-500/20 space-y-3">
+                <span className="text-[10px] text-purple-400 uppercase font-black tracking-wider block">
+                  Solana SPL Token Protocol
+                </span>
+                <div className="space-y-1.5 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Network:</span>
+                    <span className="text-purple-400 font-bold">Solana (Mainnet-Beta)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Payment Token:</span>
+                    <span className="text-emerald-400 font-bold">USDT (SPL Token)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Token Decimals:</span>
+                    <span className="text-white font-bold">6 Decimals</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-sans">Required Fee:</span>
+                    <span className="text-purple-400 font-black text-sm">{kycConfig.feeUsdt} USDT</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Official Solana Receiving Wallet */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-purple-500/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-purple-400 uppercase font-black tracking-wider block">
+                    Official Solana Receiving Wallet
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(OFFICIAL_SOLANA_RECEIVING_WALLET);
+                      setCopiedSolanaWallet(true);
+                      toast.success('Official Solana wallet copied!');
+                      setTimeout(() => setCopiedSolanaWallet(false), 2000);
+                    }}
+                    className="text-[10px] text-purple-400 hover:underline flex items-center gap-1 font-bold"
+                  >
+                    {copiedSolanaWallet ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedSolanaWallet ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <p className="font-mono text-xs text-purple-300 break-all bg-purple-950/30 p-2.5 rounded-xl border border-purple-500/30 font-bold select-all">
+                  {OFFICIAL_SOLANA_RECEIVING_WALLET}
+                </p>
+                <div className="flex items-center justify-between text-[10px] text-gray-500">
+                  <span>Mint: {OFFICIAL_SOLANA_USDT_MINT.slice(0, 8)}...{OFFICIAL_SOLANA_USDT_MINT.slice(-6)}</span>
+                  <a
+                    href={`https://solscan.io/account/${OFFICIAL_SOLANA_RECEIVING_WALLET}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-purple-400 hover:underline flex items-center gap-0.5"
+                  >
+                    <span>View on Solscan</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Solana Payment Guide */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-black to-purple-950/40 border border-purple-500/30 space-y-2">
+              <h5 className="text-xs font-black text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                <span>📱</span>
+                <span>How to Pay via Solana Wallet (Phantom, Trust Wallet, Solflare, etc.)</span>
+              </h5>
+              <ol className="text-xs text-gray-300 space-y-1 list-decimal list-inside font-sans">
+                <li>Copy the Official Solana address above: <span className="font-mono text-purple-400">{OFFICIAL_SOLANA_RECEIVING_WALLET.slice(0, 8)}...</span></li>
+                <li>Open your Solana wallet app and send exactly <strong className="text-white">{kycConfig.feeUsdt} USDT (Solana SPL)</strong>.</li>
+                <li>Copy your transaction signature from your wallet history and paste it below.</li>
+                <li>Click <strong>Verify Solana Signature</strong> to automatically unlock face verification!</li>
+              </ol>
+            </div>
           </div>
         )}
 
-        {/* On-Chain Transaction Hash Verification Box */}
+        {/* On-Chain Transaction Hash / Signature Verification Box */}
         <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-3">
           <label className="text-[11px] font-bold text-gray-300 uppercase tracking-wider block">
-            Automatic Blockchain Payment Verification (BNB Smart Chain)
+            Automatic Blockchain Payment Verification ({selectedNetwork === 'SOLANA' ? 'Solana Mainnet' : 'BNB Smart Chain'})
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
-              placeholder="Enter BSC transaction hash: 0x..."
+              placeholder={
+                selectedNetwork === 'SOLANA'
+                  ? 'Paste Solana transaction signature: 5xY... or base58 string'
+                  : 'Enter BSC transaction hash: 0x...'
+              }
               value={txHashInput}
               onChange={(e) => setTxHashInput(e.target.value)}
               className="flex-1 px-4 py-3 rounded-xl bg-black/60 border border-white/10 text-white text-xs font-mono focus:border-[#FFD700] outline-none"
@@ -987,7 +1312,13 @@ export function Kyc() {
               className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingTx ? 'animate-spin' : ''}`} />
-              <span>{isVerifyingTx ? 'Verifying on BSC...' : 'Verify Transaction'}</span>
+              <span>
+                {isVerifyingTx
+                  ? 'Verifying On-Chain...'
+                  : selectedNetwork === 'SOLANA'
+                  ? 'Verify Solana Signature'
+                  : 'Verify BSC Hash'}
+              </span>
             </button>
           </div>
 
@@ -1003,9 +1334,10 @@ export function Kyc() {
               </div>
               {txVerificationDetails.verified ? (
                 <>
-                  <p>Amount: {txVerificationDetails.amountUsdt} USDT (BEP-20)</p>
-                  <p>Block: #{txVerificationDetails.blockNumber} ({txVerificationDetails.confirmations} Confirmations)</p>
-                  <p>Sender: {txVerificationDetails.senderAddress}</p>
+                  <p>Network: {txVerificationDetails.network || (selectedNetwork === 'SOLANA' ? 'Solana Mainnet' : 'BNB Smart Chain')}</p>
+                  <p>Amount: {txVerificationDetails.amountUsdt} USDT</p>
+                  {txVerificationDetails.blockNumber ? <p>Block / Slot: #{txVerificationDetails.blockNumber} ({txVerificationDetails.confirmations || 1} Confirmations)</p> : null}
+                  {txVerificationDetails.senderAddress ? <p>Sender: {txVerificationDetails.senderAddress}</p> : null}
                 </>
               ) : (
                 <p>{txVerificationDetails.error}</p>
@@ -1053,7 +1385,7 @@ export function Kyc() {
             </div>
             <h4 className="text-sm font-bold text-white">Camera & Face Verification Locked</h4>
             <p className="text-xs text-gray-400 max-w-sm mx-auto">
-              In accordance with CM Network protocol rules, you must pay the {kycConfig.feeUsdt} USDT BEP-20 fee and confirm it on-chain in Step 1 before accessing Live Face Verification.
+              In accordance with CM Network protocol rules, you must pay the {kycConfig.feeUsdt} USDT fee (via BNB Smart Chain or Solana) and confirm it on-chain in Step 1 before accessing Live Face Verification.
             </p>
           </div>
         ) : (
@@ -1162,6 +1494,283 @@ export function Kyc() {
           </div>
         )}
       </div>
+    </>
+  )}
+
+  {/* METHOD 2: STANDARD MANUAL KYC (APPROVED IN 24 HOURS) */}
+  {kycMethod === 'manual' && (
+    <div className="bg-[#0f0e0c] border border-purple-500/40 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-5">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-black uppercase tracking-wider">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Standard KYC • Approval Time: Within 24 Hours</span>
+          </div>
+          <h3 className="text-xl font-black text-white">
+            Manual Verification Application
+          </h3>
+          <p className="text-xs text-gray-400">
+            Send $0.5 USDT fee, upload your front camera selfie and payment receipt. Approved by CM Network within 24 hours.
+          </p>
+        </div>
+
+        <div className="px-3.5 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-mono font-bold shrink-0">
+          Fee: {kycConfig.feeUsdt} USDT
+        </div>
+      </div>
+
+      {/* If user already has an active manual review pending */}
+      {(isManualReview || user?.kycStatus === 'pending') && (
+        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/40 space-y-3">
+          <div className="flex items-center gap-2.5 text-amber-300 font-bold text-sm">
+            <Clock className="w-5 h-5 text-amber-400 animate-spin" style={{ animationDuration: '4s' }} />
+            <span>Application Under Review (Estimated Approval: Within 24 Hours)</span>
+          </div>
+          <p className="text-xs text-gray-300">
+            Your manual KYC submission is currently queued for administrator review. Once verified, your status will update automatically and P2P/Node access will be enabled.
+          </p>
+
+          {/* Live 24-Hour Review Countdown Timer */}
+          <div className="p-3.5 rounded-2xl bg-black/70 border border-purple-500/30 text-center space-y-1.5">
+            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
+              Remaining Review Window (Approval within 24 Hours)
+            </span>
+            <div className="flex items-center justify-center gap-2 font-mono font-black text-xl text-purple-300">
+              <span className="bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-500/30">
+                {String(reviewCountdown.hours).padStart(2, '0')}h
+              </span>
+              <span>:</span>
+              <span className="bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-500/30">
+                {String(reviewCountdown.minutes).padStart(2, '0')}m
+              </span>
+              <span>:</span>
+              <span className="bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-500/30">
+                {String(reviewCountdown.seconds).padStart(2, '0')}s
+              </span>
+            </div>
+            <span className="text-[10px] text-gray-400 block">
+              Security audit in progress. Review status updates automatically every 2 minutes.
+            </span>
+          </div>
+          {user?.kycTxHash && (
+            <div className="p-3 rounded-xl bg-black/60 border border-white/10 text-xs font-mono space-y-1">
+              <span className="text-[10px] text-gray-500 block uppercase font-bold">Submitted Hash / Signature:</span>
+              <span className="text-amber-300 break-all">{user.kycTxHash}</span>
+            </div>
+          )}
+          {user?.kycPhotoUrl && (
+            <div className="flex items-center gap-3 pt-1">
+              <img 
+                src={user.kycPhotoUrl} 
+                alt="Submitted Selfie" 
+                className="w-14 h-14 rounded-xl object-cover border border-amber-500/40"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-white block">Front Camera Selfie Uploaded ✓</span>
+                <span className="text-[11px] text-gray-400">Admin review in progress (within 24 hours)</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Manual Submission Form */}
+      <form onSubmit={handleManualKycSubmit} className="space-y-6">
+        
+        {/* Network Selection */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-gray-300 block">
+            1. Select Payment Network:
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setManualChain('BSC')}
+              className={`p-3.5 rounded-2xl border text-left transition-all ${
+                manualChain === 'BSC'
+                  ? 'bg-[#FFD700]/10 border-[#FFD700] text-white shadow-[0_0_15px_rgba(255,215,0,0.15)]'
+                  : 'bg-black/60 border-white/10 text-gray-400'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-[#FFD700]">🟡 BNB Smart Chain (BEP-20)</span>
+                <span className="text-[10px] font-mono text-gray-400">Fee: {kycConfig.feeUsdt} USDT</span>
+              </div>
+              <span className="text-[10px] text-gray-400 font-mono block mt-1 truncate">
+                {kycConfig.receivingWallet}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setManualChain('SOLANA')}
+              className={`p-3.5 rounded-2xl border text-left transition-all ${
+                manualChain === 'SOLANA'
+                  ? 'bg-purple-500/10 border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                  : 'bg-black/60 border-white/10 text-gray-400'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-purple-400">🟣 Solana Network (SPL)</span>
+                <span className="text-[10px] font-mono text-gray-400">Fee: {kycConfig.feeUsdt} USDT</span>
+              </div>
+              <span className="text-[10px] text-gray-400 font-mono block mt-1 truncate">
+                {OFFICIAL_SOLANA_RECEIVING_WALLET}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Receiving Wallet Copy Card */}
+        <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400 uppercase font-bold text-[10px]">
+              Official {manualChain === 'BSC' ? 'BSC' : 'Solana'} Receiving Address:
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const addr = manualChain === 'BSC' ? kycConfig.receivingWallet : OFFICIAL_SOLANA_RECEIVING_WALLET;
+                navigator.clipboard.writeText(addr);
+                toast.success('Wallet address copied!');
+              }}
+              className="text-[#FFD700] hover:underline flex items-center gap-1 text-[11px] font-bold"
+            >
+              <Copy className="w-3 h-3" />
+              <span>Copy Address</span>
+            </button>
+          </div>
+          <p className="font-mono text-xs text-white break-all bg-white/5 p-2 rounded-xl border border-white/5">
+            {manualChain === 'BSC' ? kycConfig.receivingWallet : OFFICIAL_SOLANA_RECEIVING_WALLET}
+          </p>
+        </div>
+
+        {/* Transaction Hash Input */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-gray-300 block">
+            2. Transaction Hash or Solana Signature: <span className="text-rose-400">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            placeholder={manualChain === 'BSC' ? 'Enter BSC transaction hash: 0x...' : 'Enter Solana signature: 5xY...'}
+            value={manualTxHash}
+            onChange={(e) => setManualTxHash(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-black/60 border border-white/10 text-white text-xs font-mono focus:border-purple-500 outline-none"
+          />
+        </div>
+
+        {/* Front Camera Selfie Upload */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-gray-300 block">
+            3. Front Camera Selfie Photo: <span className="text-rose-400">*</span>
+          </label>
+          {manualSelfie ? (
+            <div className="flex items-center gap-4 p-3 rounded-2xl bg-black/60 border border-emerald-500/40">
+              <img 
+                src={manualSelfie} 
+                alt="Selfie Preview" 
+                className="w-16 h-16 rounded-xl object-cover border border-white/10" 
+              />
+              <div className="flex-1">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Photo Attached
+                </span>
+                <span className="text-[10px] text-gray-400 block mt-0.5">Clear front face portrait ready</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualSelfie(null)}
+                className="text-xs text-rose-400 hover:underline px-3 py-1"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <label className="border-2 border-dashed border-white/15 hover:border-purple-500/50 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-black/40">
+              <Camera className="w-8 h-8 text-purple-400" />
+              <span className="text-xs font-bold text-gray-200">Take or Upload Front Selfie</span>
+              <span className="text-[10px] text-gray-500">Ensure good lighting and face clearly visible</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="user"
+                className="hidden"
+                onChange={(e) => handleImageUpload(e, setManualSelfie)}
+              />
+            </label>
+          )}
+        </div>
+
+        {/* Payment Proof Screenshot (Optional/Recommended) */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-gray-300 block">
+            4. Payment Screenshot / Proof: <span className="text-gray-500 text-[10px] font-normal">(Recommended)</span>
+          </label>
+          {manualProof ? (
+            <div className="flex items-center gap-4 p-3 rounded-2xl bg-black/60 border border-emerald-500/40">
+              <img 
+                src={manualProof} 
+                alt="Proof Preview" 
+                className="w-16 h-16 rounded-xl object-cover border border-white/10" 
+              />
+              <div className="flex-1">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Payment Proof Attached
+                </span>
+                <span className="text-[10px] text-gray-400 block mt-0.5">Wallet transfer receipt</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualProof(null)}
+                className="text-xs text-rose-400 hover:underline px-3 py-1"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <label className="border-2 border-dashed border-white/15 hover:border-purple-500/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors bg-black/40">
+              <Upload className="w-6 h-6 text-gray-400" />
+              <span className="text-xs font-bold text-gray-300">Upload Transfer Screenshot</span>
+              <span className="text-[10px] text-gray-500">Trust Wallet, MetaMask, Phantom, or exchange withdrawal</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleImageUpload(e, setManualProof)}
+              />
+            </label>
+          )}
+        </div>
+
+        {/* 24-Hour Notice Banner */}
+        <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 flex items-start gap-3 text-xs text-purple-200">
+          <Clock className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <strong className="font-bold text-white block">24-Hour Approval Timeline:</strong>
+            <span>
+              Manual verification submissions are reviewed and approved by administrators within <strong>24 hours</strong>. If you prefer instant verification in 60 seconds, switch to the <strong>Fast Automatic KYC</strong> tab above!
+            </span>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={isSubmittingManual || !manualTxHash.trim() || !manualSelfie}
+          className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:brightness-110 text-white font-black text-xs sm:text-sm uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(168,85,247,0.35)] disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
+        >
+          <Clock className="w-4 h-4" />
+          <span>
+            {isSubmittingManual 
+              ? 'Submitting Application...' 
+              : 'Submit for 24-Hour Manual Review ⏳'}
+          </span>
+        </button>
+      </form>
+    </div>
+  )}
 
       {/* STATE FOOTER: MANUAL REVIEW & RETRY SUPPORT */}
       {isManualReview && (

@@ -577,6 +577,7 @@ export function LandingPage() {
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }} className="hover:text-white transition-colors">Mining</button>
             <button onClick={() => handleProtectedAction('/tasks')} className="hover:text-white transition-colors">Tasks</button>
+            <button onClick={() => navigate('/nfts')} className="hover:text-[#FFD700] transition-colors flex items-center gap-1"><span>NFTs</span><span className="text-[9px] px-1 bg-purple-500/20 text-purple-300 rounded border border-purple-500/30">Soon</span></button>
             <button onClick={() => handleProtectedAction('/wallet')} className="hover:text-white transition-colors">Wallet</button>
             <button onClick={() => handleProtectedAction('/profile')} className="hover:text-white transition-colors">Profile</button>
           </nav>

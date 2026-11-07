@@ -59,6 +59,7 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
     { name: 'Mining', path: user ? '/dashboard' : '/#mining' },
     { name: 'P2P', path: '/p2p' },
     { name: 'KYC', path: '/kyc' },
+    { name: 'NFTs', path: '/nfts' },
     { name: 'Wallet', path: '/wallet' },
     { name: 'Profile', path: '/profile' },
   ];

@@ -95,6 +95,7 @@ export interface VerificationResult {
   blockNumber?: number;
   confirmations?: number;
   timestamp?: number;
+  network?: string;
 }
 
 /**

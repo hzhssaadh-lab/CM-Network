@@ -20,11 +20,24 @@ export const BSC_CONFIG = {
 // Official USDT BEP-20 Contract on BSC Mainnet
 export const OFFICIAL_USDT_BEP20_CONTRACT = '0x55d398326f99059fF775485246999027B3197955';
 
-// Official CM Network Receiving Wallet for KYC Fees
+// Official CM Network Receiving Wallet for KYC Fees (BNB Smart Chain)
 export const OFFICIAL_RECEIVING_WALLET = '0x7CFD255CA3FE95e88BDFdFAb44d12d92F0f2A120';
 
-// Default KYC Fee in USDT BEP-20 (Configurable by Admin)
-export const DEFAULT_KYC_USDT_FEE = 0.5; // 0.5 USDT BEP-20 (0.5$)
+// Official CM Network Receiving Wallet for KYC Fees (Solana)
+export const OFFICIAL_SOLANA_RECEIVING_WALLET = '2z8hTr7ccNH6bq2kyjS9cvH9d8XFMESaWFaD9z5HSr1D';
+
+// Official USDT SPL Token Mint on Solana Mainnet
+export const OFFICIAL_SOLANA_USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+
+// Solana Mainnet Public RPC Endpoints
+export const SOLANA_RPC_URLS = [
+  'https://api.mainnet-beta.solana.com',
+  'https://solana-mainnet.rpc.extrnode.com',
+  'https://rpc.ankr.com/solana'
+];
+
+// Default KYC Fee in USDT (Configurable by Admin)
+export const DEFAULT_KYC_USDT_FEE = 0.5; // 0.5 USDT (0.5$)
 
 // Standard ERC-20 Minimal ABI for transfer & balance
 export const ERC20_ABI = [
@@ -88,6 +101,7 @@ export interface KycRecord {
 export interface KycGlobalConfig {
   feeUsdt: number;
   receivingWallet: string;
+  solanaReceivingWallet?: string;
   usdtContract: string;
   chainId: number;
   autoApproveOnLivenessPass: boolean;
