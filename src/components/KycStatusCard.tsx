@@ -120,9 +120,9 @@ export const KycStatusCard: React.FC<KycStatusCardProps> = ({
               <span>PAYMENT CONFIRMED</span>
             </div>
           ) : (
-            <div className="px-3.5 py-1.5 rounded-full bg-[#FFD700]/15 text-[#FFD700] border border-[#FFD700]/40 text-xs font-black flex items-center gap-1.5">
-              <Lock className="w-4 h-4 text-[#FFD700]" />
-              <span>PAYMENT REQUIRED</span>
+            <div className="px-3.5 py-1.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-1.5">
+              <Lock className="w-4 h-4 text-amber-400" />
+              <span>PAUSED (OPENS IN 3 MONTHS)</span>
             </div>
           )}
         </div>
@@ -173,10 +173,10 @@ export const KycStatusCard: React.FC<KycStatusCardProps> = ({
           </div>
         ) : (
           <div className="flex items-start gap-2.5">
-            <Lock className="w-4 h-4 text-[#FFD700] shrink-0 mt-0.5" />
+            <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <strong className="font-bold text-white block mb-0.5">Strict Payment-First KYC</strong>
-              A one-time verification fee of {paymentAmount} USDT must be paid via USDT BEP-20 (BSC) or USDT SPL (Solana) to unlock real-time live biometric face verification.
+              <strong className="font-bold text-white block mb-0.5">KYC Currently Paused (Reopens in 3 Months)</strong>
+              Verification submissions are temporarily closed for 3 months for network protocol synchronization. All existing mined balances and user accounts remain 100% active and safe.
             </div>
           </div>
         )}

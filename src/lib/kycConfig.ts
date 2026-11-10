@@ -39,6 +39,13 @@ export const SOLANA_RPC_URLS = [
 // Default KYC Fee in USDT (Configurable by Admin)
 export const DEFAULT_KYC_USDT_FEE = 0.5; // 0.5 USDT (0.5$)
 
+// KYC System Status: Currently Turned Off / Paused for 3 Months
+export const KYC_IS_PAUSED = true;
+export const KYC_PAUSE_DURATION_MONTHS = 3;
+export const KYC_PAUSE_DURATION_DAYS = 90;
+// Reopen date in 3 months (90 days)
+export const KYC_REOPEN_TIMESTAMP = 1802071451000; // ~Feb 7, 2027
+
 // Standard ERC-20 Minimal ABI for transfer & balance
 export const ERC20_ABI = [
   'function name() view returns (string)',

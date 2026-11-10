@@ -13,6 +13,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useApp } from '../hooks/useAppStore';
+import { KYC_IS_PAUSED } from '../lib/kycConfig';
 
 export const KycStatusReminderPopup: React.FC = () => {
   const { user, refreshUser } = useApp();
@@ -57,7 +58,7 @@ export const KycStatusReminderPopup: React.FC = () => {
 
   // Trigger popup every 2 minutes (120,000 ms) for users with active KYC review or unverified
   useEffect(() => {
-    if (isVerified) {
+    if (isVerified || KYC_IS_PAUSED) {
       setIsOpen(false);
       return;
     }
@@ -88,7 +89,7 @@ export const KycStatusReminderPopup: React.FC = () => {
     navigate('/kyc');
   };
 
-  if (isVerified) return null;
+  if (isVerified || KYC_IS_PAUSED) return null;
 
   return (
     <AnimatePresence>

@@ -32,6 +32,7 @@ import { OFFICIAL_SOCIALS } from '../components/SocialChannels';
 import { ReferralFriendsList } from './Friends';
 import { NodeSection } from '../components/NodeSection';
 import { PremiumReceiveQr } from '../components/PremiumReceiveQr';
+import { KYC_IS_PAUSED } from '../lib/kycConfig';
 
 const AVATAR_OPTIONS = [
   { id: 'cap', url: 'https://i.pinimg.com/474x/61/4d/9a/614d9a5679cf070455092347cb4ec5e3.jpg', label: 'Cap Miner' },
@@ -353,8 +354,11 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
               onClick={() => navigate('/kyc')}
               className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>KYC</span>
+              <ShieldCheck className={`w-3.5 h-3.5 ${isKycVerified ? 'text-emerald-400' : KYC_IS_PAUSED ? 'text-amber-400' : 'text-emerald-400'}`} />
+              <span>{isKycVerified ? 'KYC' : KYC_IS_PAUSED ? 'KYC (3M)' : 'KYC'}</span>
+              {KYC_IS_PAUSED && !isKycVerified && (
+                <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 text-[9px] font-black uppercase text-amber-300 border border-amber-500/30">Paused</span>
+              )}
             </button>
             <button
               onClick={() => navigate('/nfts')}
@@ -1015,6 +1019,8 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                     <span className="text-xs font-bold text-white">Identity Verification (KYC)</span>
                     {isKycVerified ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">Verified ✓</span>
+                    ) : KYC_IS_PAUSED ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">Paused (Opens in 3 Months)</span>
                     ) : user.autoKycStatus === 'PAYMENT_CONFIRMED' || user.autoKycStatus === 'FACE_VERIFICATION_PENDING' ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-400 font-bold border border-blue-500/30">Payment Confirmed • Camera Unlocked</span>
                     ) : user.autoKycStatus === 'MANUAL_REVIEW' || user.kycStatus === 'pending' ? (
@@ -1028,6 +1034,8 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                   <p className="text-[11px] text-gray-400 mt-0.5">
                     {isKycVerified 
                       ? 'Verified miner profile. Node & P2P eligible.' 
+                      : KYC_IS_PAUSED
+                      ? 'KYC submissions temporarily paused for 3 months. All balances & mining active.'
                       : user.autoKycStatus === 'PAYMENT_CONFIRMED'
                       ? 'Payment confirmed on BNB Chain. Live camera face verification ready.'
                       : 'Automated USDT BEP-20 payment + live biometric face verification.'}
@@ -1038,7 +1046,7 @@ export function Dashboard({ defaultTab = 'overview' }: DashboardProps) {
                 onClick={() => navigate('/kyc')}
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#FFD700] text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow shrink-0"
               >
-                {isKycVerified ? 'View KYC Status' : user.autoKycStatus === 'PAYMENT_CONFIRMED' ? 'Start Face Verification' : 'Verify KYC'}
+                {isKycVerified ? 'View KYC Status' : KYC_IS_PAUSED ? 'View Countdown' : user.autoKycStatus === 'PAYMENT_CONFIRMED' ? 'Start Face Verification' : 'Verify KYC'}
               </button>
             </div>
 

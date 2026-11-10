@@ -36,7 +36,10 @@ import {
   OFFICIAL_SOLANA_USDT_MINT,
   DEFAULT_KYC_USDT_FEE,
   AutomaticKycStatus,
-  KycRecord
+  KycRecord,
+  KYC_IS_PAUSED,
+  KYC_REOPEN_TIMESTAMP,
+  KYC_PAUSE_DURATION_MONTHS
 } from '../lib/kycConfig';
 import { 
   getKycGlobalConfig, 
@@ -94,6 +97,14 @@ export function Kyc() {
 
   // KYC Method Selection: 'fast' (Instant Automatic) or 'manual' (24-Hour Review)
   const [kycMethod, setKycMethod] = useState<'fast' | 'manual'>('fast');
+
+  // KYC 3-Month Pause Countdown State
+  const [kycPauseTimeLeft, setKycPauseTimeLeft] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }>({ days: 89, hours: 23, minutes: 59, seconds: 59 });
 
   // Manual KYC Form State (24-Hour Review Flow)
   const [manualChain, setManualChain] = useState<'BSC' | 'SOLANA'>('BSC');
@@ -251,6 +262,23 @@ export function Kyc() {
   useEffect(() => {
     fetchKycState();
   }, [fetchKycState]);
+
+  // Live 3-Month KYC Pause countdown ticker
+  useEffect(() => {
+    const updatePauseCountdown = () => {
+      const now = Date.now();
+      const diff = Math.max(0, KYC_REOPEN_TIMESTAMP - now);
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setKycPauseTimeLeft({ days, hours, minutes, seconds });
+    };
+
+    updatePauseCountdown();
+    const interval = setInterval(updatePauseCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Live 24-Hour Review countdown timer
   useEffect(() => {
@@ -413,6 +441,11 @@ export function Kyc() {
 
   // 4. Pay KYC Fee with Trust Wallet (USDT BEP-20)
   const handlePayKycFee = async () => {
+    if (KYC_IS_PAUSED && !isKycFullyApproved) {
+      toast.error('KYC Verification is temporarily paused. Submissions reopen in 3 months.');
+      return;
+    }
+
     if (!walletAddress) {
       await handleConnectWallet();
       return;
@@ -463,6 +496,10 @@ export function Kyc() {
 
   // 5. Automatic Blockchain Verification via BSC or Solana RPC
   const handleVerifyPaymentHash = async (hashToVerify?: string) => {
+    if (KYC_IS_PAUSED && !isKycFullyApproved) {
+      toast.error('KYC Verification is temporarily paused. Submissions reopen in 3 months.');
+      return;
+    }
     const hash = (hashToVerify || txHashInput || '').trim();
     if (!hash) {
       toast.error('Please enter or provide a transaction hash or Solana signature.');
@@ -538,6 +575,10 @@ export function Kyc() {
 
   const handleManualKycSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (KYC_IS_PAUSED && !isKycFullyApproved) {
+      toast.error('KYC Verification is temporarily paused. Submissions reopen in 3 months.');
+      return;
+    }
     if (!manualTxHash.trim()) {
       toast.error('Please enter the transaction hash or Solana signature for your $0.5 USDT payment.');
       return;
@@ -590,6 +631,10 @@ export function Kyc() {
 
   // 6. Start Live Face Verification & Randomized Challenge Liveness Detection
   const handleStartFaceVerification = async () => {
+    if (KYC_IS_PAUSED && !isKycFullyApproved) {
+      toast.error('KYC Verification is temporarily paused. Submissions reopen in 3 months.');
+      return;
+    }
     // STRICT PAYMENT-FIRST GATE: Under no circumstance can face verification start without confirmed on-chain payment
     const isPaymentConfirmed =
       kycState?.status === 'PAYMENT_CONFIRMED' ||
@@ -813,6 +858,11 @@ export function Kyc() {
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>KYC APPROVED ✓</span>
               </div>
+            ) : KYC_IS_PAUSED ? (
+              <div className="px-4 py-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-black flex items-center gap-2 shadow-lg">
+                <Lock className="w-4 h-4 text-amber-400" />
+                <span>KYC CLOSED • OPENS IN 3 MONTHS</span>
+              </div>
             ) : isManualReview ? (
               <div className="px-4 py-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-black flex items-center gap-2 animate-pulse shadow-lg">
                 <Clock className="w-4 h-4 text-amber-400" />
@@ -932,8 +982,111 @@ export function Kyc() {
         </div>
       )}
 
-      {/* TWO KYC VERIFICATION METHODS: Fast Instant vs Standard 24-Hour */}
-      {!isKycFullyApproved && (
+      {/* TWO KYC VERIFICATION METHODS: Fast Instant vs Standard 24-Hour (Or Paused State) */}
+      {!isKycFullyApproved && KYC_IS_PAUSED ? (
+        <div className="bg-gradient-to-b from-[#1c1404] via-[#0f0e0c] to-black border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+          {/* Decorative glowing backdrops */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Pause Header */}
+          <div className="text-center space-y-3 relative z-10 max-w-xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-black uppercase tracking-wider">
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>KYC Submissions Temporarily Closed</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              KYC Reopens in {KYC_PAUSE_DURATION_MONTHS} Months
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-300">
+              Protocol identity verification has been paused for 3 months for network consensus upgrades and Solana/BSC cross-chain synchronization. Submissions are scheduled to reopen on <strong className="text-amber-300 font-mono">February 7, 2027</strong>.
+            </p>
+          </div>
+
+          {/* Real-Time 90-Day Countdown Display */}
+          <div className="relative z-10 max-w-lg mx-auto bg-black/60 border border-amber-500/30 rounded-2xl p-5 shadow-inner">
+            <div className="flex items-center justify-center gap-2 mb-3 text-xs font-bold text-amber-300 uppercase tracking-widest">
+              <Clock className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
+              <span>Time Remaining Until KYC Reopens</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
+              <div className="bg-[#141208] border border-amber-500/20 rounded-xl p-3">
+                <span className="block text-2xl sm:text-3xl font-black font-mono text-[#FFD700]">
+                  {String(kycPauseTimeLeft.days).padStart(2, '0')}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Days</span>
+              </div>
+              <div className="bg-[#141208] border border-amber-500/20 rounded-xl p-3">
+                <span className="block text-2xl sm:text-3xl font-black font-mono text-white">
+                  {String(kycPauseTimeLeft.hours).padStart(2, '0')}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Hours</span>
+              </div>
+              <div className="bg-[#141208] border border-amber-500/20 rounded-xl p-3">
+                <span className="block text-2xl sm:text-3xl font-black font-mono text-white">
+                  {String(kycPauseTimeLeft.minutes).padStart(2, '0')}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Mins</span>
+              </div>
+              <div className="bg-[#141208] border border-amber-500/20 rounded-xl p-3">
+                <span className="block text-2xl sm:text-3xl font-black font-mono text-amber-400">
+                  {String(kycPauseTimeLeft.seconds).padStart(2, '0')}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Secs</span>
+              </div>
+            </div>
+          </div>
+
+          {/* User Assurance / Balance Safety Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 relative z-10 pt-2">
+            <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                <CheckCircle className="w-4 h-4 shrink-0" />
+                <span>Balances 100% Safe</span>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                All your mined CM coins, USDT balances, and referral rewards remain completely safe and untouched.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-[#FFD700] text-xs font-bold">
+                <Zap className="w-4 h-4 shrink-0" />
+                <span>Mining Uninterrupted</span>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                12-Hour mining nodes and task bonuses continue normal operation without interruption.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-blue-400 text-xs font-bold">
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Verified Accounts Active</span>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Previously approved KYC accounts retain full verification badges and node privileges.
+              </p>
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="pt-2 flex flex-wrap justify-center gap-3 relative z-10">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="px-6 py-3 rounded-xl bg-[#FFD700] text-black font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow"
+            >
+              Back to Dashboard
+            </button>
+            <button
+              onClick={() => navigate('/nfts')}
+              className="px-6 py-3 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-bold text-xs uppercase tracking-wider transition-all"
+            >
+              Explore CM NFTs (Coming Soon)
+            </button>
+          </div>
+        </div>
+      ) : !isKycFullyApproved && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase tracking-wider text-gray-300">
@@ -1010,8 +1163,8 @@ export function Kyc() {
         </div>
       )}
 
-      {/* METHOD 1: FAST AUTOMATIC KYC (INSTANT APPROVAL) */}
-      {kycMethod === 'fast' && (
+      {/* METHOD 1: FAST AUTOMATIC KYC (INSTANT APPROVAL) - Only rendered when KYC is open or user is already approved */}
+      {(!KYC_IS_PAUSED || isKycFullyApproved) && kycMethod === 'fast' && (
         <>
           {/* STEP 1: PAYMENT CONFIGURATION & TRUST WALLET TRANSFER */}
           <div className="bg-[#0f0e0c] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6">
@@ -1497,8 +1650,8 @@ export function Kyc() {
     </>
   )}
 
-  {/* METHOD 2: STANDARD MANUAL KYC (APPROVED IN 24 HOURS) */}
-  {kycMethod === 'manual' && (
+  {/* METHOD 2: STANDARD MANUAL KYC (APPROVED IN 24 HOURS) - Only rendered when KYC is open or user is already approved */}
+  {(!KYC_IS_PAUSED || isKycFullyApproved) && kycMethod === 'manual' && (
     <div className="bg-[#0f0e0c] border border-purple-500/40 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-5">
