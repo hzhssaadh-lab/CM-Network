@@ -18,6 +18,7 @@ import { Maintenance } from './pages/Maintenance';
 import { SocialPopup } from './components/SocialPopup';
 import { KycStatusReminderPopup } from './components/KycStatusReminderPopup';
 import { OFFICIAL_SOCIALS } from './components/SocialChannels';
+import { SponsoredBannerAd } from './components/SponsoredBannerAd';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
@@ -152,6 +153,9 @@ function AppContent() {
           <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {/* Extra Sponsored Banner Ad Slot */}
+        {!isAdminRoute && <SponsoredBannerAd />}
 
         {/* Global Footer with Direct Clickable Icons for WhatsApp, X (Twitter), and Telegram */}
         {!isAdminRoute && location.pathname !== '/' && (
