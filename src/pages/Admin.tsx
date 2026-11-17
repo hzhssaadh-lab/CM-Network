@@ -4354,7 +4354,8 @@ export function Admin() {
                   className="w-full bg-black/50 border border-white/10 rounded-xl p-3 focus:border-[#FFD700] outline-none transition-colors appearance-none"
                 >
                   <option value="daily">Daily / General</option>
-                  <option value="twitter">Twitter</option>
+                  <option value="twitter">X (Twitter)</option>
+                  <option value="whatsapp">WhatsApp</option>
                   <option value="youtube">YouTube</option>
                   <option value="instagram">Instagram</option>
                   <option value="tiktok">TikTok</option>

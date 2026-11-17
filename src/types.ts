@@ -105,7 +105,7 @@ export interface Task {
   id: string;
   title: string;
   reward: number;
-  type: 'twitter' | 'tiktok' | 'instagram' | 'youtube' | 'ad' | 'daily';
+  type: 'twitter' | 'tiktok' | 'instagram' | 'youtube' | 'whatsapp' | 'ad' | 'daily';
   url?: string;
   isActive: boolean;
   autoApprove?: boolean;

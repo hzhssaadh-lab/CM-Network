@@ -113,6 +113,33 @@ function DailyRewards() {
   );
 }
 
+const DEFAULT_PARTNER_TASKS: AppTask[] = [
+  {
+    id: 'task_edenlink_x_post_2026',
+    title: 'X (Twitter): Follow, Like & Comment on Edenlink Network',
+    reward: 0.5,
+    type: 'twitter',
+    url: 'https://x.com/EdenlinkNetwork/status/2122614567503282477?a=SOmgRDwsIxbL5lt78zU&s=19',
+    isActive: true,
+  },
+  {
+    id: 'task_inter_link_x_2026',
+    title: 'X (Twitter): Like & Comment on InterLink (@inter_link)',
+    reward: 0.5,
+    type: 'twitter',
+    url: 'https://x.com/inter_link',
+    isActive: true,
+  },
+  {
+    id: 'task_edenlink_whatsapp_2026',
+    title: 'Follow EDENLINK NETWORK | Official Channel on WhatsApp',
+    reward: 0.5,
+    type: 'whatsapp',
+    url: 'https://whatsapp.com/channel/0029VbDl2rfBKfhuiD2Fcb3m',
+    isActive: true,
+  },
+];
+
 export function Tasks() {
   const { user, adSettings, refreshUser } = useApp();
   const [tasks, setTasks] = useState<AppTask[]>([]);
@@ -129,7 +156,8 @@ export function Tasks() {
         if (tasksErr) {
           console.error("Error fetching tasks table:", tasksErr);
         }
-        const activeTasks = (tasksData || []).filter(t => t.type !== 'ad');
+        const rawTasks = (tasksData && tasksData.length > 0) ? tasksData : DEFAULT_PARTNER_TASKS;
+        const activeTasks = rawTasks.filter(t => t.type !== 'ad' && t.isActive !== false);
         setTasks(activeTasks);
 
         const completedMap = new Map<string, string>();
@@ -305,7 +333,8 @@ export function Tasks() {
 
   const getTaskIcon = (type: AppTask['type']) => {
     switch(type) {
-      case 'twitter': return { icon: '🐦', bg: 'bg-blue-500/20', text: 'text-blue-400' };
+      case 'twitter': return { icon: '𝕏', bg: 'bg-sky-500/20', text: 'text-sky-300' };
+      case 'whatsapp': return { icon: '💬', bg: 'bg-emerald-500/20', text: 'text-emerald-400' };
       case 'youtube': return { icon: '▶️', bg: 'bg-red-500/20', text: 'text-red-400' };
       case 'tiktok': return { icon: '🎵', bg: 'bg-pink-500/20', text: 'text-pink-400' };
       case 'instagram': return { icon: '📸', bg: 'bg-purple-500/20', text: 'text-purple-400' };
@@ -322,12 +351,12 @@ export function Tasks() {
           <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
             Phase 1 Completed ✅
           </span>
-          <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black uppercase tracking-wider">
-            Phase 2 Quests: Coming Soon ⏳
+          <span className="px-3 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-xs font-black uppercase tracking-wider">
+            Active Quests Live ⚡
           </span>
         </div>
-        <h2 className="text-3xl font-black tracking-tight mb-2">Phase 2 Tasks & Rewards</h2>
-        <p className="text-gray-400 text-sm">New sponsored quests and daily bonuses are preparing for Phase 2 launch. Stay tuned!</p>
+        <h2 className="text-3xl font-black tracking-tight mb-2">Tasks &amp; Rewards</h2>
+        <p className="text-gray-400 text-sm">Complete daily check-ins and official X &amp; WhatsApp partner tasks below to earn CM Coin rewards.</p>
       </div>
 
       <DailyRewards />
