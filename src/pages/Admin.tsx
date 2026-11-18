@@ -128,6 +128,7 @@ export function Admin() {
   const [taskType, setTaskType] = useState<AppTask['type']>('daily');
   const [taskUrl, setTaskUrl] = useState('');
   const [taskAutoApprove, setTaskAutoApprove] = useState(false);
+  const [confirmBatchAction, setConfirmBatchAction] = useState<'approve' | 'reject' | null>(null);
 
   // Ads Settings State
   const [showAds, setShowAds] = useState(false);
@@ -1346,19 +1347,20 @@ export function Admin() {
     const pendingClaims = claims.filter(c => c.status === 'pending');
     if (pendingClaims.length === 0) {
       toast.error("No pending tasks to approve.");
+      setConfirmBatchAction(null);
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to approve ALL (${pendingClaims.length}) pending task claims and credit rewards to users?`)) return;
-
+    setConfirmBatchAction(null);
     setLoading(true);
     const toastId = toast.loading(`Approving ${pendingClaims.length} tasks and crediting user rewards...`);
 
     try {
       // Group reward amounts and completion counts by userId
-      const userUpdates = new Map<string, { rewardSum: number, completedCount: number }>();
+      const userUpdates = new Map<string, { rewardSum: number; completedCount: number }>();
       for (const claim of pendingClaims) {
         const uId = claim.userId;
+        if (!uId) continue;
         const reward = parseFloat(String(claim.reward || 0)) || 0;
         const current = userUpdates.get(uId) || { rewardSum: 0, completedCount: 0 };
         current.rewardSum += reward;
@@ -1366,27 +1368,27 @@ export function Admin() {
         userUpdates.set(uId, current);
       }
 
-      // 1. Fetch relevant users in bulk for speed
+      // 1. Fetch relevant users in safe chunks (40 IDs max per .in() query to avoid URL length limits)
       const userIds = Array.from(userUpdates.keys());
-      const { data: dbUsersByUid } = await supabase
-        .from('users')
-        .select('uid, UID, balance, totalTasksCompleted')
-        .in('uid', userIds);
-
-      const { data: dbUsersByUID } = await supabase
-        .from('users')
-        .select('uid, UID, balance, totalTasksCompleted')
-        .in('UID', userIds);
-
       const userMap = new Map<string, any>();
-      (dbUsersByUid || []).forEach(u => {
-        if (u.uid) userMap.set(u.uid, u);
-        if (u.UID) userMap.set(u.UID, u);
-      });
-      (dbUsersByUID || []).forEach(u => {
-        if (u.uid) userMap.set(u.uid, u);
-        if (u.UID) userMap.set(u.UID, u);
-      });
+      const QUERY_CHUNK = 40;
+
+      for (let i = 0; i < userIds.length; i += QUERY_CHUNK) {
+        const idChunk = userIds.slice(i, i + QUERY_CHUNK);
+        const [{ data: dbUsersByUid }, { data: dbUsersByUID }] = await Promise.all([
+          supabase.from('users').select('uid, UID, balance, totalTasksCompleted').in('uid', idChunk),
+          supabase.from('users').select('uid, UID, balance, totalTasksCompleted').in('UID', idChunk),
+        ]);
+
+        (dbUsersByUid || []).forEach(u => {
+          if (u.uid) userMap.set(u.uid, u);
+          if (u.UID) userMap.set(u.UID, u);
+        });
+        (dbUsersByUID || []).forEach(u => {
+          if (u.uid) userMap.set(u.uid, u);
+          if (u.UID) userMap.set(u.UID, u);
+        });
+      }
 
       // 2. Update user balances in fast parallel chunks
       const userEntries = Array.from(userUpdates.entries());
@@ -1394,49 +1396,47 @@ export function Admin() {
       for (let i = 0; i < userEntries.length; i += CHUNK_SIZE) {
         const chunk = userEntries.slice(i, i + CHUNK_SIZE);
         await Promise.all(chunk.map(async ([userId, update]) => {
-          try {
-            const userRecord = userMap.get(userId);
-            let currentBalance = userRecord ? Number(userRecord.balance || 0) : 0;
-            let currentCompleted = userRecord ? Number(userRecord.totalTasksCompleted || 0) : 0;
-            const realUid = userRecord?.uid || userRecord?.UID || userId;
+          let userRecord = userMap.get(userId);
 
-            // If user record wasn't in cache, single fallback fetch
-            if (!userRecord) {
-              const { data: singleUser } = await supabase
-                .from('users')
-                .select('uid, UID, balance, totalTasksCompleted')
-                .or(`uid.eq."${userId}",UID.eq."${userId}"`)
-                .maybeSingle();
-              if (singleUser) {
-                currentBalance = Number(singleUser.balance || 0);
-                currentCompleted = Number(singleUser.totalTasksCompleted || 0);
-              }
-            }
+          if (!userRecord) {
+            const { data: singleUser } = await supabase
+              .from('users')
+              .select('uid, UID, balance, totalTasksCompleted')
+              .or(`uid.eq."${userId}",UID.eq."${userId}"`)
+              .maybeSingle();
+            if (singleUser) userRecord = singleUser;
+          }
 
-            const rewardToAdd = Math.round(update.rewardSum * 1000000) / 1000000;
-            const nextBal = Math.round((currentBalance + rewardToAdd) * 1000000) / 1000000;
+          if (!userRecord) return; // Skip deleted/non-existent user safely
 
-            const { error: updateError } = await supabase.from('users').update({
+          const currentBalance = Number(userRecord.balance || 0);
+          const currentCompleted = Number(userRecord.totalTasksCompleted || 0);
+          const realUid = userRecord.uid || userRecord.UID || userId;
+
+          const rewardToAdd = Math.round(update.rewardSum * 1000000) / 1000000;
+          const nextBal = Math.round((currentBalance + rewardToAdd) * 1000000) / 1000000;
+
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({
               balance: nextBal,
               "CM Coins": nextBal,
               cm_coins: nextBal,
               totalTasksCompleted: currentCompleted + update.completedCount
-            }).or(`uid.eq."${realUid}",UID.eq."${realUid}"`);
-            
-            if (updateError) throw updateError;
-          } catch (err) {
-            console.error(`Failed to update user ${userId}:`, err);
-            throw err;
-          }
+            })
+            .or(`uid.eq."${realUid}",UID.eq."${realUid}"`);
+
+          if (updateError) throw updateError;
         }));
       }
 
-      // 3. Insert transactions in bulk
-      const transactionsToInsert = pendingClaims.map(claim => ({
-        id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
+      // 3. Insert transactions in bulk with guaranteed unique IDs
+      const nowMs = Date.now();
+      const transactionsToInsert = pendingClaims.map((claim, idx) => ({
+        id: `tx_${nowMs}_${idx}_${Math.random().toString(36).substring(2, 7)}`,
         type: 'task_reward',
         amount: parseFloat(String(claim.reward || 0)) || 0,
-        timestamp: Date.now(),
+        timestamp: nowMs,
         status: 'completed',
         receiverUid: claim.userId,
         description: `Admin approved task: ${claim.taskTitle}`
@@ -1448,14 +1448,21 @@ export function Admin() {
         if (error) throw error;
       }
 
-      // 4. Upsert completed tasks in bulk
-      const completedTasksToUpsert = pendingClaims.map(claim => ({
-        id: `${claim.userId}_${claim.taskId}`,
-        userId: claim.userId,
-        status: 'completed',
-        taskId: claim.taskId,
-        completedAt: Date.now()
-      }));
+      // 4. Deduplicate completedTasks by (userId_taskId) so PostgreSQL ON CONFLICT DO UPDATE never fails
+      const uniqueCompletedMap = new Map<string, any>();
+      for (const claim of pendingClaims) {
+        const key = `${claim.userId}_${claim.taskId}`;
+        if (!uniqueCompletedMap.has(key)) {
+          uniqueCompletedMap.set(key, {
+            id: key,
+            userId: claim.userId,
+            status: 'completed',
+            taskId: claim.taskId,
+            completedAt: nowMs
+          });
+        }
+      }
+      const completedTasksToUpsert = Array.from(uniqueCompletedMap.values());
 
       for (let i = 0; i < completedTasksToUpsert.length; i += 100) {
         const batch = completedTasksToUpsert.slice(i, i + 100);
@@ -1463,10 +1470,10 @@ export function Admin() {
         if (error) throw error;
       }
 
-      // 5. Update taskClaims status to 'approved' in bulk
-      const claimIds = pendingClaims.map(c => c.id);
-      for (let i = 0; i < claimIds.length; i += 100) {
-        const batch = claimIds.slice(i, i + 100);
+      // 5. Update taskClaims status to 'approved' in safe 40-ID chunks
+      const claimIds = Array.from(new Set(pendingClaims.map(c => c.id)));
+      for (let i = 0; i < claimIds.length; i += 40) {
+        const batch = claimIds.slice(i, i + 40);
         const { error } = await supabase.from('taskClaims').update({ status: 'approved' }).in('id', batch);
         if (error) throw error;
       }
@@ -1487,25 +1494,27 @@ export function Admin() {
     const pendingClaims = claims.filter(c => c.status === 'pending');
     if (pendingClaims.length === 0) {
       toast.error("No pending tasks to reject.");
+      setConfirmBatchAction(null);
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to REJECT ALL (${pendingClaims.length}) pending tasks?`)) return;
-
+    setConfirmBatchAction(null);
     setLoading(true);
     const toastId = toast.loading(`Rejecting ${pendingClaims.length} tasks...`);
 
     try {
-      const completedTaskIds = pendingClaims.map(claim => `${claim.userId}_${claim.taskId}`);
-      for (let i = 0; i < completedTaskIds.length; i += 100) {
-        const batch = completedTaskIds.slice(i, i + 100);
+      const completedTaskIds = Array.from(
+        new Set(pendingClaims.map(claim => `${claim.userId}_${claim.taskId}`))
+      );
+      for (let i = 0; i < completedTaskIds.length; i += 40) {
+        const batch = completedTaskIds.slice(i, i + 40);
         const { error } = await supabase.from('completedTasks').delete().in('id', batch);
         if (error) throw error;
       }
 
-      const claimIds = pendingClaims.map(c => c.id);
-      for (let i = 0; i < claimIds.length; i += 100) {
-        const batch = claimIds.slice(i, i + 100);
+      const claimIds = Array.from(new Set(pendingClaims.map(c => c.id)));
+      for (let i = 0; i < claimIds.length; i += 40) {
+        const batch = claimIds.slice(i, i + 40);
         const { error } = await supabase.from('taskClaims').update({ status: 'rejected' }).in('id', batch);
         if (error) throw error;
       }
@@ -3826,19 +3835,59 @@ export function Admin() {
           <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 border-b border-white/10 pb-6">
             <h3 className="text-xl font-bold uppercase tracking-widest text-[#FFD700]">Pending Task Approvals</h3>
             {claims.filter(c => c.status === 'pending').length > 0 && (
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleApproveAllClaims}
-                  className="px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest text-[10px] border border-green-500/30"
-                >
-                  Approve All
-                </button>
-                <button 
-                  onClick={handleRejectAllClaims}
-                  className="px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest text-[10px] border border-red-500/30"
-                >
-                  Reject All
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {confirmBatchAction === 'approve' ? (
+                  <>
+                    <button
+                      onClick={handleApproveAllClaims}
+                      disabled={loading}
+                      className="px-4 py-2 bg-green-500 text-black rounded-lg hover:bg-green-400 font-black uppercase tracking-widest text-[10px] shadow-lg"
+                    >
+                      Confirm Approve All ({claims.filter(c => c.status === 'pending').length})
+                    </button>
+                    <button
+                      onClick={() => setConfirmBatchAction(null)}
+                      disabled={loading}
+                      className="px-3 py-2 bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 font-bold uppercase tracking-widest text-[10px]"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : confirmBatchAction === 'reject' ? (
+                  <>
+                    <button
+                      onClick={handleRejectAllClaims}
+                      disabled={loading}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-400 font-black uppercase tracking-widest text-[10px] shadow-lg"
+                    >
+                      Confirm Reject All ({claims.filter(c => c.status === 'pending').length})
+                    </button>
+                    <button
+                      onClick={() => setConfirmBatchAction(null)}
+                      disabled={loading}
+                      className="px-3 py-2 bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 font-bold uppercase tracking-widest text-[10px]"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => setConfirmBatchAction('approve')}
+                      disabled={loading}
+                      className="px-4 py-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 font-bold uppercase tracking-widest text-[10px] border border-green-500/30"
+                    >
+                      Approve All ({claims.filter(c => c.status === 'pending').length})
+                    </button>
+                    <button 
+                      onClick={() => setConfirmBatchAction('reject')}
+                      disabled={loading}
+                      className="px-4 py-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 font-bold uppercase tracking-widest text-[10px] border border-red-500/30"
+                    >
+                      Reject All
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
